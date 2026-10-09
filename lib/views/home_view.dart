@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_colors.dart';
 import '../models/education_article.dart';
@@ -47,17 +48,18 @@ class _HomeViewState extends State<HomeView> {
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 26),
               sliver: SliverList.list(
                 children: [
-                  const _BrandRow(),
-                  const SizedBox(height: 22),
-                  _WelcomePanel(onOpenReports: widget.onOpenReports),
-                  const SizedBox(height: 30),
+                  _HeroBanner(onOpenReports: widget.onOpenReports),
+                  const SizedBox(height: 28),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         'Edukasi kesehatan',
-                        style: Theme.of(context).textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: GoogleFonts.dmSans(
+                          fontSize: 21,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                        ),
                       ),
                       const Icon(
                         Icons.menu_book_outlined,
@@ -68,8 +70,10 @@ class _HomeViewState extends State<HomeView> {
                   const SizedBox(height: 5),
                   Text(
                     'Panduan air bersih dan sanitasi lingkungan',
-                    style: Theme.of(context).textTheme.bodyMedium
-                        ?.copyWith(color: AppColors.muted),
+                    style: GoogleFonts.dmSans(
+                      fontSize: 13,
+                      color: AppColors.muted,
+                    ),
                   ),
                   const SizedBox(height: 15),
                   FutureBuilder<List<EducationArticle>>(
@@ -130,66 +134,19 @@ class _HomeViewState extends State<HomeView> {
   }
 }
 
-class _BrandRow extends StatelessWidget {
-  const _BrandRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.09),
-            borderRadius: BorderRadius.circular(13),
-          ),
-          child: const Icon(
-            Icons.health_and_safety_outlined,
-            color: AppColors.primary,
-            size: 27,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'KLINIK SANITASI',
-              style: Theme.of(context).textTheme.labelLarge
-                  ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 0.8),
-            ),
-            const Text(
-              'PUSKESMAS SUMBERSARI',
-              style: TextStyle(
-                color: AppColors.muted,
-                fontSize: 10,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-        const Spacer(),
-        const Icon(Icons.water_drop_outlined, color: AppColors.primary),
-      ],
-    );
-  }
-}
-
-class _WelcomePanel extends StatelessWidget {
-  const _WelcomePanel({required this.onOpenReports});
+class _HeroBanner extends StatelessWidget {
+  const _HeroBanner({required this.onOpenReports});
 
   final VoidCallback onOpenReports;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.primaryDark,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         gradient: const LinearGradient(
-          colors: [AppColors.primaryDark, AppColors.primary],
+          colors: [Color(0xFF8D0712), AppColors.primary, Color(0xFFE34B50)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -197,11 +154,63 @@ class _WelcomePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.health_and_safety, color: Colors.white, size: 27),
-          const SizedBox(height: 17),
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(5),
+                  child: Image.asset(
+                    'assets/images/logo.jpg',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const Icon(
+                      Icons.local_hospital_outlined,
+                      color: AppColors.primary,
+                      size: 32,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'KLINIK SANITASI',
+                      style: GoogleFonts.dmSans(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'PUSKESMAS SUMBERSARI',
+                      style: GoogleFonts.dmSans(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.health_and_safety_outlined,
+                color: Colors.white,
+                size: 25,
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
           Text(
             'Lingkungan sehat,\nberawal dari kita.',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            style: GoogleFonts.dmSans(
+              fontSize: 25,
               color: Colors.white,
               fontWeight: FontWeight.w700,
               height: 1.15,
@@ -210,7 +219,8 @@ class _WelcomePanel extends StatelessWidget {
           const SizedBox(height: 9),
           Text(
             'Akses informasi sanitasi dan sampaikan masalah lingkungan kepada petugas kami.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            style: GoogleFonts.dmSans(
+              fontSize: 13,
               color: Colors.white.withValues(alpha: 0.84),
               height: 1.45,
             ),
@@ -221,6 +231,7 @@ class _WelcomePanel extends StatelessWidget {
             style: FilledButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: AppColors.primaryDark,
+              textStyle: GoogleFonts.dmSans(fontWeight: FontWeight.w700),
             ),
             icon: const Icon(Icons.add_circle_outline, size: 19),
             label: const Text('Buat laporan'),
@@ -286,11 +297,10 @@ class _ArticleTile extends StatelessWidget {
                       article.category.toUpperCase(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: GoogleFonts.dmSans(
                         color: AppColors.primary,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
                       ),
                     ),
                     const SizedBox(height: 5),
@@ -298,16 +308,23 @@ class _ArticleTile extends StatelessWidget {
                       article.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w700, height: 1.2),
+                      style: GoogleFonts.dmSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                        color: AppColors.ink,
+                      ),
                     ),
                     const SizedBox(height: 5),
                     Text(
                       article.excerpt,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: AppColors.muted, height: 1.3),
+                      style: GoogleFonts.dmSans(
+                        fontSize: 12,
+                        color: AppColors.muted,
+                        height: 1.3,
+                      ),
                     ),
                   ],
                 ),
