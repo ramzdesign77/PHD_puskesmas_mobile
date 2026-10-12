@@ -248,6 +248,18 @@ class _ArticleTile extends StatelessWidget {
   final EducationArticle article;
   final VoidCallback onTap;
 
+  // Widget fallback Anda
+  Widget _imageFallback() {
+    return const ColoredBox(
+      color: Color(0xFFF1E9E7),
+      child: Icon(
+        Icons.water_drop_outlined,
+        color: AppColors.primary,
+        size: 31,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final imageUrl = article.imageUrl;
@@ -267,16 +279,29 @@ class _ArticleTile extends StatelessWidget {
                 child: SizedBox(
                   width: 82,
                   height: 82,
-                  child: imageUrl == null
+                  child: imageUrl == null || imageUrl.isEmpty
                       ? _imageFallback()
                       : Image.network(
                           imageUrl,
                           fit: BoxFit.cover,
-                          loadingBuilder: (_, child, loadingProgress) =>
-                              loadingProgress == null
-                                  ? child
-                                  : _imageFallback(),
-                          errorBuilder: (_, _, _) => _imageFallback(),
+                          // Perbaikan pada loadingBuilder agar tidak langsung menampilkan fallback saat loading
+                          loadingBuilder: (_, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          (loadingProgress.expectedTotalBytes ?? 1)
+                                      : null,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (_, __, ___) => _imageFallback(),
                         ),
                 ),
               ),
@@ -329,6 +354,7 @@ class _ArticleTile extends StatelessWidget {
       ),
     );
   }
+}
 
   Widget _imageFallback() {
     return const ColoredBox(
@@ -342,7 +368,6 @@ class _ArticleTile extends StatelessWidget {
       ),
     );
   }
-}
 
 class _EmptyArticles extends StatelessWidget {
   const _EmptyArticles();
