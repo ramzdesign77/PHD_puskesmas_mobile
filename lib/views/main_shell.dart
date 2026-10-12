@@ -21,7 +21,7 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final screens = [
+      final screens = [
       HomeView(
         apiService: widget.apiService,
         onOpenReports: () => _selectTab(1),

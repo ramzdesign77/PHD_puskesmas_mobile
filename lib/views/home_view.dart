@@ -225,17 +225,6 @@ class _HeroBanner extends StatelessWidget {
               height: 1.45,
             ),
           ),
-          const SizedBox(height: 19),
-          FilledButton.icon(
-            onPressed: onOpenReports,
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: AppColors.primaryDark,
-              textStyle: GoogleFonts.dmSans(fontWeight: FontWeight.w700),
-            ),
-            icon: const Icon(Icons.add_circle_outline, size: 19),
-            label: const Text('Buat laporan'),
-          ),
         ],
       ),
     );
