@@ -250,6 +250,8 @@ class _ArticleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = article.imageUrl;
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
@@ -265,26 +267,16 @@ class _ArticleTile extends StatelessWidget {
                 child: SizedBox(
                   width: 82,
                   height: 82,
-                  child: article.imageUrl == null
-                      ? const ColoredBox(
-                          color: Color(0xFFF1E9E7),
-                          child: Icon(
-                            Icons.water_drop_outlined,
-                            color: AppColors.primary,
-                            size: 31,
-                          ),
-                        )
+                  child: imageUrl == null
+                      ? _imageFallback()
                       : Image.network(
-                          article.imageUrl!,
+                          imageUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const ColoredBox(
-                            color: Color(0xFFF1E9E7),
-                            child: Icon(
-                              Icons.water_drop_outlined,
-                              color: AppColors.primary,
-                              size: 31,
-                            ),
-                          ),
+                          loadingBuilder: (_, child, loadingProgress) =>
+                              loadingProgress == null
+                                  ? child
+                                  : _imageFallback(),
+                          errorBuilder: (_, _, _) => _imageFallback(),
                         ),
                 ),
               ),
@@ -333,6 +325,19 @@ class _ArticleTile extends StatelessWidget {
               const Icon(Icons.chevron_right, color: AppColors.muted),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _imageFallback() {
+    return const ColoredBox(
+      color: Color(0xFFF1E9E7),
+      child: Center(
+        child: Icon(
+          Icons.water_drop_outlined,
+          color: AppColors.primary,
+          size: 31,
         ),
       ),
     );

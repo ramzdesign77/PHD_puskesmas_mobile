@@ -10,30 +10,28 @@ class ArticleDetailView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = article.imageUrl;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Edukasi')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
-          if (article.imageUrl != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: AspectRatio(
-                aspectRatio: 1.6,
-                child: Image.network(
-                  article.imageUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const ColoredBox(
-                    color: Color(0xFFF1E9E7),
-                    child: Icon(
-                      Icons.water_drop_outlined,
-                      color: AppColors.primary,
-                      size: 48,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: AspectRatio(
+              aspectRatio: 1.6,
+              child: imageUrl == null
+                  ? _imageFallback()
+                  : Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (_, child, loadingProgress) =>
+                          loadingProgress == null ? child : _imageFallback(),
+                      errorBuilder: (_, _, _) => _imageFallback(),
                     ),
-                  ),
-                ),
-              ),
             ),
+          ),
           const SizedBox(height: 18),
           Text(
             article.category.toUpperCase(),
@@ -57,6 +55,19 @@ class ArticleDetailView extends StatelessWidget {
                 ?.copyWith(height: 1.65, color: AppColors.ink),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _imageFallback() {
+    return const ColoredBox(
+      color: Color(0xFFF1E9E7),
+      child: Center(
+        child: Icon(
+          Icons.water_drop_outlined,
+          color: AppColors.primary,
+          size: 48,
+        ),
       ),
     );
   }
