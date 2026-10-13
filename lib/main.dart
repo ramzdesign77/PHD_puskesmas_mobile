@@ -60,8 +60,8 @@ class MyApp extends StatelessWidget {
       ),
       home: const SplashView(),
       routes: {
-        '/login': (_) => const LoginView(),
-        '/register': (_) => const RegisterView(),
+        '/login': (_) => LoginView(apiService: _apiService),
+        '/register': (_) => RegisterView(apiService: _apiService),
         '/home': (_) => MainShell(apiService: _apiService),
       },
     );

@@ -26,8 +26,48 @@ class ApiService {
     '${AppConfig.apiBaseUrl.replaceFirst(RegExp(r'/$'), '')}/',
   );
 
+  Future<Map<String, dynamic>> login({
+    required String identifier,
+    required String password,
+  }) async {
+    final response = await _client.post(
+      _endpoint('auth/login'),
+      headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+      body: jsonEncode({'identifier': identifier.trim(), 'password': password}),
+    );
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> register({
+    required String namaLengkap,
+    required String username,
+    required String email,
+    required String password,
+  }) async {
+    final response = await _client.post(
+      _endpoint('auth/register'),
+      headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'nama_lengkap': namaLengkap.trim(),
+        'username': username.trim(),
+        'email': email.trim(),
+        'password': password,
+        'password_confirmation': password,
+      }),
+    );
+    return _decode(response);
+  }
+
+  Future<void> logout(String token) async {
+    final response = await _client.post(
+      _endpoint('auth/logout'),
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+    );
+    _decode(response);
+  }
+
   Future<List<EducationArticle>> getArticles() async {
-    final response = await _client.get(_endpoint('edukasi'));
+    final response = await _client.get(_endpoint('edukasi'), headers: {'Accept': 'application/json'});
     final body = _decode(response);
     final rows = body['data'] as List<dynamic>? ?? [];
 
@@ -40,7 +80,7 @@ class ApiService {
   }
 
   Future<List<Village>> getVillages() async {
-    final response = await _client.get(_endpoint('desa'));
+    final response = await _client.get(_endpoint('desa'), headers: {'Accept': 'application/json'});
     final body = _decode(response);
     final rows = body['data'] as List<dynamic>? ?? [];
 

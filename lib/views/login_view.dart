@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
+import '../services/api_service.dart';
 import 'auth_components.dart';
 
 class LoginView extends StatefulWidget {
-  const LoginView({super.key});
+  const LoginView({super.key, this.apiService});
+
+  final ApiService? apiService;
 
   @override
   State<LoginView> createState() => _LoginViewState();
@@ -15,6 +18,8 @@ class _LoginViewState extends State<LoginView> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _passwordObscured = true;
+  bool _isSubmitting = false;
+  late final ApiService _apiService = widget.apiService ?? ApiService();
 
   @override
   void dispose() {
@@ -28,9 +33,28 @@ class _LoginViewState extends State<LoginView> {
     return null;
   }
 
-  void _submit() {
-    if (!_formKey.currentState!.validate()) return;
-    showAuthBackendUnavailable(context);
+  Future<void> _submit() async {
+    if (_isSubmitting || !_formKey.currentState!.validate()) return;
+    setState(() => _isSubmitting = true);
+    try {
+      final result = await _apiService.login(
+        identifier: _usernameController.text,
+        password: _passwordController.text,
+      );
+      if (!mounted) return;
+      final token = result['token'] as String?;
+      if (token == null || token.isEmpty) throw const ApiException('Token login tidak diterima server.');
+      Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false,
+        arguments: {'token': token, 'user': result['user']});
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message), behavior: SnackBarBehavior.floating));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tidak dapat terhubung ke server. Periksa alamat API dan koneksi.'), behavior: SnackBarBehavior.floating));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -79,9 +103,9 @@ class _LoginViewState extends State<LoginView> {
             ),
             const SizedBox(height: 20),
             AuthPrimaryButton(
-              label: 'Login',
-              icon: Icons.arrow_forward,
-              onPressed: _submit,
+              label: _isSubmitting ? 'Memproses...' : 'Login',
+              icon: _isSubmitting ? Icons.hourglass_top : Icons.arrow_forward,
+              onPressed: () { if (!_isSubmitting) _submit(); },
             ),
             const SizedBox(height: 21),
             const Divider(color: Color(0xFFF1E9E7), height: 1),

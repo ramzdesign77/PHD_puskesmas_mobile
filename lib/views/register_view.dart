@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
+import '../services/api_service.dart';
 import 'auth_components.dart';
 
 class RegisterView extends StatefulWidget {
-  const RegisterView({super.key});
+  const RegisterView({super.key, this.apiService});
+
+  final ApiService? apiService;
 
   @override
   State<RegisterView> createState() => _RegisterViewState();
@@ -21,6 +24,8 @@ class _RegisterViewState extends State<RegisterView> {
   bool _confirmationObscured = true;
   bool _termsAccepted = false;
   bool _showTermsError = false;
+  bool _isSubmitting = false;
+  late final ApiService _apiService = widget.apiService ?? ApiService();
 
   @override
   void dispose() {
@@ -61,13 +66,34 @@ class _RegisterViewState extends State<RegisterView> {
     return null;
   }
 
-  void _submit() {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _submit() async {
+    if (_isSubmitting || !_formKey.currentState!.validate()) return;
     if (!_termsAccepted) {
       setState(() => _showTermsError = true);
       return;
     }
-    showAuthBackendUnavailable(context);
+    setState(() => _isSubmitting = true);
+    try {
+      final result = await _apiService.register(
+        namaLengkap: _nameController.text,
+        username: _usernameController.text,
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+      if (!mounted) return;
+      final token = result['token'] as String?;
+      if (token == null || token.isEmpty) throw const ApiException('Token registrasi tidak diterima server.');
+      Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false,
+        arguments: {'token': token, 'user': result['user']});
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message), behavior: SnackBarBehavior.floating));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tidak dapat terhubung ke server. Periksa alamat API dan koneksi.'), behavior: SnackBarBehavior.floating));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   void _showLegalNotice(String title) {
@@ -233,9 +259,9 @@ class _RegisterViewState extends State<RegisterView> {
               ),
             const SizedBox(height: 14),
             AuthPrimaryButton(
-              label: 'Daftar',
-              icon: Icons.arrow_forward,
-              onPressed: _submit,
+              label: _isSubmitting ? 'Memproses...' : 'Daftar',
+              icon: _isSubmitting ? Icons.hourglass_top : Icons.arrow_forward,
+              onPressed: () { if (!_isSubmitting) _submit(); },
             ),
             const SizedBox(height: 18),
             Row(
