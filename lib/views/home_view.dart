@@ -282,9 +282,12 @@ class _ArticleTile extends StatelessWidget {
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  value: loadingProgress.expectedTotalBytes != null
+                                  value:
+                                      loadingProgress.expectedTotalBytes != null
                                       ? loadingProgress.cumulativeBytesLoaded /
-                                          (loadingProgress.expectedTotalBytes ?? 1)
+                                            (loadingProgress
+                                                    .expectedTotalBytes ??
+                                                1)
                                       : null,
                                 ),
                               ),
@@ -345,18 +348,18 @@ class _ArticleTile extends StatelessWidget {
   }
 }
 
-  Widget _imageFallback() {
-    return const ColoredBox(
-      color: Color(0xFFF1E9E7),
-      child: Center(
-        child: Icon(
-          Icons.water_drop_outlined,
-          color: AppColors.primary,
-          size: 31,
-        ),
+Widget _imageFallback() {
+  return const ColoredBox(
+    color: Color(0xFFF1E9E7),
+    child: Center(
+      child: Icon(
+        Icons.water_drop_outlined,
+        color: AppColors.primary,
+        size: 31,
       ),
-    );
-  }
+    ),
+  );
+}
 
 class _EmptyArticles extends StatelessWidget {
   const _EmptyArticles();

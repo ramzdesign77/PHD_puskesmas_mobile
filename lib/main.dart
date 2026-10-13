@@ -3,7 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'constants/app_colors.dart';
 import 'services/api_service.dart';
+import 'views/login_view.dart';
 import 'views/main_shell.dart';
+import 'views/register_view.dart';
+import 'views/splash_view.dart';
 
 void main() {
   runApp(MyApp());
@@ -55,7 +58,12 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: MainShell(apiService: _apiService),
+      home: const SplashView(),
+      routes: {
+        '/login': (_) => const LoginView(),
+        '/register': (_) => const RegisterView(),
+        '/home': (_) => MainShell(apiService: _apiService),
+      },
     );
   }
 }
