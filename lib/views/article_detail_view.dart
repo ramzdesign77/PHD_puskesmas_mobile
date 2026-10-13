@@ -321,36 +321,43 @@ class _GlassButton extends StatelessWidget {
 }
 
 /// Widget Cerdas untuk Animasi Berurutan (Staggered Fade & Slide In)
-class _AnimatedEntry extends StatelessWidget {
+class _AnimatedEntry extends StatefulWidget {
   const _AnimatedEntry({required this.child, required this.delay});
   final Widget child;
   final int delay;
 
   @override
+  State<_AnimatedEntry> createState() => _AnimatedEntryState();
+}
+
+class _AnimatedEntryState extends State<_AnimatedEntry> {
+  bool _show = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Tahan animasi sesuai delay, lalu jalankan sekali saja
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) {
+        setState(() => _show = true);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
+    // Kita gunakan AnimatedOpacity dan AnimatedContainer 
+    // agar ukuran asli konten tetap terbaca oleh ScrollView sejak awal, 
+    // sehingga scroll tidak akan pernah melompat ke atas.
+    return AnimatedOpacity(
       duration: const Duration(milliseconds: 600),
       curve: Curves.easeOutCubic,
-      // Menggunakan Builder bawaan untuk membuat delay (penundaan) animasi
-      builder: (context, value, child) {
-        // Tahan animasi sampai delay terlampaui (menggunakan logika matematika sederhana)
-        return Transform.translate(
-          offset: Offset(0, 30 * (1 - value)), // Meluncur dari bawah (30px) ke 0
-          child: Opacity(
-            opacity: value, // Fade in
-            child: child,
-          ),
-        );
-      },
-      child: FutureBuilder(
-        future: Future.delayed(Duration(milliseconds: delay)),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const SizedBox.shrink(); // Sembunyikan sebelum waktunya
-          }
-          return child;
-        },
+      opacity: _show ? 1.0 : 0.0,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.translationValues(0, _show ? 0 : 30, 0), // Meluncur 30px dari bawah
+        child: widget.child,
       ),
     );
   }
