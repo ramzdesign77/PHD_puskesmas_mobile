@@ -15,3 +15,29 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+## Login satu pintu
+
+Warga dan petugas menggunakan form login yang sama. Aplikasi mengirim
+`POST /api/v1/login` dengan body JSON `identifier` dan `password`. URL dasar
+API dapat diatur saat menjalankan aplikasi:
+
+```sh
+flutter run --dart-define=API_BASE_URL=http://localhost:8000/api
+```
+
+Respons login perlu memuat token autentikasi dan array `roles`, misalnya:
+
+```json
+{
+  "token": "access-token",
+  "roles": ["warga"],
+  "user": {
+    "name": "Nama Pengguna"
+  }
+}
+```
+
+Token dan daftar role disimpan pada `shared_preferences`. Role `petugas` atau
+`admin` membuka dashboard petugas, sedangkan akun dengan role `warga` saja
+membuka beranda aduan masyarakat.

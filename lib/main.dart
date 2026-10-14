@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'constants/app_colors.dart';
 import 'services/api_service.dart';
+import 'services/auth_service.dart';
+import 'views/dashboard_petugas_view.dart';
 import 'views/login_view.dart';
 import 'views/main_shell.dart';
 import 'views/register_view.dart';
@@ -13,10 +15,12 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  MyApp({super.key, ApiService? apiService})
-    : _apiService = apiService ?? ApiService();
+  MyApp({super.key, ApiService? apiService, AuthService? authService})
+    : _apiService = apiService ?? ApiService(),
+      _authService = authService ?? AuthService();
 
   final ApiService _apiService;
+  final AuthService _authService;
 
   @override
   Widget build(BuildContext context) {
@@ -60,9 +64,11 @@ class MyApp extends StatelessWidget {
       ),
       home: const SplashView(),
       routes: {
-        '/login': (_) => LoginView(apiService: _apiService),
+        '/login': (_) => LoginView(authService: _authService),
         '/register': (_) => RegisterView(apiService: _apiService),
         '/home': (_) => MainShell(apiService: _apiService),
+        '/home-warga': (_) => MainShell(apiService: _apiService),
+        '/dashboard-petugas': (_) => const DashboardPetugasView(),
       },
     );
   }

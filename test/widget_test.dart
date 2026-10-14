@@ -12,8 +12,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:klinik_sanitasi_mobile/main.dart';
 import 'package:klinik_sanitasi_mobile/models/education_article.dart';
 import 'package:klinik_sanitasi_mobile/models/ticket_status.dart';
+import 'package:klinik_sanitasi_mobile/models/user_model.dart';
 import 'package:klinik_sanitasi_mobile/models/village.dart';
 import 'package:klinik_sanitasi_mobile/services/api_service.dart';
+import 'package:klinik_sanitasi_mobile/services/auth_service.dart';
 
 void main() {
   testWidgets('splash opens login and login opens registration', (
@@ -50,6 +52,34 @@ void main() {
     expect(find.text('KLINIK SANITASI'), findsOneWidget);
     expect(find.text('Edukasi kesehatan'), findsOneWidget);
     expect(find.text('Lacak'), findsOneWidget);
+  });
+
+  testWidgets('petugas role opens the field dashboard', (
+    WidgetTester tester,
+  ) async {
+    await _openLogin(tester, const ['petugas']);
+    await _submitLogin(tester);
+
+    expect(find.text('Dashboard Kerja Lapangan'), findsOneWidget);
+  });
+
+  testWidgets('admin role opens the field dashboard', (
+    WidgetTester tester,
+  ) async {
+    await _openLogin(tester, const ['admin']);
+    await _submitLogin(tester);
+
+    expect(find.text('Dashboard Kerja Lapangan'), findsOneWidget);
+  });
+
+  testWidgets('warga role opens the existing public home', (
+    WidgetTester tester,
+  ) async {
+    await _openLogin(tester, const ['warga']);
+    await _submitLogin(tester);
+
+    expect(find.text('KLINIK SANITASI'), findsOneWidget);
+    expect(find.text('Edukasi kesehatan'), findsOneWidget);
   });
 
   testWidgets('registration validates confirmation and consent', (
@@ -106,7 +136,33 @@ void main() {
   });
 }
 
+Future<void> _openLogin(WidgetTester tester, List<String> roles) async {
+  await tester.pumpWidget(
+    MyApp(apiService: _FakeApiService(), authService: _FakeAuthService(roles)),
+  );
+  await tester.pump(const Duration(seconds: 2));
+  await tester.pumpAndSettle();
+  expect(find.text('Masuk ke Akun'), findsOneWidget);
+}
+
+Future<void> _submitLogin(WidgetTester tester) async {
+  await tester.enterText(find.byType(TextFormField).at(0), 'warga@example.com');
+  await tester.enterText(find.byType(TextFormField).at(1), 'password123');
+  await tester.tap(find.text('Login'));
+  await tester.pumpAndSettle();
+}
+
 class _FakeApiService extends ApiService {
+  @override
+  Future<Map<String, dynamic>> register({
+    required String namaLengkap,
+    required String username,
+    required String email,
+    required String password,
+  }) async {
+    throw const ApiException('Autentikasi belum terhubung ke backend.');
+  }
+
   @override
   Future<List<EducationArticle>> getArticles() async => [];
 
@@ -117,4 +173,16 @@ class _FakeApiService extends ApiService {
   Future<TicketStatus> getTicket(String code) async {
     throw const ApiException('Kode tiket tidak ditemukan.');
   }
+}
+
+class _FakeAuthService extends AuthService {
+  _FakeAuthService(this.roles);
+
+  final List<String> roles;
+
+  @override
+  Future<UserModel> login({
+    required String identifier,
+    required String password,
+  }) async => UserModel(token: 'test-token', roles: roles);
 }

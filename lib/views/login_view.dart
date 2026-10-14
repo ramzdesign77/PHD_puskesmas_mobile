@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
-import '../services/api_service.dart';
+import '../models/user_model.dart';
+import '../services/auth_service.dart';
 import 'auth_components.dart';
 
 class LoginView extends StatefulWidget {
-  const LoginView({super.key, this.apiService});
+  const LoginView({super.key, this.authService});
 
-  final ApiService? apiService;
+  final AuthService? authService;
 
   @override
   State<LoginView> createState() => _LoginViewState();
@@ -19,7 +20,7 @@ class _LoginViewState extends State<LoginView> {
   final _passwordController = TextEditingController();
   bool _passwordObscured = true;
   bool _isSubmitting = false;
-  late final ApiService _apiService = widget.apiService ?? ApiService();
+  late final AuthService _authService = widget.authService ?? AuthService();
 
   @override
   void dispose() {
@@ -37,24 +38,49 @@ class _LoginViewState extends State<LoginView> {
     if (_isSubmitting || !_formKey.currentState!.validate()) return;
     setState(() => _isSubmitting = true);
     try {
-      final result = await _apiService.login(
+      final user = await _authService.login(
         identifier: _usernameController.text,
         password: _passwordController.text,
       );
       if (!mounted) return;
-      final token = result['token'] as String?;
-      if (token == null || token.isEmpty) throw const ApiException('Token login tidak diterima server.');
-      Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false,
-        arguments: {'token': token, 'user': result['user']});
-    } on ApiException catch (error) {
+      final destination = _destinationFor(user);
+      if (destination == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Role akun tidak dikenali.')),
+        );
+        return;
+      }
+      Navigator.of(context)
+          .pushNamedAndRemoveUntil(destination, (route) => false);
+    } on AuthException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message), behavior: SnackBarBehavior.floating));
-    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tidak dapat terhubung ke server. Periksa alamat API dan koneksi.'), behavior: SnackBarBehavior.floating));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login gagal: $error'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  String? _destinationFor(UserModel user) {
+    if (user.roles.contains('petugas') || user.roles.contains('admin')) {
+      return '/dashboard-petugas';
+    }
+    if (user.roles.isNotEmpty && user.roles.every((role) => role == 'warga')) {
+      return '/home';
+    }
+    return null;
   }
 
   @override
@@ -105,7 +131,9 @@ class _LoginViewState extends State<LoginView> {
             AuthPrimaryButton(
               label: _isSubmitting ? 'Memproses...' : 'Login',
               icon: _isSubmitting ? Icons.hourglass_top : Icons.arrow_forward,
-              onPressed: () { if (!_isSubmitting) _submit(); },
+              onPressed: () {
+                if (!_isSubmitting) _submit();
+              },
             ),
             const SizedBox(height: 21),
             const Divider(color: Color(0xFFF1E9E7), height: 1),
