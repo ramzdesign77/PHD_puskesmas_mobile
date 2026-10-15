@@ -3,7 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'constants/app_colors.dart';
 import 'services/api_service.dart';
+import 'services/officer_api_service.dart';
+import 'views/login_view.dart';
 import 'views/main_shell.dart';
+import 'views/officer/officer_dashboard_view.dart';
+import 'views/register_view.dart';
+import 'views/splash_view.dart';
 
 void main() {
   runApp(MyApp());
@@ -55,7 +60,25 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: MainShell(apiService: _apiService),
+      home: SplashView(apiService: _apiService),
+      routes: {
+        '/login': (_) => LoginView(apiService: _apiService),
+        '/register': (_) => RegisterView(apiService: _apiService),
+        '/home': (_) => MainShell(apiService: _apiService),
+        '/officer': (context) {
+          final arguments =
+              ModalRoute.of(context)?.settings.arguments as Map?;
+          final token = arguments?['token'] as String?;
+          if (token == null || token.isEmpty) {
+            return LoginView(apiService: _apiService);
+          }
+          return OfficerDashboardView(
+            token: token,
+            officerName: arguments?['officerName'] as String? ?? 'Petugas',
+            apiService: OfficerApiService(),
+          );
+        },
+      },
     );
   }
 }

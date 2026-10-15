@@ -221,17 +221,21 @@ class _ReportViewState extends State<ReportView> {
                 }
 
                 // DropDown LOkasi Kejadian
-               return DropdownButtonFormField<Village>(
+                return DropdownButtonFormField<Village>(
                   value: _selectedVillage,
-                  decoration: const InputDecoration(labelText: 'Desa / kelurahan'),
+                  decoration: const InputDecoration(
+                    labelText: 'Desa / kelurahan',
+                  ),
                   items: (snapshot.data ?? []).map((village) {
                     return DropdownMenuItem(
                       value: village,
                       child: Text(village.name),
                     );
                   }).toList(),
-                  onChanged: (village) => setState(() => _selectedVillage = village),
-                  validator: (val) => val == null ? 'Pilih desa atau kelurahan.' : null,
+                  onChanged: (village) =>
+                      setState(() => _selectedVillage = village),
+                  validator: (val) =>
+                      val == null ? 'Pilih desa atau kelurahan.' : null,
                   hint: const Text('Pilih desa'),
                 );
               },

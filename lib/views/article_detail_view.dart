@@ -1,6 +1,8 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../constants/app_colors.dart';
 import '../models/education_article.dart';
 
@@ -37,7 +39,8 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = widget.article.imageUrl != null && widget.article.imageUrl!.isNotEmpty;
+    final hasImage =
+        widget.article.imageUrl != null && widget.article.imageUrl!.isNotEmpty;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
@@ -70,8 +73,15 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
-              titlePadding: const EdgeInsets.only(left: 50, bottom: 16, right: 50),
+              stretchModes: const [
+                StretchMode.zoomBackground,
+                StretchMode.blurBackground,
+              ],
+              titlePadding: const EdgeInsets.only(
+                left: 50,
+                bottom: 16,
+                right: 50,
+              ),
               title: AnimatedOpacity(
                 opacity: _isScrolled ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 300),
@@ -93,7 +103,8 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                         Image.network(
                           widget.article.imageUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const ColoredBox(color: AppColors.primary),
+                          errorBuilder: (_, __, ___) =>
+                              const ColoredBox(color: AppColors.primary),
                         ),
                         // Gradien gelap di bagian bawah gambar agar menyatu dengan konten
                         DecoratedBox(
@@ -151,11 +162,16 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                       child: Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.primary.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                              border: Border.all(
+                                color: AppColors.primary.withOpacity(0.3),
+                              ),
                             ),
                             child: Text(
                               widget.article.category.toUpperCase(),
@@ -168,9 +184,19 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                             ),
                           ),
                           const Spacer(),
-                          const Icon(Icons.access_time_rounded, size: 16, color: AppColors.muted),
+                          const Icon(
+                            Icons.access_time_rounded,
+                            size: 16,
+                            color: AppColors.muted,
+                          ),
                           const SizedBox(width: 4),
-                          Text('4 mnt baca', style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.muted)),
+                          Text(
+                            '4 mnt baca',
+                            style: GoogleFonts.dmSans(
+                              fontSize: 12,
+                              color: AppColors.muted,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -198,7 +224,10 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                           const CircleAvatar(
                             radius: 20,
                             backgroundColor: Color(0xFFF1E9E7),
-                            child: Icon(Icons.health_and_safety, color: AppColors.primary),
+                            child: Icon(
+                              Icons.health_and_safety,
+                              color: AppColors.primary,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Column(
@@ -208,15 +237,26 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                                 children: [
                                   Text(
                                     'Tim Medis Sanitasi',
-                                    style: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.ink),
+                                    style: GoogleFonts.dmSans(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.ink,
+                                    ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.verified, size: 14, color: AppColors.primary),
+                                  const Icon(
+                                    Icons.verified,
+                                    size: 14,
+                                    color: AppColors.primary,
+                                  ),
                                 ],
                               ),
                               Text(
                                 'Puskesmas Sumbersari',
-                                style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.muted),
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 12,
+                                  color: AppColors.muted,
+                                ),
                               ),
                             ],
                           ),
@@ -246,7 +286,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
           ),
         ],
       ),
-      
+
       // Floating Bottom Bar
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: _AnimatedEntry(
@@ -258,15 +298,29 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
             color: AppColors.ink,
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
-              BoxShadow(color: AppColors.ink.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
+              BoxShadow(
+                color: AppColors.ink.withOpacity(0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
             ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.thumb_up_alt_outlined, color: Colors.white, size: 20),
+              const Icon(
+                Icons.thumb_up_alt_outlined,
+                color: Colors.white,
+                size: 20,
+              ),
               const SizedBox(width: 8),
-              Text('Bermanfaat', style: GoogleFonts.dmSans(color: Colors.white, fontWeight: FontWeight.bold)),
+              Text(
+                'Bermanfaat',
+                style: GoogleFonts.dmSans(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 height: 20,
@@ -275,7 +329,13 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
               ),
               const Icon(Icons.share_outlined, color: Colors.white, size: 20),
               const SizedBox(width: 8),
-              Text('Bagikan', style: GoogleFonts.dmSans(color: Colors.white, fontWeight: FontWeight.bold)),
+              Text(
+                'Bagikan',
+                style: GoogleFonts.dmSans(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
         ),
@@ -346,8 +406,8 @@ class _AnimatedEntryState extends State<_AnimatedEntry> {
 
   @override
   Widget build(BuildContext context) {
-    // Kita gunakan AnimatedOpacity dan AnimatedContainer 
-    // agar ukuran asli konten tetap terbaca oleh ScrollView sejak awal, 
+    // Kita gunakan AnimatedOpacity dan AnimatedContainer
+    // agar ukuran asli konten tetap terbaca oleh ScrollView sejak awal,
     // sehingga scroll tidak akan pernah melompat ke atas.
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 600),
@@ -356,7 +416,11 @@ class _AnimatedEntryState extends State<_AnimatedEntry> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeOutCubic,
-        transform: Matrix4.translationValues(0, _show ? 0 : 30, 0), // Meluncur 30px dari bawah
+        transform: Matrix4.translationValues(
+          0,
+          _show ? 0 : 30,
+          0,
+        ), // Meluncur 30px dari bawah
         child: widget.child,
       ),
     );

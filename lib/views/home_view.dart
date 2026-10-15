@@ -25,17 +25,16 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
-    // Memanggil API sesuai perbaikan di awal
     _articlesFuture = widget.apiService.getArticles();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), // Memberikan latar belakang abu-abu terang di luar frame mobile
+      backgroundColor: const Color(0xFFF8F9FA),
       body: Center(
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 480), // Membatasi lebar maksimum layaknya layar HP
+          constraints: const BoxConstraints(maxWidth: 480),
           decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [
@@ -54,7 +53,7 @@ class _HomeViewState extends State<HomeView> {
                 children: [
                   // Banner Utama
                   const _HeroBanner(),
-                  
+
                   const SizedBox(height: 24),
                   Text(
                     'Edukasi Kesehatan',
@@ -73,7 +72,7 @@ class _HomeViewState extends State<HomeView> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Daftar Artikel
                   FutureBuilder<List<EducationArticle>>(
                     future: _articlesFuture,
@@ -82,43 +81,51 @@ class _HomeViewState extends State<HomeView> {
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 40),
                           child: Center(
-                            child: CircularProgressIndicator(color: AppColors.primary),
+                            child: CircularProgressIndicator(
+                                color: AppColors.primary),
                           ),
-                        );
-                      }
-                      
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Text(
-                            'Gagal memuat data: ${snapshot.error}',
-                            style: GoogleFonts.dmSans(color: Colors.red),
-                          ),
-                        );
-                      }
-                      
-                      final articles = snapshot.data ?? [];
-                      if (articles.isEmpty) {
-                        return const Center(
-                          child: Text('Belum ada artikel edukasi.'),
                         );
                       }
 
+                      if (snapshot.hasError) {
+                        return _LoadError(
+                          message: 'Gagal memuat data: ${snapshot.error}',
+                          onRetry: () async {
+                            setState(() {
+                              _articlesFuture =
+                                  widget.apiService.getArticles();
+                            });
+                          },
+                        );
+                      }
+
+                      final articles = snapshot.data ?? [];
+                      if (articles.isEmpty) {
+                        return const _EmptyArticles();
+                      }
+
                       return Column(
-                        children: articles.map((article) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _ArticleTile(
-                            article: article,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => ArticleDetailView(article: article),
+                        children: articles
+                            .map(
+                              (article) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _ArticleTile(
+                                  article: article,
+                                  onTap: () =>
+                                      Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          ArticleDetailView(article: article),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        )).toList(),
+                            )
+                            .toList(),
                       );
                     },
                   ),
-                  
+
                   const SizedBox(height: 12),
                   const Center(
                     child: Text(
@@ -136,9 +143,9 @@ class _HomeViewState extends State<HomeView> {
   }
 }
 
-// ==========================================================
-// Banner Merah di Atas (Logo sudah pakai gambar lokal Anda)
-// ==========================================================
+// ===========================================================
+// Banner Merah di Atas
+// ===========================================================
 class _HeroBanner extends StatelessWidget {
   const _HeroBanner();
 
@@ -160,14 +167,15 @@ class _HeroBanner extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.asset(
-                  'assets/images/logo.jpg', // Sesuai dengan folder assets Anda
+                  'assets/images/logo.jpg',
                   width: 36,
                   height: 36,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => const CircleAvatar(
                     backgroundColor: Colors.white,
                     radius: 18,
-                    child: Icon(Icons.health_and_safety, color: Color(0xFFD32F2F)),
+                    child: Icon(Icons.health_and_safety,
+                        color: Color(0xFFD32F2F)),
                   ),
                 ),
               ),
@@ -215,84 +223,179 @@ class _HeroBanner extends StatelessWidget {
   }
 }
 
-// ==========================================================
-// Card Artikel (Desain Asli)
-// ==========================================================
+// ===========================================================
+// Card Artikel Edukasi
+// ===========================================================
 class _ArticleTile extends StatelessWidget {
   const _ArticleTile({required this.article, required this.onTap});
 
   final EducationArticle article;
   final VoidCallback onTap;
 
+  Widget _imageFallback() {
+    return const ColoredBox(
+      color: Color(0xFFF1E9E7),
+      child: Center(
+        child: Icon(
+          Icons.water_drop_outlined,
+          color: AppColors.primary,
+          size: 31,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: ListTile(
+    final imageUrl = article.imageUrl;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
         onTap: onTap,
-        contentPadding: const EdgeInsets.all(12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: article.imageUrl != null && article.imageUrl!.isNotEmpty
-              ? Image.network(
-                  article.imageUrl!,
-                  width: 60,
-                  height: 60,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 60,
-                    height: 60,
-                    color: Colors.grey.shade200,
-                    child: const Icon(Icons.image_not_supported, color: Colors.grey),
-                  ),
-                )
-              : Container(
-                  width: 60,
-                  height: 60,
-                  color: Colors.grey.shade200,
-                  child: const Icon(Icons.article, color: Colors.grey),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: 82,
+                  height: 82,
+                  child: imageUrl == null || imageUrl.isEmpty
+                      ? _imageFallback()
+                      : Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (_, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  value: loadingProgress.expectedTotalBytes !=
+                                          null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          (loadingProgress.expectedTotalBytes ??
+                                              1)
+                                      : null,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (_, __, ___) => _imageFallback(),
+                        ),
                 ),
-        ),
-        title: Text(
-          article.category.toUpperCase(),
-          style: GoogleFonts.dmSans(
-            color: AppColors.primary,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      article.category.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        color: AppColors.primary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      article.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      article.excerpt,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 12,
+                        color: AppColors.muted,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right, color: AppColors.muted),
+            ],
           ),
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              article.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.dmSans(
-                fontWeight: FontWeight.bold,
-                color: AppColors.ink,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              article.content,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.dmSans(
-                color: AppColors.muted,
-                fontSize: 12,
-              ),
-            ),
-          ],
+      ),
+    );
+  }
+}
+
+// ===========================================================
+// State kosong & error
+// ===========================================================
+class _EmptyArticles extends StatelessWidget {
+  const _EmptyArticles();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 34),
+      child: Center(
+        child: Text(
+          'Belum ada artikel edukasi.',
+          style: TextStyle(color: AppColors.muted),
         ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+      ),
+    );
+  }
+}
+
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.wifi_off, size: 40, color: AppColors.muted),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.muted, fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Coba Lagi'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
