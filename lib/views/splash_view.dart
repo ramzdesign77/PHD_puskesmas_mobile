@@ -1,40 +1,99 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_colors.dart';
+import '../services/api_service.dart';
+import '../services/officer_api_service.dart';
 import 'auth_components.dart';
+import 'login_view.dart';
+import 'main_shell.dart';
+import 'officer/officer_dashboard_view.dart';
 
 class SplashView extends StatefulWidget {
-  const SplashView({super.key});
+  const SplashView({super.key, this.apiService});
+
+  final ApiService? apiService;
 
   @override
   State<SplashView> createState() => _SplashViewState();
 }
 
 class _SplashViewState extends State<SplashView> {
-  late final Timer _navigationTimer;
+  late final ApiService _apiService = widget.apiService ?? ApiService();
+  String? _storageError;
+  bool _isResolving = false;
 
   @override
   void initState() {
     super.initState();
-    _navigationTimer = Timer(const Duration(milliseconds: 1500), _openLogin);
+    _resolveStartupRoute();
   }
 
-  void _openLogin() {
-    if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed('/login');
-  }
+  Future<void> _resolveStartupRoute() async {
+    if (_isResolving) return;
+    setState(() {
+      _isResolving = true;
+      _storageError = null;
+    });
 
-  @override
-  void dispose() {
-    _navigationTimer.cancel();
-    super.dispose();
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      final session = await _apiService.loadSavedSession();
+      if (!mounted) return;
+
+      final destination = session == null
+          ? LoginView(apiService: _apiService)
+          : ApiService.isOfficerRole(session.role)
+          ? OfficerDashboardView(
+              token: session.token,
+              officerName:
+                  session.userName.isEmpty ? 'Petugas' : session.userName,
+              apiService: OfficerApiService(),
+            )
+          : MainShell(apiService: _apiService);
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => destination),
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _storageError =
+              'Sesi tidak dapat diperiksa. Coba lagi untuk membuka aplikasi.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isResolving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_storageError != null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _storageError!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.ink),
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: _isResolving ? null : _resolveStartupRoute,
+                  child: const Text('Coba lagi'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(

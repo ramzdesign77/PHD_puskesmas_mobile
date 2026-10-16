@@ -5,8 +5,10 @@ import 'constants/app_colors.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'views/dashboard_petugas_view.dart';
+import 'services/officer_api_service.dart';
 import 'views/login_view.dart';
 import 'views/main_shell.dart';
+import 'views/officer/officer_dashboard_view.dart';
 import 'views/register_view.dart';
 import 'views/splash_view.dart';
 
@@ -62,7 +64,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const SplashView(),
+      home: SplashView(apiService: _apiService),
       routes: {
         '/login': (_) => LoginView(authService: _authService),
         '/register': (_) => RegisterView(apiService: _apiService),

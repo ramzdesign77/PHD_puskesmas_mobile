@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:klinik_sanitasi_mobile/main.dart';
 import 'package:klinik_sanitasi_mobile/models/education_article.dart';
@@ -18,6 +19,10 @@ import 'package:klinik_sanitasi_mobile/services/api_service.dart';
 import 'package:klinik_sanitasi_mobile/services/auth_service.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('splash opens login and login opens registration', (
     WidgetTester tester,
   ) async {
@@ -35,6 +40,33 @@ void main() {
 
     expect(find.text('Buat Akun'), findsOneWidget);
     expect(find.text('Konfirmasi Kata Sandi'), findsOneWidget);
+  });
+
+  testWidgets('petugas login opens the officer dashboard', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: LoginView(apiService: _RoleApiService('petugas'))),
+    );
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'petugas');
+    await tester.enterText(find.byType(TextFormField).at(1), 'password');
+    await tester.tap(find.text('Login'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Selamat Datang,'), findsOneWidget);
+    expect(find.text('Petugas Contoh'), findsOneWidget);
+  });
+
+  testWidgets('splash restores the saved officer role', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(MyApp(apiService: _RoleApiService('admin')));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Selamat Datang,'), findsOneWidget);
+    expect(find.text('Petugas Contoh'), findsOneWidget);
   });
 
   testWidgets('existing home shell remains available', (

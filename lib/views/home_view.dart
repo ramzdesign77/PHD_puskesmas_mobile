@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import '../constants/app_colors.dart';
 import '../models/education_article.dart';
 import '../services/api_service.dart';
@@ -21,74 +20,82 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
-  late Future<List<EducationArticle>> _articles;
+  late Future<List<EducationArticle>> _articlesFuture;
 
   @override
   void initState() {
     super.initState();
-    _articles = widget.apiService.getArticles();
-  }
-
-  Future<void> _refresh() async {
-    final refreshed = widget.apiService.getArticles();
-    setState(() => _articles = refreshed);
-    await refreshed;
+    _articlesFuture = widget.apiService.getArticles();
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: RefreshIndicator(
-        onRefresh: _refresh,
-        color: AppColors.primary,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 26),
-              sliver: SliverList.list(
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 480),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _HeroBanner(onOpenReports: widget.onOpenReports),
-                  const SizedBox(height: 28),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Edukasi kesehatan',
-                        style: GoogleFonts.dmSans(
-                          fontSize: 21,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      const Icon(
-                        Icons.menu_book_outlined,
-                        color: AppColors.primary,
-                      ),
-                    ],
+                  // Banner Utama
+                  const _HeroBanner(),
+
+                  const SizedBox(height: 24),
+                  Text(
+                    'Edukasi Kesehatan',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.ink,
+                    ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 4),
                   Text(
                     'Panduan air bersih dan sanitasi lingkungan',
                     style: GoogleFonts.dmSans(
-                      fontSize: 13,
+                      fontSize: 12,
                       color: AppColors.muted,
                     ),
                   ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 16),
+
+                  // Daftar Artikel
                   FutureBuilder<List<EducationArticle>>(
-                    future: _articles,
+                    future: _articlesFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 40),
-                          child: Center(child: CircularProgressIndicator()),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                                color: AppColors.primary),
+                          ),
                         );
                       }
+
                       if (snapshot.hasError) {
                         return _LoadError(
-                          message: snapshot.error.toString(),
-                          onRetry: _refresh,
+                          message: 'Gagal memuat data: ${snapshot.error}',
+                          onRetry: () async {
+                            setState(() {
+                              _articlesFuture =
+                                  widget.apiService.getArticles();
+                            });
+                          },
                         );
                       }
 
@@ -104,7 +111,8 @@ class _HomeViewState extends State<HomeView> {
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: _ArticleTile(
                                   article: article,
-                                  onTap: () => Navigator.of(context).push(
+                                  onTap: () =>
+                                      Navigator.of(context).push(
                                     MaterialPageRoute<void>(
                                       builder: (_) =>
                                           ArticleDetailView(article: article),
@@ -117,6 +125,7 @@ class _HomeViewState extends State<HomeView> {
                       );
                     },
                   ),
+
                   const SizedBox(height: 12),
                   const Center(
                     child: Text(
@@ -127,29 +136,28 @@ class _HomeViewState extends State<HomeView> {
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
+// ===========================================================
+// Banner Merah di Atas
+// ===========================================================
 class _HeroBanner extends StatelessWidget {
-  const _HeroBanner({required this.onOpenReports});
-
-  final VoidCallback onOpenReports;
+  const _HeroBanner();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
         gradient: const LinearGradient(
-          colors: [Color(0xFF8D0712), AppColors.primary, Color(0xFFE34B50)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          colors: [Color(0xFFD32F2F), Color(0xFFB71C1C)],
         ),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,73 +165,57 @@ class _HeroBanner extends StatelessWidget {
           Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  color: Colors.white,
-                  padding: const EdgeInsets.all(5),
-                  child: Image.asset(
-                    'assets/images/logo.jpg',
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => const Icon(
-                      Icons.local_hospital_outlined,
-                      color: AppColors.primary,
-                      size: 32,
-                    ),
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  'assets/images/logo.jpg',
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const CircleAvatar(
+                    backgroundColor: Colors.white,
+                    radius: 18,
+                    child: Icon(Icons.health_and_safety,
+                        color: Color(0xFFD32F2F)),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'KLINIK SANITASI',
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'KLINIK SANITASI',
+                    style: GoogleFonts.dmSans(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'PUSKESMAS SUMBERSARI',
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  ),
+                  Text(
+                    'PUSKESMAS SUMBERSARI',
+                    style: GoogleFonts.dmSans(
+                      color: Colors.white70,
+                      fontSize: 10,
                     ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.health_and_safety_outlined,
-                color: Colors.white,
-                size: 25,
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 16),
           Text(
             'Lingkungan sehat,\nberawal dari kita.',
             style: GoogleFonts.dmSans(
-              fontSize: 25,
               color: Colors.white,
-              fontWeight: FontWeight.w700,
-              height: 1.15,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              height: 1.2,
             ),
           ),
-          const SizedBox(height: 9),
+          const SizedBox(height: 8),
           Text(
             'Akses informasi sanitasi dan sampaikan masalah lingkungan kepada petugas kami.',
-            style: GoogleFonts.dmSans(
-              fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.84),
-              height: 1.45,
-            ),
+            style: GoogleFonts.dmSans(color: Colors.white70, fontSize: 12),
           ),
         ],
       ),
@@ -231,20 +223,24 @@ class _HeroBanner extends StatelessWidget {
   }
 }
 
+// ===========================================================
+// Card Artikel Edukasi
+// ===========================================================
 class _ArticleTile extends StatelessWidget {
   const _ArticleTile({required this.article, required this.onTap});
 
   final EducationArticle article;
   final VoidCallback onTap;
 
-  // Widget fallback Anda
   Widget _imageFallback() {
     return const ColoredBox(
       color: Color(0xFFF1E9E7),
-      child: Icon(
-        Icons.water_drop_outlined,
-        color: AppColors.primary,
-        size: 31,
+      child: Center(
+        child: Icon(
+          Icons.water_drop_outlined,
+          color: AppColors.primary,
+          size: 31,
+        ),
       ),
     );
   }
@@ -273,7 +269,6 @@ class _ArticleTile extends StatelessWidget {
                       : Image.network(
                           imageUrl,
                           fit: BoxFit.cover,
-                          // Perbaikan pada loadingBuilder agar tidak langsung menampilkan fallback saat loading
                           loadingBuilder: (_, child, loadingProgress) {
                             if (loadingProgress == null) return child;
                             return Center(
@@ -282,12 +277,11 @@ class _ArticleTile extends StatelessWidget {
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  value:
-                                      loadingProgress.expectedTotalBytes != null
+                                  value: loadingProgress.expectedTotalBytes !=
+                                          null
                                       ? loadingProgress.cumulativeBytesLoaded /
-                                            (loadingProgress
-                                                    .expectedTotalBytes ??
-                                                1)
+                                          (loadingProgress.expectedTotalBytes ??
+                                              1)
                                       : null,
                                 ),
                               ),
@@ -348,19 +342,9 @@ class _ArticleTile extends StatelessWidget {
   }
 }
 
-Widget _imageFallback() {
-  return const ColoredBox(
-    color: Color(0xFFF1E9E7),
-    child: Center(
-      child: Icon(
-        Icons.water_drop_outlined,
-        color: AppColors.primary,
-        size: 31,
-      ),
-    ),
-  );
-}
-
+// ===========================================================
+// State kosong & error
+// ===========================================================
 class _EmptyArticles extends StatelessWidget {
   const _EmptyArticles();
 
@@ -386,28 +370,30 @@ class _LoadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.wifi_off_outlined, color: AppColors.muted),
-          const SizedBox(height: 8),
-          const Text('Artikel belum dapat dimuat.'),
-          const SizedBox(height: 5),
+          const Icon(Icons.wifi_off, size: 40, color: AppColors.muted),
+          const SizedBox(height: 10),
           Text(
             message,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: AppColors.muted, fontSize: 12),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.muted, fontSize: 13),
           ),
-          TextButton.icon(
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
             onPressed: onRetry,
             icon: const Icon(Icons.refresh),
-            label: const Text('Coba lagi'),
+            label: const Text('Coba Lagi'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
           ),
         ],
       ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_config.dart';
 import '../models/education_article.dart';
@@ -22,6 +23,9 @@ class ApiService {
   ApiService({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
+  static const _tokenKey = 'auth_token';
+  static const _roleKey = 'auth_role';
+  static const _userNameKey = 'auth_user_name';
   final Uri _baseUri = Uri.parse(
     '${AppConfig.apiBaseUrl.replaceFirst(RegExp(r'/$'), '')}/',
   );
@@ -30,12 +34,22 @@ class ApiService {
     required String identifier,
     required String password,
   }) async {
-    final response = await _client.post(
-      _endpoint('auth/login'),
-      headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
-      body: jsonEncode({'identifier': identifier.trim(), 'password': password}),
+    final response = await _postLogin(
+      'auth/login',
+      identifier: identifier,
+      password: password,
     );
-    return _decode(response);
+
+    if (response.statusCode == 401 || response.statusCode == 404) {
+      final officerResponse = await _postLogin(
+        'petugas/login',
+        identifier: identifier,
+        password: password,
+      );
+      return _saveSession(_decode(officerResponse), fallbackRole: 'petugas');
+    }
+
+    return _saveSession(_decode(response), fallbackRole: 'warga');
   }
 
   Future<Map<String, dynamic>> register({
@@ -46,7 +60,10 @@ class ApiService {
   }) async {
     final response = await _client.post(
       _endpoint('auth/register'),
-      headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
       body: jsonEncode({
         'nama_lengkap': namaLengkap.trim(),
         'username': username.trim(),
@@ -55,7 +72,101 @@ class ApiService {
         'password_confirmation': password,
       }),
     );
-    return _decode(response);
+    return _saveSession(_decode(response), fallbackRole: 'warga');
+  }
+
+  Future<http.Response> _postLogin(
+    String path, {
+    required String identifier,
+    required String password,
+  }) {
+    return _client.post(
+      _endpoint(path),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'identifier': identifier.trim(), 'password': password}),
+    );
+  }
+
+  Future<Map<String, dynamic>> _saveSession(
+    Map<String, dynamic> response, {
+    required String fallbackRole,
+  }) async {
+    final data = response['data'] as Map<String, dynamic>?;
+    final token = response['token'] as String? ?? data?['token'] as String?;
+    if (token == null || token.isEmpty) {
+      throw const ApiException('Token login tidak diterima server.');
+    }
+
+    final user = _userFromResponse(response);
+    final role = _roleFromResponse(response) ?? fallbackRole;
+    final userName =
+        user['nama_lengkap'] as String? ?? user['name'] as String? ?? '';
+    final preferences = await SharedPreferences.getInstance();
+    final tokenSaved = await preferences.setString(_tokenKey, token);
+    final roleSaved = await preferences.setString(_roleKey, role);
+    final userNameSaved = await preferences.setString(_userNameKey, userName);
+    if (!tokenSaved || !roleSaved || !userNameSaved) {
+      throw const ApiException(
+        'Sesi login tidak dapat disimpan pada perangkat.',
+      );
+    }
+
+    return {...response, 'token': token, 'role': role};
+  }
+
+  Future<AuthSession?> loadSavedSession() async {
+    final preferences = await SharedPreferences.getInstance();
+    final token = preferences.getString(_tokenKey);
+    if (token == null || token.isEmpty) return null;
+
+    return AuthSession(
+      token: token,
+      role: preferences.getString(_roleKey) ?? 'warga',
+      userName: preferences.getString(_userNameKey) ?? '',
+    );
+  }
+
+  static Future<void> clearSavedSession() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove(_tokenKey);
+    await preferences.remove(_roleKey);
+    await preferences.remove(_userNameKey);
+  }
+
+  static bool isOfficerRole(String? role) {
+    final normalizedRole = role?.trim().toLowerCase();
+    return normalizedRole == 'petugas' || normalizedRole == 'admin';
+  }
+
+  Map<String, dynamic> _userFromResponse(Map<String, dynamic> response) {
+    final user = response['user'];
+    if (user is Map<String, dynamic>) return user;
+
+    final data = response['data'];
+    if (data is Map<String, dynamic>) {
+      final nestedUser = data['user'];
+      if (nestedUser is Map<String, dynamic>) return nestedUser;
+      return data;
+    }
+    return const {};
+  }
+
+  String? _roleFromResponse(Map<String, dynamic> response) {
+    final user = _userFromResponse(response);
+    final data = response['data'] as Map<String, dynamic>?;
+    final role =
+        response['role'] ??
+        response['level'] ??
+        user['role'] ??
+        user['level'] ??
+        data?['role'] ??
+        data?['level'];
+    return role is String && role.trim().isNotEmpty
+        ? role.trim().toLowerCase()
+        : null;
   }
 
   Future<void> logout(String token) async {
@@ -67,7 +178,10 @@ class ApiService {
   }
 
   Future<List<EducationArticle>> getArticles() async {
-    final response = await _client.get(_endpoint('edukasi'), headers: {'Accept': 'application/json'});
+    final response = await _client.get(
+      _endpoint('edukasi'),
+      headers: {'Accept': 'application/json'},
+    );
     final body = _decode(response);
     final rows = body['data'] as List<dynamic>? ?? [];
 
@@ -80,7 +194,10 @@ class ApiService {
   }
 
   Future<List<Village>> getVillages() async {
-    final response = await _client.get(_endpoint('desa'), headers: {'Accept': 'application/json'});
+    final response = await _client.get(
+      _endpoint('desa'),
+      headers: {'Accept': 'application/json'},
+    );
     final body = _decode(response);
     final rows = body['data'] as List<dynamic>? ?? [];
 
@@ -148,4 +265,16 @@ class ApiService {
 
     return body;
   }
+}
+
+class AuthSession {
+  const AuthSession({
+    required this.token,
+    required this.role,
+    required this.userName,
+  });
+
+  final String token;
+  final String role;
+  final String userName;
 }

@@ -4,6 +4,8 @@ import '../constants/app_colors.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import 'auth_components.dart';
+import 'main_shell.dart';
+import 'officer/officer_dashboard_view.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key, this.authService});
