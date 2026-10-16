@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../constants/app_colors.dart';
-import '../services/api_service.dart';
+import '../../constants/app_colors.dart';
+import '../../services/api_service.dart';
 import 'auth_components.dart';
 
 class RegisterView extends StatefulWidget {
@@ -82,15 +82,31 @@ class _RegisterViewState extends State<RegisterView> {
       );
       if (!mounted) return;
       final token = result['token'] as String?;
-      if (token == null || token.isEmpty) throw const ApiException('Token registrasi tidak diterima server.');
-      Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false,
-        arguments: {'token': token, 'user': result['user']});
+      if (token == null || token.isEmpty)
+        throw const ApiException('Token registrasi tidak diterima server.');
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/home',
+        (route) => false,
+        arguments: {'token': token, 'user': result['user']},
+      );
     } on ApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message), behavior: SnackBarBehavior.floating));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tidak dapat terhubung ke server. Periksa alamat API dan koneksi.'), behavior: SnackBarBehavior.floating));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Tidak dapat terhubung ke server. Periksa alamat API dan koneksi.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -261,7 +277,9 @@ class _RegisterViewState extends State<RegisterView> {
             AuthPrimaryButton(
               label: _isSubmitting ? 'Memproses...' : 'Daftar',
               icon: _isSubmitting ? Icons.hourglass_top : Icons.arrow_forward,
-              onPressed: () { if (!_isSubmitting) _submit(); },
+              onPressed: () {
+                if (!_isSubmitting) _submit();
+              },
             ),
             const SizedBox(height: 18),
             Row(

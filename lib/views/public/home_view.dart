@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../constants/app_colors.dart';
-import '../models/education_article.dart';
-import '../services/api_service.dart';
+import '../../constants/app_colors.dart';
+import '../../models/education_article.dart';
+import '../../services/api_service.dart';
 import 'article_detail_view.dart';
 
 class HomeView extends StatefulWidget {

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../constants/app_colors.dart';
-import '../models/user_model.dart';
-import '../services/auth_service.dart';
-import '../services/officer_api_service.dart';
+import '../../constants/app_colors.dart';
+import '../../models/user_model.dart';
+import '../../services/auth_service.dart';
+import '../../services/officer_api_service.dart';
 import 'auth_components.dart';
-import 'officer/officer_dashboard_view.dart';
+import '../officer/officer_dashboard_view.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key, this.authService});

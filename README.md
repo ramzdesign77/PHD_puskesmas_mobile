@@ -41,3 +41,16 @@ Respons login perlu memuat token autentikasi dan array `roles`, misalnya:
 Token dan daftar role disimpan pada `shared_preferences`. Role `petugas` atau
 `admin` membuka dashboard petugas, sedangkan akun dengan role `warga` saja
 membuka beranda aduan masyarakat.
+
+## Struktur kode
+
+- `lib/constants/`: warna dan konfigurasi aplikasi.
+- `lib/models/`: model data.
+- `lib/services/`: autentikasi dan komunikasi API.
+- `lib/views/auth/`: halaman dan komponen autentikasi.
+- `lib/views/public/`: beranda, artikel, pelaporan, pelacakan, dan navigasi warga.
+- `lib/views/officer/`: dashboard dan detail kunjungan petugas.
+- `lib/views/splash/`: pemeriksaan sesi dan navigasi awal.
+
+Logo aplikasi disimpan di `assets/images/`. Tes alur aplikasi ada di
+`test/app_flow_test.dart`; tes model dan layanan tetap berada di `test/`.

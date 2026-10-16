@@ -3,8 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../constants/app_colors.dart';
-import '../models/education_article.dart';
+import '../../constants/app_colors.dart';
+import '../../models/education_article.dart';
 
 class ArticleDetailView extends StatefulWidget {
   const ArticleDetailView({super.key, required this.article});

@@ -23,7 +23,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('splash opens login and login opens registration', (
+  testWidgets('app flow: splash opens login and login opens registration', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(MyApp(apiService: _FakeApiService()));

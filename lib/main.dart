@@ -4,10 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'constants/app_colors.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
-import 'views/login_view.dart';
-import 'views/main_shell.dart';
-import 'views/register_view.dart';
-import 'views/splash_view.dart';
+import 'views/auth/login_view.dart';
+import 'views/auth/register_view.dart';
+import 'views/public/main_shell.dart';
+import 'views/splash/splash_view.dart';
 
 void main() {
   runApp(MyApp());

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../constants/app_colors.dart';
-import '../models/ticket_status.dart';
-import '../services/api_service.dart';
+import '../../constants/app_colors.dart';
+import '../../models/ticket_status.dart';
+import '../../services/api_service.dart';
 
 class TrackingView extends StatefulWidget {
   const TrackingView({super.key, required this.apiService});

@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../constants/app_colors.dart';
-import '../models/village.dart';
-import '../services/api_service.dart';
+import '../../constants/app_colors.dart';
+import '../../models/village.dart';
+import '../../services/api_service.dart';
 
 class ReportView extends StatefulWidget {
   const ReportView({super.key, required this.apiService});

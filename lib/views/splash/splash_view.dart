@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../constants/app_colors.dart';
-import '../services/api_service.dart';
-import '../services/auth_service.dart';
-import '../services/officer_api_service.dart';
-import 'auth_components.dart';
-import 'login_view.dart';
-import 'main_shell.dart';
-import 'officer/officer_dashboard_view.dart';
+import '../../constants/app_colors.dart';
+import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/officer_api_service.dart';
+import '../auth/auth_components.dart';
+import '../auth/login_view.dart';
+import '../officer/officer_dashboard_view.dart';
+import '../public/main_shell.dart';
 
 class SplashView extends StatefulWidget {
   const SplashView({super.key, this.apiService, this.authService});
