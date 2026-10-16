@@ -71,8 +71,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('KLINIK SANITASI'), findsOneWidget);
-    expect(find.text('Edukasi Kesehatan'), findsOneWidget);
+    expect(find.text('Halo, Warga'), findsOneWidget);
+    expect(find.text('Info Kesehatan'), findsOneWidget);
+    expect(find.text('Lapor\nPengaduan'), findsOneWidget);
+    expect(find.text('Status\nLaporan'), findsOneWidget);
+    expect(find.text('Edukasi &\nSTBM'), findsOneWidget);
+    expect(find.text('PENGUMUMAN'), findsOneWidget);
     expect(find.text('Lacak'), findsOneWidget);
+    expect(find.text('Profil'), findsOneWidget);
+
+    await tester.tap(find.text('Profil'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sesi pengguna tidak ditemukan.'), findsOneWidget);
   });
 
   testWidgets('petugas role opens the field dashboard', (
@@ -102,7 +112,7 @@ void main() {
     await _submitLogin(tester);
 
     expect(find.text('KLINIK SANITASI'), findsOneWidget);
-    expect(find.text('Edukasi Kesehatan'), findsOneWidget);
+    expect(find.text('Info Kesehatan'), findsOneWidget);
   });
 
   testWidgets('registration validates confirmation and consent', (
