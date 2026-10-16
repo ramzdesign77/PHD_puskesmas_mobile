@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../constants/app_colors.dart';
 import '../models/education_article.dart';
 import '../services/api_service.dart';
@@ -32,8 +33,11 @@ class _HomeViewState extends State<HomeView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      body: Center(
+      body: Align(
+        // <-- 1. Ubah Center menjadi Align
+        alignment: Alignment.topCenter, // <-- 2. Set posisi ke atas-tengah
         child: Container(
+          height: double.infinity, // <-- 3. Tambahkan ini agar latar putih penuh sampai bawah
           constraints: const BoxConstraints(maxWidth: 480),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -82,7 +86,8 @@ class _HomeViewState extends State<HomeView> {
                           padding: EdgeInsets.symmetric(vertical: 40),
                           child: Center(
                             child: CircularProgressIndicator(
-                                color: AppColors.primary),
+                              color: AppColors.primary,
+                            ),
                           ),
                         );
                       }
@@ -92,8 +97,7 @@ class _HomeViewState extends State<HomeView> {
                           message: 'Gagal memuat data: ${snapshot.error}',
                           onRetry: () async {
                             setState(() {
-                              _articlesFuture =
-                                  widget.apiService.getArticles();
+                              _articlesFuture = widget.apiService.getArticles();
                             });
                           },
                         );
@@ -111,8 +115,7 @@ class _HomeViewState extends State<HomeView> {
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: _ArticleTile(
                                   article: article,
-                                  onTap: () =>
-                                      Navigator.of(context).push(
+                                  onTap: () => Navigator.of(context).push(
                                     MaterialPageRoute<void>(
                                       builder: (_) =>
                                           ArticleDetailView(article: article),
@@ -174,8 +177,10 @@ class _HeroBanner extends StatelessWidget {
                   errorBuilder: (_, __, ___) => const CircleAvatar(
                     backgroundColor: Colors.white,
                     radius: 18,
-                    child: Icon(Icons.health_and_safety,
-                        color: Color(0xFFD32F2F)),
+                    child: Icon(
+                      Icons.health_and_safety,
+                      color: Color(0xFFD32F2F),
+                    ),
                   ),
                 ),
               ),
@@ -277,11 +282,12 @@ class _ArticleTile extends StatelessWidget {
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  value: loadingProgress.expectedTotalBytes !=
-                                          null
+                                  value:
+                                      loadingProgress.expectedTotalBytes != null
                                       ? loadingProgress.cumulativeBytesLoaded /
-                                          (loadingProgress.expectedTotalBytes ??
-                                              1)
+                                            (loadingProgress
+                                                    .expectedTotalBytes ??
+                                                1)
                                       : null,
                                 ),
                               ),

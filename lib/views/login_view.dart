@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/officer_api_service.dart';
 import 'auth_components.dart';
-import 'main_shell.dart';
 import 'officer/officer_dashboard_view.dart';
 
 class LoginView extends StatefulWidget {
@@ -52,8 +52,24 @@ class _LoginViewState extends State<LoginView> {
         );
         return;
       }
-      Navigator.of(context)
-          .pushNamedAndRemoveUntil(destination, (route) => false);
+      if (destination == '/dashboard-petugas') {
+        final officerName = user.name?.trim();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute<void>(
+            builder: (_) => OfficerDashboardView(
+              token: user.token,
+              officerName: officerName == null || officerName.isEmpty
+                  ? 'Petugas'
+                  : officerName,
+              apiService: OfficerApiService(),
+            ),
+          ),
+          (route) => false,
+        );
+      } else {
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil(destination, (route) => false);
+      }
     } on AuthException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

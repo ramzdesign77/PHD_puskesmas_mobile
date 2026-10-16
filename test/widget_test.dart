@@ -42,26 +42,15 @@ void main() {
     expect(find.text('Konfirmasi Kata Sandi'), findsOneWidget);
   });
 
-  testWidgets('petugas login opens the officer dashboard', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(home: LoginView(apiService: _RoleApiService('petugas'))),
-    );
-
-    await tester.enterText(find.byType(TextFormField).at(0), 'petugas');
-    await tester.enterText(find.byType(TextFormField).at(1), 'password');
-    await tester.tap(find.text('Login'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Selamat Datang,'), findsOneWidget);
-    expect(find.text('Petugas Contoh'), findsOneWidget);
-  });
-
   testWidgets('splash restores the saved officer role', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(MyApp(apiService: _RoleApiService('admin')));
+    SharedPreferences.setMockInitialValues({
+      'auth_token': 'test-token',
+      'auth_role': 'admin',
+      'auth_user_name': 'Petugas Contoh',
+    });
+    await tester.pumpWidget(MyApp(apiService: _FakeApiService()));
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
@@ -82,7 +71,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('KLINIK SANITASI'), findsOneWidget);
-    expect(find.text('Edukasi kesehatan'), findsOneWidget);
+    expect(find.text('Edukasi Kesehatan'), findsOneWidget);
     expect(find.text('Lacak'), findsOneWidget);
   });
 
@@ -92,7 +81,8 @@ void main() {
     await _openLogin(tester, const ['petugas']);
     await _submitLogin(tester);
 
-    expect(find.text('Dashboard Kerja Lapangan'), findsOneWidget);
+    expect(find.text('Selamat Datang,'), findsOneWidget);
+    expect(find.text('Petugas Contoh'), findsOneWidget);
   });
 
   testWidgets('admin role opens the field dashboard', (
@@ -101,7 +91,8 @@ void main() {
     await _openLogin(tester, const ['admin']);
     await _submitLogin(tester);
 
-    expect(find.text('Dashboard Kerja Lapangan'), findsOneWidget);
+    expect(find.text('Selamat Datang,'), findsOneWidget);
+    expect(find.text('Petugas Contoh'), findsOneWidget);
   });
 
   testWidgets('warga role opens the existing public home', (
@@ -111,7 +102,7 @@ void main() {
     await _submitLogin(tester);
 
     expect(find.text('KLINIK SANITASI'), findsOneWidget);
-    expect(find.text('Edukasi kesehatan'), findsOneWidget);
+    expect(find.text('Edukasi Kesehatan'), findsOneWidget);
   });
 
   testWidgets('registration validates confirmation and consent', (
@@ -216,5 +207,6 @@ class _FakeAuthService extends AuthService {
   Future<UserModel> login({
     required String identifier,
     required String password,
-  }) async => UserModel(token: 'test-token', roles: roles);
+  }) async =>
+      UserModel(token: 'test-token', roles: roles, name: 'Petugas Contoh');
 }

@@ -26,6 +26,7 @@ class ApiService {
   static const _tokenKey = 'auth_token';
   static const _roleKey = 'auth_role';
   static const _userNameKey = 'auth_user_name';
+  static const _rolesKey = 'auth_roles';
   final Uri _baseUri = Uri.parse(
     '${AppConfig.apiBaseUrl.replaceFirst(RegExp(r'/$'), '')}/',
   );
@@ -134,6 +135,7 @@ class ApiService {
     await preferences.remove(_tokenKey);
     await preferences.remove(_roleKey);
     await preferences.remove(_userNameKey);
+    await preferences.remove(_rolesKey);
   }
 
   static bool isOfficerRole(String? role) {

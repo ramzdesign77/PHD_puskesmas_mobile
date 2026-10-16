@@ -4,11 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'constants/app_colors.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
-import 'views/dashboard_petugas_view.dart';
-import 'services/officer_api_service.dart';
 import 'views/login_view.dart';
 import 'views/main_shell.dart';
-import 'views/officer/officer_dashboard_view.dart';
 import 'views/register_view.dart';
 import 'views/splash_view.dart';
 
@@ -64,13 +61,12 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: SplashView(apiService: _apiService),
+      home: SplashView(apiService: _apiService, authService: _authService),
       routes: {
         '/login': (_) => LoginView(authService: _authService),
         '/register': (_) => RegisterView(apiService: _apiService),
         '/home': (_) => MainShell(apiService: _apiService),
         '/home-warga': (_) => MainShell(apiService: _apiService),
-        '/dashboard-petugas': (_) => const DashboardPetugasView(),
       },
     );
   }

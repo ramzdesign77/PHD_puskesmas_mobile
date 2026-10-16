@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_colors.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../services/officer_api_service.dart';
 import 'auth_components.dart';
 import 'login_view.dart';
@@ -10,9 +11,10 @@ import 'main_shell.dart';
 import 'officer/officer_dashboard_view.dart';
 
 class SplashView extends StatefulWidget {
-  const SplashView({super.key, this.apiService});
+  const SplashView({super.key, this.apiService, this.authService});
 
   final ApiService? apiService;
+  final AuthService? authService;
 
   @override
   State<SplashView> createState() => _SplashViewState();
@@ -20,6 +22,7 @@ class SplashView extends StatefulWidget {
 
 class _SplashViewState extends State<SplashView> {
   late final ApiService _apiService = widget.apiService ?? ApiService();
+  late final AuthService _authService = widget.authService ?? AuthService();
   String? _storageError;
   bool _isResolving = false;
 
@@ -42,18 +45,19 @@ class _SplashViewState extends State<SplashView> {
       if (!mounted) return;
 
       final destination = session == null
-          ? LoginView(apiService: _apiService)
+          ? LoginView(authService: _authService)
           : ApiService.isOfficerRole(session.role)
           ? OfficerDashboardView(
               token: session.token,
-              officerName:
-                  session.userName.isEmpty ? 'Petugas' : session.userName,
+              officerName: session.userName.isEmpty
+                  ? 'Petugas'
+                  : session.userName,
               apiService: OfficerApiService(),
             )
           : MainShell(apiService: _apiService);
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => destination),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
     } catch (_) {
       if (mounted) {
         setState(() {

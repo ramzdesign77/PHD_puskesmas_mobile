@@ -21,6 +21,7 @@ void main() {
           'data': {
             'token': 'access-token',
             'user': {
+              'name': 'Warga Contoh',
               'roles': ['WARGA'],
             },
           },
@@ -47,6 +48,8 @@ void main() {
     expect(user.roles, ['warga']);
     expect(preferences.getString(AuthService.tokenKey), 'access-token');
     expect(preferences.getStringList(AuthService.rolesKey), ['warga']);
+    expect(preferences.getString(AuthService.sessionRoleKey), 'warga');
+    expect(preferences.getString(AuthService.userNameKey), 'Warga Contoh');
   });
 
   test('posts username credentials using the username field', () async {
@@ -83,6 +86,8 @@ void main() {
       'password': 'secret',
     });
     expect(user.roles, ['petugas']);
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getString(AuthService.sessionRoleKey), 'petugas');
   });
 
   test('returns server error message for rejected credentials', () async {
