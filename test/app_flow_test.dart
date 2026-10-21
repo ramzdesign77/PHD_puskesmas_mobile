@@ -85,6 +85,38 @@ void main() {
     expect(find.text('Sesi pengguna tidak ditemukan.'), findsOneWidget);
   });
 
+  testWidgets('profile logout clears the session and returns to login', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      AuthService.tokenKey: 'test-token',
+      AuthService.rolesKey: ['warga'],
+      AuthService.sessionRoleKey: 'warga',
+      AuthService.userNameKey: 'Warga Contoh',
+    });
+    await tester.pumpWidget(MyApp(apiService: _FakeApiService()));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Profil'));
+    await tester.pumpAndSettle();
+    expect(find.text('Keluar'), findsOneWidget);
+
+    await tester.tap(find.text('Keluar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Anda yakin ingin keluar dari akun ini?'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Keluar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Masuk ke Akun'), findsOneWidget);
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getString(AuthService.tokenKey), isNull);
+    expect(preferences.getString(AuthService.rolesKey), isNull);
+    expect(preferences.getString(AuthService.sessionRoleKey), isNull);
+    expect(preferences.getString(AuthService.userNameKey), isNull);
+  });
+
   testWidgets('petugas role opens the field dashboard', (
     WidgetTester tester,
   ) async {

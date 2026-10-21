@@ -2,14 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import 'home_view.dart';
 import 'report_view.dart';
 import 'tracking_view.dart';
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, required this.apiService});
+  const MainShell({
+    super.key,
+    required this.apiService,
+    this.authService,
+  });
 
   final ApiService apiService;
+  final AuthService? authService;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -18,6 +24,8 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
   late Future<AuthSession?> _session;
+  late final AuthService _authService = widget.authService ?? AuthService();
+  bool _isLoggingOut = false;
 
   @override
   void initState() {
@@ -26,6 +34,44 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _selectTab(int index) => setState(() => _selectedIndex = index);
+
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Keluar'),
+        content: const Text('Anda yakin ingin keluar dari akun ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isLoggingOut = true);
+    try {
+      await _authService.logout();
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isLoggingOut = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal keluar: $error'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +97,11 @@ class _MainShellState extends State<MainShell> {
       ),
       ReportView(apiService: widget.apiService),
       TrackingView(apiService: widget.apiService),
-      _ProfileTab(session: _session),
+      _ProfileTab(
+        session: _session,
+        onLogout: _logout,
+        isLoggingOut: _isLoggingOut,
+      ),
     ];
 
     return Scaffold(
@@ -114,9 +164,15 @@ class _MainShellState extends State<MainShell> {
 }
 
 class _ProfileTab extends StatelessWidget {
-  const _ProfileTab({required this.session});
+  const _ProfileTab({
+    required this.session,
+    required this.onLogout,
+    required this.isLoggingOut,
+  });
 
   final Future<AuthSession?> session;
+  final VoidCallback onLogout;
+  final bool isLoggingOut;
 
   @override
   Widget build(BuildContext context) {
@@ -195,6 +251,26 @@ class _ProfileTab extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: isLoggingOut ? null : onLogout,
+                icon: isLoggingOut
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : const Icon(Icons.logout),
+                label: Text(isLoggingOut ? 'Memproses...' : 'Keluar'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  minimumSize: const Size.fromHeight(48),
+                  side: const BorderSide(color: AppColors.primary),
                 ),
               ),
             ],

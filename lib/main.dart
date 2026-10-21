@@ -65,8 +65,14 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (_) => LoginView(authService: _authService),
         '/register': (_) => RegisterView(apiService: _apiService),
-        '/home': (_) => MainShell(apiService: _apiService),
-        '/home-warga': (_) => MainShell(apiService: _apiService),
+        '/home': (_) => MainShell(
+          apiService: _apiService,
+          authService: _authService,
+        ),
+        '/home-warga': (_) => MainShell(
+          apiService: _apiService,
+          authService: _authService,
+        ),
       },
     );
   }

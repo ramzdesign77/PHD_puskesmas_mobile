@@ -54,7 +54,10 @@ class _SplashViewState extends State<SplashView> {
                   : session.userName,
               apiService: OfficerApiService(),
             )
-          : MainShell(apiService: _apiService);
+          : MainShell(
+              apiService: _apiService,
+              authService: _authService,
+            );
       Navigator.of(
         context,
       ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));

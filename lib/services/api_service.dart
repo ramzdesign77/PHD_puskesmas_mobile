@@ -1,7 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_config.dart';
@@ -208,24 +208,29 @@ class ApiService {
         .toList();
   }
 
-  Future<String> submitReport({
-    required Map<String, String> fields,
-    XFile? image,
+  Future<bool> submitReport(
+    Map<String, dynamic> reportData, {
+    File? imageFile,
   }) async {
-    final request = http.MultipartRequest('POST', _endpoint('laporan'))
-      ..fields.addAll(fields);
+    final request = http.MultipartRequest('POST', _endpoint('reports'))
+      ..headers['Accept'] = 'application/json'
+      ..fields.addAll({
+        for (final entry in reportData.entries)
+          entry.key: entry.value?.toString() ?? '',
+      });
 
-    if (image != null) {
+    if (imageFile != null) {
       request.files.add(
-        await http.MultipartFile.fromPath('foto_bukti', image.path),
+        await http.MultipartFile.fromPath('foto_bukti', imageFile.path),
       );
     }
 
     final streamedResponse = await _client.send(request);
     final response = await http.Response.fromStream(streamedResponse);
-    final body = _decode(response);
-
-    return body['kode_tiket'] as String? ?? '';
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decode(response);
+    }
+    return true;
   }
 
   Future<TicketStatus> getTicket(String code) async {

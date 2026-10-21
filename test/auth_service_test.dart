@@ -111,4 +111,24 @@ void main() {
       ),
     );
   });
+
+  test('logout clears saved authentication values only', () async {
+    SharedPreferences.setMockInitialValues({
+      AuthService.tokenKey: 'access-token',
+      AuthService.rolesKey: ['warga'],
+      AuthService.sessionRoleKey: 'warga',
+      AuthService.userNameKey: 'Warga Contoh',
+      'other_preference': 'keep',
+    });
+    final authService = AuthService();
+
+    await authService.logout();
+
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getString(AuthService.tokenKey), isNull);
+    expect(preferences.getStringList(AuthService.rolesKey), isNull);
+    expect(preferences.getString(AuthService.sessionRoleKey), isNull);
+    expect(preferences.getString(AuthService.userNameKey), isNull);
+    expect(preferences.getString('other_preference'), 'keep');
+  });
 }

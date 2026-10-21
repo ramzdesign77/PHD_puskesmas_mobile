@@ -96,8 +96,8 @@ class _ReportViewState extends State<ReportView> {
     setState(() => _isSubmitting = true);
     try {
       final position = await _currentPosition();
-      final ticketCode = await widget.apiService.submitReport(
-        fields: {
+      final submitted = await widget.apiService.submitReport(
+        {
           'nama_pelapor': _name.text.trim(),
           'nik_pelapor': _nik.text.trim(),
           'no_wa': _phone.text.trim(),
@@ -109,9 +109,13 @@ class _ReportViewState extends State<ReportView> {
           'latitude': position.latitude.toString(),
           'longitude': position.longitude.toString(),
         },
-        image: _image,
+        imageFile: _image == null ? null : File(_image!.path),
       );
 
+      if (!submitted) {
+        _showError('Laporan belum dapat dikirim. Silakan coba lagi.');
+        return;
+      }
       if (!mounted) return;
       await showDialog<void>(
         context: context,
@@ -135,28 +139,11 @@ class _ReportViewState extends State<ReportView> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Simpan kode tiket ini untuk memeriksa status laporan:',
+                'Terima kasih telah menyampaikan masalah air atau sanitasi di lingkungan Anda.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.dmSans(
                   color: AppColors.muted,
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.softRed,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: SelectableText(
-                  ticketCode,
-                  style: GoogleFonts.dmSans(
-                    color: AppColors.primary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
-                  ),
+                  fontSize: 14,
                 ),
               ),
             ],
@@ -196,9 +183,9 @@ class _ReportViewState extends State<ReportView> {
       });
     } on ApiException catch (error) {
       _showError(error.message);
-    } catch (_) {
+    } on Exception catch (error) {
       _showError(
-        'Laporan belum dapat dikirim. Periksa koneksi dan izin lokasi.',
+        'Laporan belum dapat dikirim. Periksa koneksi dan izin lokasi. $error',
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -319,6 +306,9 @@ class _ReportViewState extends State<ReportView> {
                   colors: [AppColors.primary, AppColors.primaryDark],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(32),
                 ),
               ),
               child: Stack(
@@ -510,7 +500,7 @@ class _ReportViewState extends State<ReportView> {
                                 }
 
                                 return DropdownButtonFormField<Village>(
-                                  value: _selectedVillage,
+                                  initialValue: _selectedVillage,
                                   icon: const Icon(
                                     Icons.keyboard_arrow_down,
                                     color: AppColors.muted,
@@ -560,7 +550,7 @@ class _ReportViewState extends State<ReportView> {
                               children: [
                                 Expanded(
                                   child: DropdownButtonFormField<String>(
-                                    value: _selectedRt,
+                                    initialValue: _selectedRt,
                                     icon: const Icon(
                                       Icons.keyboard_arrow_down,
                                       color: AppColors.muted,
@@ -609,7 +599,7 @@ class _ReportViewState extends State<ReportView> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: DropdownButtonFormField<String>(
-                                    value: _selectedRw,
+                                    initialValue: _selectedRw,
                                     icon: const Icon(
                                       Icons.keyboard_arrow_down,
                                       color: AppColors.muted,
@@ -669,7 +659,7 @@ class _ReportViewState extends State<ReportView> {
                             const SizedBox(height: 12),
                             _buildFieldLabel('Kategori Laporan'),
                             DropdownButtonFormField<String>(
-                              value: _category,
+                              initialValue: _category,
                               icon: const Icon(
                                 Icons.keyboard_arrow_down,
                                 color: AppColors.muted,

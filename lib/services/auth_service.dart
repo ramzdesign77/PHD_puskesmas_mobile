@@ -32,6 +32,14 @@ class AuthService {
   final http.Client _client;
   final Future<SharedPreferences> Function() _preferencesProvider;
 
+  Future<void> logout() async {
+    final preferences = await _preferencesProvider();
+    await preferences.remove(tokenKey);
+    await preferences.remove(rolesKey);
+    await preferences.remove(sessionRoleKey);
+    await preferences.remove(userNameKey);
+  }
+
   Uri get _loginUri {
     final baseUri = Uri.parse(AppConfig.apiBaseUrl.trim());
     final basePath = baseUri.path.replaceFirst(RegExp(r'/+$'), '');

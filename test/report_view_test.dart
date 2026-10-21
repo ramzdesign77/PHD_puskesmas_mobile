@@ -56,8 +56,6 @@ void main() {
     expect(find.text('0/2000'), findsOneWidget);
 
     // Verify Character Counter updates
-    final descField = find.widgetWithText(TextFormField, '0/2000');
-    // Or enter text in description field
     await tester.enterText(find.byType(TextFormField).last, 'Air keruh dan berbau.');
     await tester.pumpAndSettle();
     expect(find.text('21/2000'), findsOneWidget);
@@ -67,4 +65,3 @@ void main() {
     expect(find.byIcon(Icons.send_rounded), findsOneWidget);
   });
 }
-
