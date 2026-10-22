@@ -82,8 +82,9 @@ class _RegisterViewState extends State<RegisterView> {
       );
       if (!mounted) return;
       final token = result['token'] as String?;
-      if (token == null || token.isEmpty)
+      if (token == null || token.isEmpty) {
         throw const ApiException('Token registrasi tidak diterima server.');
+      }
       Navigator.of(context).pushNamedAndRemoveUntil(
         '/home',
         (route) => false,

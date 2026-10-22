@@ -55,7 +55,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
             stretch: true,
             backgroundColor: Colors.white,
             elevation: _isScrolled ? 4 : 0,
-            shadowColor: Colors.black.withOpacity(0.1),
+            shadowColor: Colors.black.withValues(alpha: 0.1),
             leading: Padding(
               padding: const EdgeInsets.all(8.0),
               child: _GlassButton(
@@ -103,7 +103,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                         Image.network(
                           widget.article.imageUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
+                          errorBuilder: (_, _, _) =>
                               const ColoredBox(color: AppColors.primary),
                         ),
                         // Gradien gelap di bagian bawah gambar agar menyatu dengan konten
@@ -113,9 +113,9 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                Colors.black.withOpacity(0.3),
+                                Colors.black.withValues(alpha: 0.3),
                                 Colors.transparent,
-                                Colors.black.withOpacity(0.7),
+                                Colors.black.withValues(alpha: 0.7),
                               ],
                               stops: const [0.0, 0.5, 1.0],
                             ),
@@ -167,10 +167,10 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.1),
+                              color: AppColors.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: AppColors.primary.withOpacity(0.3),
+                                color: AppColors.primary.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Text(
@@ -299,7 +299,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
-                color: AppColors.ink.withOpacity(0.3),
+                color: AppColors.ink.withValues(alpha: 0.3),
                 blurRadius: 15,
                 offset: const Offset(0, 8),
               ),
@@ -361,7 +361,7 @@ class _GlassButton extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Material(
-          color: Colors.white.withOpacity(0.2),
+          color: Colors.white.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(20),
           child: InkWell(
             onTap: onTap,
@@ -369,7 +369,7 @@ class _GlassButton extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white.withOpacity(0.3)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
               ),
               child: Icon(icon, color: Colors.white, size: 18),
             ),
