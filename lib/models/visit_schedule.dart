@@ -15,6 +15,7 @@ class VisitSchedule {
     this.ticketCode = '',
     this.officerNote = '',
     this.photoUrl,
+    this.isInspection = false,
   });
 
   final int id;
@@ -32,24 +33,58 @@ class VisitSchedule {
   final String ticketCode;
   final String officerNote;
   final String? photoUrl;
+  final bool isInspection;
 
   /// Parsing dari respons JSON API Laravel
   factory VisitSchedule.fromJson(Map<String, dynamic> json) {
-    final schedule = json['jadwal'] as Map<String, dynamic>?;
+    final scheduleValue = json['jadwal'] ?? json['schedule'];
+    final schedule = scheduleValue is Map
+        ? Map<String, dynamic>.from(scheduleValue)
+        : null;
+    final location = json['lokasi'] is Map
+        ? Map<String, dynamic>.from(json['lokasi'] as Map)
+        : const <String, dynamic>{};
+    final id = json['id'] ?? json['id_laporan'] ?? json['id_jadwal'];
+    final type =
+        (json['tipe'] ??
+                json['type'] ??
+                json['jenis'] ??
+                json['task_type'] ??
+                '')
+            .toString()
+            .toLowerCase();
     return VisitSchedule(
-      id: json['id'] as int? ?? 0,
-      reporterName: json['nama_pelapor'] as String? ?? '-',
-      address: json['alamat'] as String? ?? '-',
-      village: json['desa'] as String? ?? '-',
-      visitDate: schedule?['tanggal_kunjungan'] as String? ?? '-',
-      status: json['status_laporan'] as String? ?? 'pending',
-      category: json['kategori_laporan'] as String? ?? '-',
-      description: json['deskripsi'] as String? ?? '-',
-      rt: json['rt'] as String? ?? '-',
-      rw: json['rw'] as String? ?? '-',
-      ticketCode: json['kode_tiket'] as String? ?? '',
-      officerNote: schedule?['catatan_petugas'] as String? ?? '',
-      photoUrl: schedule?['foto_bukti'] as String?,
+      id: id is int ? id : int.tryParse(id?.toString() ?? '') ?? 0,
+      reporterName: _stringValue(json['nama_pelapor'] ?? json['reporter_name']),
+      address: _stringValue(json['alamat'] ?? json['address']),
+      village: _stringValue(
+        json['desa'] ?? json['nama_desa'] ?? location['desa'],
+      ),
+      visitDate: _stringValue(
+        schedule?['tanggal_kunjungan'] ??
+            json['tanggal_kunjungan'] ??
+            json['visit_date'],
+      ),
+      status: _stringValue(
+        json['status_laporan'] ?? json['status'] ?? schedule?['status'],
+        fallback: 'pending',
+      ),
+      category: _stringValue(
+        json['kategori_laporan'] ?? json['kategori'] ?? json['category'],
+      ),
+      description: _stringValue(json['deskripsi'] ?? json['description']),
+      rt: _stringValue(json['rt'] ?? location['rt']),
+      rw: _stringValue(json['rw'] ?? location['rw']),
+      ticketCode: _stringValue(json['kode_tiket'] ?? json['ticket_code']),
+      officerNote: _stringValue(
+        schedule?['catatan_petugas'] ?? json['catatan_petugas'],
+      ),
+      photoUrl: json['foto_bukti'] is String
+          ? json['foto_bukti'] as String
+          : schedule?['foto_bukti'] is String
+          ? schedule!['foto_bukti'] as String
+          : null,
+      isInspection: type.contains('ikl') || type.contains('inspeksi'),
     );
   }
 
@@ -69,9 +104,13 @@ class VisitSchedule {
       ticketCode: ticketCode,
       officerNote: officerNote ?? this.officerNote,
       photoUrl: photoUrl,
+      isInspection: isInspection,
     );
   }
 }
+
+String _stringValue(Object? value, {String fallback = '-'}) =>
+    value is String && value.trim().isNotEmpty ? value.trim() : fallback;
 
 /// Data dummy untuk preview UI sebelum API dihubungkan.
 final List<VisitSchedule> dummyVisitSchedules = [
@@ -83,8 +122,7 @@ final List<VisitSchedule> dummyVisitSchedules = [
     visitDate: '2026-10-18',
     status: 'pending',
     category: 'Sanitasi Air',
-    description:
-        'Sumber air sumur warga berwarna keruh dan berbau tidak sedap sejak 2 minggu lalu.',
+    description: 'Sumber air sumur warga berwarna keruh dan berbau tidak sedap sejak 2 minggu lalu.',
     rt: '03',
     rw: '01',
     ticketCode: 'TKT-001',
@@ -97,8 +135,7 @@ final List<VisitSchedule> dummyVisitSchedules = [
     visitDate: '2026-10-19',
     status: 'diproses',
     category: 'Pembuangan Limbah',
-    description:
-        'Limbah rumah tangga mengenang di depan rumah dan menimbulkan bau busuk.',
+    description: 'Limbah rumah tangga mengenang di depan rumah dan menimbulkan bau busuk.',
     rt: '01',
     rw: '02',
     ticketCode: 'TKT-002',
@@ -115,8 +152,7 @@ final List<VisitSchedule> dummyVisitSchedules = [
     rt: '05',
     rw: '03',
     ticketCode: 'TKT-003',
-    officerNote:
-        'Telah dilakukan perbaikan ringan. Disarankan pengajuan anggaran perbaikan besar ke desa.',
+    officerNote: 'Telah dilakukan perbaikan ringan. Disarankan pengajuan anggaran perbaikan besar ke desa.',
   ),
   const VisitSchedule(
     id: 4,
@@ -144,7 +180,6 @@ final List<VisitSchedule> dummyVisitSchedules = [
     rt: '04',
     rw: '02',
     ticketCode: 'TKT-005',
-    officerNote:
-        'Pipa telah diperbaiki oleh PDAM setempat atas koordinasi petugas puskesmas.',
+    officerNote: 'Pipa telah diperbaiki oleh PDAM setempat atas koordinasi petugas puskesmas.',
   ),
 ];

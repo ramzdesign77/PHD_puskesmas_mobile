@@ -1,21 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../constants/app_colors.dart';
 import '../../models/visit_schedule.dart';
 import '../../services/officer_api_service.dart';
 
-/// Halaman Detail Laporan + Form Aksi Petugas.
-///
-/// Menampilkan:
-///   1. Detail laporan warga (read-only)
-///   2. Form aksi petugas di bawahnya:
-///      - Upload foto bukti (image_picker — kamera)
-///      - Dropdown update status
-///      - TextField catatan / rekomendasi
-///      - Tombol Simpan (multipart/form-data)
 class OfficerDetailView extends StatefulWidget {
   const OfficerDetailView({
     super.key,
@@ -34,35 +26,70 @@ class OfficerDetailView extends StatefulWidget {
 
 class _OfficerDetailViewState extends State<OfficerDetailView> {
   final _formKey = GlobalKey<FormState>();
-  final _noteCtrl = TextEditingController();
+  final _distanceController = TextEditingController();
+  final _interventionNoteController = TextEditingController();
+  final _recommendationController = TextEditingController();
+  final _legacyNoteController = TextEditingController();
   final _picker = ImagePicker();
+  final List<bool> _riskIndicators = List<bool>.filled(5, false);
 
-  late String _selectedStatus;
+  String _waterSource = 'Sumur Gali';
+  String _intervention = 'Tidak Ada';
+  String _selectedStatus = 'diproses';
   XFile? _pickedPhoto;
   bool _isSubmitting = false;
 
-  // Opsi status yang bisa dipilih petugas
-  static const List<Map<String, String>> _statusOptions = [
-    {'value': 'diproses', 'label': 'Diproses'},
-    {'value': 'selesai', 'label': 'Selesai'},
+  static const _waterSources = [
+    'Sumur Gali',
+    'Sumur Bor/Pompa',
+    'Perpipaan/PDAM',
   ];
+  static const _interventions = [
+    'Pemberian Kaporit',
+    'Pemberian Bubuk Abate',
+    'Edukasi & Konseling PAMMRT',
+    'Tidak Ada',
+  ];
+  static const _riskLabels = [
+    'Air berwarna, keruh, atau memiliki rasa tidak normal',
+    'Air berbau tidak normal',
+    'Terdapat kemungkinan pencemaran di sekitar sumber air',
+    'Konstruksi sumber air tidak terlindungi dengan baik',
+    'Jarak sumber air ke sumber pencemar kurang dari 10 meter',
+  ];
+
+  int get _riskScore => _riskIndicators.where((indicator) => indicator).length;
+
+  Color get _riskColor {
+    if (_riskScore <= 1) return AppColors.green;
+    if (_riskScore <= 3) return AppColors.orange;
+    return const Color(0xFFE53935);
+  }
+
+  String get _riskTitle {
+    if (_riskScore <= 1) return 'Aman / Risiko Rendah';
+    if (_riskScore <= 3) return 'Risiko Sedang';
+    return 'Risiko Tinggi';
+  }
 
   @override
   void initState() {
     super.initState();
-    // Set status awal dari data yang sudah ada
-    _selectedStatus =
-        widget.schedule.status == 'selesai' ? 'selesai' : 'diproses';
-    _noteCtrl.text = widget.schedule.officerNote;
+    _selectedStatus = widget.schedule.status.toLowerCase() == 'selesai'
+        ? 'selesai'
+        : 'diproses';
+    _legacyNoteController.text = widget.schedule.officerNote;
   }
 
   @override
   void dispose() {
-    _noteCtrl.dispose();
+    _distanceController.dispose();
+    _interventionNoteController.dispose();
+    _recommendationController.dispose();
+    _legacyNoteController.dispose();
     super.dispose();
   }
 
-  // ── Ambil Foto dari Kamera ─────────────────────────────────────
   Future<void> _pickPhoto() async {
     try {
       final photo = await _picker.pickImage(
@@ -70,125 +97,180 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
         imageQuality: 80,
         maxWidth: 1200,
       );
-      if (photo != null && mounted) {
-        setState(() => _pickedPhoto = photo);
-      }
-    } catch (e) {
+      if (photo != null && mounted) setState(() => _pickedPhoto = photo);
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal membuka kamera: $e'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _showMessage('Gagal membuka kamera: $error', isError: true);
     }
   }
 
-  // ── Simpan / Submit ke Backend ─────────────────────────────────
   Future<void> _submit() async {
     if (_isSubmitting || !_formKey.currentState!.validate()) return;
     setState(() => _isSubmitting = true);
-
     try {
-      await widget.apiService.submitVisitResult(
+      final distance = double.parse(_distanceController.text.trim());
+      await widget.apiService.submitInspection(
         token: widget.token,
         scheduleId: widget.schedule.id,
-        status: _selectedStatus,
-        officerNote: _noteCtrl.text.trim(),
-        photo: _pickedPhoto,
+        waterSource: _waterSource,
+        pollutantDistance: distance,
+        riskIndicators: List.unmodifiable(_riskIndicators),
+        intervention: _intervention,
+        interventionNote: _interventionNoteController.text.trim(),
+        recommendation: _recommendationController.text.trim(),
+        visitStatus: _selectedStatus,
+        officerNote: _legacyNoteController.text.trim(),
       );
 
+      if (_pickedPhoto != null) {
+        await widget.apiService.submitVisitResult(
+          token: widget.token,
+          scheduleId: widget.schedule.id,
+          status: _selectedStatus,
+          officerNote: _legacyInspectionNote,
+          photo: _pickedPhoto,
+        );
+      }
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Berhasil menyimpan laporan kunjungan!'),
-          backgroundColor: AppColors.green,
-          behavior: SnackBarBehavior.floating,
+      _showMessage('Form inspeksi IKL berhasil disimpan.');
+      Navigator.of(context).pop(
+        widget.schedule.copyWith(
+          status: _selectedStatus,
+          officerNote: _recommendationController.text.trim(),
         ),
       );
-
-      // Kembalikan objek yang sudah diperbarui ke dashboard
-      final updated = widget.schedule.copyWith(
-        status: _selectedStatus,
-        officerNote: _noteCtrl.text.trim(),
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop(updated);
-    } on ApiOfficerException catch (e) {
-      if (!mounted) return;
-      _showError(e.message);
-    } catch (_) {
-      if (!mounted) return;
-      _showError('Gagal mengirim data. Periksa koneksi Anda.');
+    } on ApiOfficerException catch (error) {
+      if (error.statusCode == 404 || error.statusCode == 405) {
+        await _submitLegacyResult();
+      } else if (mounted) {
+        _showMessage(error.message, isError: true);
+      }
+    } catch (error) {
+      if (mounted) {
+        _showMessage('Gagal mengirim form IKL: $error', isError: true);
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  void _showError(String msg) {
+  Future<void> _submitLegacyResult() async {
+    try {
+      await widget.apiService.submitVisitResult(
+        token: widget.token,
+        scheduleId: widget.schedule.id,
+        status: _selectedStatus,
+        officerNote: _legacyInspectionNote,
+        photo: _pickedPhoto,
+      );
+      if (!mounted) return;
+      _showMessage(
+        'Endpoint IKL belum tersedia. Catatan kunjungan tersimpan melalui layanan lama.',
+      );
+      Navigator.of(context).pop(
+        widget.schedule.copyWith(
+          status: _selectedStatus,
+          officerNote: _legacyNoteController.text.trim(),
+        ),
+      );
+    } on ApiOfficerException catch (error) {
+      if (mounted) _showMessage(error.message, isError: true);
+    } catch (error) {
+      if (mounted) {
+        _showMessage('Gagal menyimpan kunjungan: $error', isError: true);
+      }
+    }
+  }
+
+  String get _legacyInspectionNote => [
+    if (_legacyNoteController.text.trim().isNotEmpty)
+      _legacyNoteController.text.trim(),
+    'Sarana air: $_waterSource',
+    'Jarak sumber pencemar: ${_distanceController.text.trim()} meter',
+    'Indikator risiko: ${_riskIndicators.map((active) => active ? 1 : 0).join(',')}',
+    'Skor risiko: $_riskScore/5 ($_riskTitle)',
+    'Intervensi: $_intervention',
+    if (_interventionNoteController.text.trim().isNotEmpty)
+      'Catatan intervensi: ${_interventionNoteController.text.trim()}',
+    'Rekomendasi: ${_recommendationController.text.trim()}',
+  ].join('\n');
+
+  void _showMessage(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
+        content: Text(message),
+        backgroundColor: isError ? AppColors.primaryDark : AppColors.green,
         behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.primary,
       ),
     );
   }
 
-  // ── Build ──────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final s = widget.schedule;
-
+    final schedule = widget.schedule;
     return Scaffold(
       backgroundColor: AppColors.canvas,
       appBar: AppBar(
         title: Text(
-          s.ticketCode.isEmpty ? 'Detail Laporan' : s.ticketCode,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          schedule.ticketCode.isEmpty
+              ? 'Form Inspeksi IKL'
+              : schedule.ticketCode,
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
         ),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.ink,
         elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: AppColors.line),
-        ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
           children: [
-            // ── BAGIAN 1: Detail Laporan Warga ───────────────
-            _buildSectionTitle('Informasi Laporan Warga'),
+            _sectionTitle('Informasi Laporan / Jadwal'),
             const SizedBox(height: 10),
-            _buildDetailCard(s),
-            const SizedBox(height: 24),
-
-            // ── BAGIAN 2: Form Aksi Petugas ──────────────────
-            _buildSectionTitle('Form Aksi Petugas'),
+            _buildScheduleCard(schedule),
+            const SizedBox(height: 22),
+            _sectionTitle('Kuesioner Inspeksi Kesehatan Lingkungan'),
             const SizedBox(height: 10),
-            Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Foto Bukti
-                  _buildPhotoSection(),
-                  const SizedBox(height: 16),
-
-                  // Dropdown Status
-                  _buildStatusDropdown(),
-                  const SizedBox(height: 16),
-
-                  // Catatan Petugas
-                  _buildNoteField(),
-                  const SizedBox(height: 24),
-
-                  // Tombol Simpan
-                  _buildSubmitButton(),
-                ],
+            _buildWaterSourceCard(),
+            const SizedBox(height: 14),
+            _buildRiskIndicators(),
+            const SizedBox(height: 14),
+            _buildRiskScore(),
+            const SizedBox(height: 22),
+            _sectionTitle('Intervensi dan Rekomendasi'),
+            const SizedBox(height: 10),
+            _buildInterventionFields(),
+            const SizedBox(height: 14),
+            _buildLegacyVisitFields(),
+            const SizedBox(height: 22),
+            SizedBox(
+              height: 52,
+              child: FilledButton.icon(
+                key: const Key('officer_submit_button'),
+                onPressed: _isSubmitting ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                icon: _isSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.save_outlined),
+                label: Text(
+                  _isSubmitting ? 'Menyimpan...' : 'Simpan Hasil IKL',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ),
           ],
@@ -197,25 +279,28 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
     );
   }
 
-  // ── Detail Card Laporan ────────────────────────────────────────
-  Widget _buildDetailCard(VisitSchedule s) {
+  Widget _buildScheduleCard(VisitSchedule schedule) {
     return Container(
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.line),
+        borderRadius: BorderRadius.circular(15),
       ),
       child: Column(
         children: [
-          _DetailRow(label: 'Nama Pelapor', value: s.reporterName),
-          _DetailRow(label: 'Kategori', value: s.category),
-          _DetailRow(label: 'Desa', value: s.village),
-          _DetailRow(label: 'Alamat', value: s.address),
-          _DetailRow(label: 'RT / RW', value: 'RT ${s.rt} / RW ${s.rw}'),
-          _DetailRow(label: 'Tanggal Kunjungan', value: s.visitDate),
-          _DetailRow(
-            label: 'Deskripsi Masalah',
-            value: s.description,
+          _InfoRow(label: 'Nama Pelapor', value: schedule.reporterName),
+          _InfoRow(label: 'Kategori', value: schedule.category),
+          _InfoRow(label: 'Desa', value: schedule.village),
+          _InfoRow(label: 'Alamat', value: schedule.address),
+          _InfoRow(
+            label: 'RT / RW',
+            value: 'RT ${schedule.rt} / RW ${schedule.rw}',
+          ),
+          _InfoRow(label: 'Tanggal Kunjungan', value: schedule.visitDate),
+          _InfoRow(
+            label: 'Keterangan',
+            value: schedule.description,
             isLast: true,
           ),
         ],
@@ -223,240 +308,298 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
     );
   }
 
-  // ── Upload Foto ────────────────────────────────────────────────
-  Widget _buildPhotoSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _FieldLabel(text: 'Foto Bukti Kunjungan'),
-        const SizedBox(height: 8),
-        GestureDetector(
-          key: const Key('officer_photo_picker'),
-          onTap: _pickPhoto,
-          child: Container(
-            height: 160,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: _pickedPhoto != null
-                    ? AppColors.green
-                    : AppColors.line,
-                width: 1.5,
-              ),
+  Widget _buildWaterSourceCard() {
+    return _FormCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _FieldLabel(text: 'Jenis Sarana Air'),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            key: const Key('officer_water_source_dropdown'),
+            initialValue: _waterSource,
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.water_drop_outlined),
+              isDense: true,
             ),
-            child: _pickedPhoto != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(13),
-                    child: Image.file(
-                      File(_pickedPhoto!.path),
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                    ),
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.08),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt_outlined,
-                          color: AppColors.primary,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Ketuk untuk membuka kamera',
-                        style: TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      const Text(
-                        'Ambil foto bukti kunjungan lapangan',
-                        style: TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    ],
-                  ),
+            items: _waterSources
+                .map(
+                  (source) =>
+                      DropdownMenuItem(value: source, child: Text(source)),
+                )
+                .toList(growable: false),
+            onChanged: (value) {
+              if (value != null) setState(() => _waterSource = value);
+            },
           ),
-        ),
-        if (_pickedPhoto != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: TextButton.icon(
-              onPressed: () => setState(() => _pickedPhoto = null),
-              icon: const Icon(Icons.delete_outline, size: 16),
-              label: const Text('Hapus Foto'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
+          const SizedBox(height: 15),
+          const _FieldLabel(text: 'Jarak ke Sumber Pencemar'),
+          const SizedBox(height: 8),
+          TextFormField(
+            key: const Key('officer_pollutant_distance_field'),
+            controller: _distanceController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+            ],
+            validator: (value) {
+              final distance = double.tryParse(value?.trim() ?? '');
+              if (distance == null) return 'Masukkan jarak dalam meter.';
+              if (distance < 0) return 'Jarak tidak boleh kurang dari nol.';
+              return null;
+            },
+            decoration: const InputDecoration(
+              hintText: 'Contoh: 10',
+              suffixText: 'meter',
+              prefixIcon: Icon(Icons.straighten_rounded),
             ),
           ),
-      ],
-    );
-  }
-
-  // ── Dropdown Status ────────────────────────────────────────────
-  Widget _buildStatusDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _FieldLabel(text: 'Update Status Kunjungan'),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          key: const Key('officer_status_dropdown'),
-          initialValue: _selectedStatus,
-          decoration: InputDecoration(
-            prefixIcon: const Icon(
-              Icons.flag_outlined,
-              color: AppColors.muted,
-              size: 20,
-            ),
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.line),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.line),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: AppColors.primary, width: 1.5),
-            ),
-          ),
-          items: _statusOptions.map((opt) {
-            return DropdownMenuItem<String>(
-              value: opt['value'],
-              child: Text(opt['label']!),
-            );
-          }).toList(),
-          onChanged: (v) {
-            if (v != null) setState(() => _selectedStatus = v);
-          },
-        ),
-      ],
-    );
-  }
-
-  // ── TextField Catatan ──────────────────────────────────────────
-  Widget _buildNoteField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _FieldLabel(text: 'Catatan / Rekomendasi Petugas'),
-        const SizedBox(height: 8),
-        TextFormField(
-          key: const Key('officer_note_field'),
-          controller: _noteCtrl,
-          maxLines: 5,
-          minLines: 3,
-          textInputAction: TextInputAction.newline,
-          validator: (v) => (v == null || v.trim().isEmpty)
-              ? 'Catatan tidak boleh kosong.'
-              : null,
-          decoration: InputDecoration(
-            hintText:
-                'Tulis temuan lapangan, rekomendasi sanitasi, atau tindak lanjut...',
-            hintStyle:
-                const TextStyle(color: AppColors.muted, fontSize: 13),
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.all(14),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.line),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.line),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: AppColors.primary, width: 1.5),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: AppColors.primary),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── Tombol Simpan ──────────────────────────────────────────────
-  Widget _buildSubmitButton() {
-    return SizedBox(
-      height: 52,
-      child: ElevatedButton(
-        key: const Key('officer_submit_button'),
-        onPressed: _isSubmitting ? null : _submit,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          elevation: 2,
-          shadowColor: AppColors.primary.withValues(alpha: 0.35),
-        ),
-        child: _isSubmitting
-            ? const SizedBox(
-                height: 22,
-                width: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: Colors.white,
-                ),
-              )
-            : const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.save_outlined, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Simpan Laporan Kunjungan',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
-              ),
+        ],
       ),
     );
   }
 
-  // ── Helper ────────────────────────────────────────────────────
-  Widget _buildSectionTitle(String title) {
+  Widget _buildRiskIndicators() {
+    return _FormCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _FieldLabel(text: 'Indikator Risiko Fisik Air'),
+          const SizedBox(height: 4),
+          const Text(
+            'Pilih semua kondisi yang ditemukan saat inspeksi.',
+            style: TextStyle(color: AppColors.muted, fontSize: 11),
+          ),
+          const SizedBox(height: 8),
+          for (var index = 0; index < _riskLabels.length; index++)
+            CheckboxListTile(
+              key: Key('officer_ikl_p${index + 1}'),
+              value: _riskIndicators[index],
+              onChanged: (value) =>
+                  setState(() => _riskIndicators[index] = value ?? false),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              activeColor: AppColors.primary,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: Text(
+                _riskLabels[index],
+                style: const TextStyle(fontSize: 12, color: AppColors.ink),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRiskScore() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _riskColor.withValues(alpha: 0.1),
+        border: Border.all(color: _riskColor.withValues(alpha: 0.4)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 46,
+            width: 46,
+            decoration: BoxDecoration(
+              color: _riskColor.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.health_and_safety_outlined, color: _riskColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Skor Risiko Real-time',
+                  style: TextStyle(color: AppColors.muted, fontSize: 11),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _riskTitle,
+                  style: TextStyle(
+                    color: _riskColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '$_riskScore/5',
+            style: TextStyle(
+              color: _riskColor,
+              fontSize: 23,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInterventionFields() {
+    return _FormCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _FieldLabel(text: 'Intervensi Fisik'),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            key: const Key('officer_intervention_dropdown'),
+            initialValue: _intervention,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.medical_services_outlined),
+              isDense: true,
+            ),
+            items: _interventions
+                .map(
+                  (intervention) => DropdownMenuItem(
+                    value: intervention,
+                    child: Text(intervention, overflow: TextOverflow.ellipsis),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: (value) {
+              if (value != null) setState(() => _intervention = value);
+            },
+          ),
+          const SizedBox(height: 14),
+          const _FieldLabel(text: 'Catatan Intervensi'),
+          const SizedBox(height: 8),
+          TextFormField(
+            key: const Key('officer_intervention_note_field'),
+            controller: _interventionNoteController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: 'Dosis Kaporit/Abate, jumlah, dan tindakan...',
+              alignLabelWithHint: true,
+            ),
+          ),
+          const SizedBox(height: 14),
+          const _FieldLabel(text: 'Rekomendasi Sanitarian'),
+          const SizedBox(height: 8),
+          TextFormField(
+            key: const Key('officer_recommendation_field'),
+            controller: _recommendationController,
+            maxLines: 3,
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Rekomendasi sanitarian perlu diisi.'
+                : null,
+            decoration: const InputDecoration(
+              hintText: 'Tulis tindak lanjut dan edukasi yang disarankan...',
+              alignLabelWithHint: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegacyVisitFields() {
+    return _FormCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _FieldLabel(text: 'Status Kunjungan'),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            key: const Key('officer_status_dropdown'),
+            initialValue: _selectedStatus,
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.flag_outlined),
+              isDense: true,
+            ),
+            items: const [
+              DropdownMenuItem(value: 'diproses', child: Text('Diproses')),
+              DropdownMenuItem(value: 'selesai', child: Text('Selesai')),
+            ],
+            onChanged: (value) {
+              if (value != null) setState(() => _selectedStatus = value);
+            },
+          ),
+          const SizedBox(height: 14),
+          const _FieldLabel(text: 'Foto Bukti Kunjungan (opsional)'),
+          const SizedBox(height: 8),
+          InkWell(
+            key: const Key('officer_photo_picker'),
+            borderRadius: BorderRadius.circular(12),
+            onTap: _pickPhoto,
+            child: Container(
+              height: 120,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppColors.canvas,
+                border: Border.all(color: AppColors.line),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: _pickedPhoto == null
+                  ? const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.camera_alt_outlined,
+                          color: AppColors.primary,
+                          size: 28,
+                        ),
+                        SizedBox(height: 6),
+                        Text(
+                          'Ketuk untuk mengambil foto',
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(11),
+                      child: Image.file(
+                        File(_pickedPhoto!.path),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+            ),
+          ),
+          if (_pickedPhoto != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => setState(() => _pickedPhoto = null),
+                child: const Text('Hapus foto'),
+              ),
+            ),
+          const SizedBox(height: 12),
+          const _FieldLabel(text: 'Catatan Kunjungan'),
+          const SizedBox(height: 8),
+          TextFormField(
+            key: const Key('officer_note_field'),
+            controller: _legacyNoteController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: 'Catatan tambahan kunjungan lapangan...',
+              alignLabelWithHint: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title) {
     return Row(
       children: [
         Container(
+          height: 19,
           width: 4,
-          height: 18,
           decoration: BoxDecoration(
             color: AppColors.primary,
             borderRadius: BorderRadius.circular(4),
@@ -466,9 +609,9 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
         Text(
           title,
           style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
             color: AppColors.ink,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ],
@@ -476,11 +619,27 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────
-// Baris detail info (label + value)
-// ────────────────────────────────────────────────────────────────────────
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
+class _FormCard extends StatelessWidget {
+  const _FormCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppColors.line),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
     required this.label,
     required this.value,
     this.isLast = false,
@@ -495,43 +654,36 @@ class _DetailRow extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 9),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: 130,
+                width: 117,
                 child: Text(
                   label,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: AppColors.muted,
-                  ),
+                  style: const TextStyle(color: AppColors.muted, fontSize: 11),
                 ),
               ),
               Expanded(
                 child: Text(
                   value,
                   style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
                     color: AppColors.ink,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
                   ),
                 ),
               ),
             ],
           ),
         ),
-        if (!isLast)
-          const Divider(height: 1, indent: 16, endIndent: 16, color: AppColors.line),
+        if (!isLast) const Divider(height: 1, color: AppColors.line),
       ],
     );
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────
-// Label field form
-// ────────────────────────────────────────────────────────────────────────
 class _FieldLabel extends StatelessWidget {
   const _FieldLabel({required this.text});
 
@@ -542,9 +694,9 @@ class _FieldLabel extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
         color: AppColors.ink,
+        fontWeight: FontWeight.w700,
+        fontSize: 12,
       ),
     );
   }

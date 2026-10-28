@@ -3,259 +3,195 @@ import 'package:flutter/material.dart';
 import '../../../constants/app_colors.dart';
 import '../../../models/visit_schedule.dart';
 
-/// Widget Card reusable untuk satu item jadwal kunjungan di ListView.
-/// Berisi: Nama Pelapor, Alamat/Desa, Tanggal, Badge Status, dan Kategori.
 class VisitCardWidget extends StatelessWidget {
   const VisitCardWidget({
     super.key,
     required this.schedule,
     required this.onTap,
+    this.onAction,
+    this.actionLabel,
+    this.isInspection = false,
   });
 
   final VisitSchedule schedule;
   final VoidCallback onTap;
+  final VoidCallback? onAction;
+  final String? actionLabel;
+  final bool isInspection;
 
   @override
   Widget build(BuildContext context) {
-    final badge = _statusBadge(schedule.status);
+    final pending = _isPending(schedule.status);
+    final badgeColor = isInspection
+        ? AppColors.orange
+        : pending
+        ? const Color(0xFFE53935)
+        : schedule.status.toLowerCase() == 'selesai'
+        ? AppColors.green
+        : AppColors.amber;
+    final badgeLabel = isInspection
+        ? 'JADWAL IKL HARI INI'
+        : pending
+        ? 'BELUM DIVERIFIKASI'
+        : schedule.status.toUpperCase();
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Garis warna status di atas card ─────────────────
-            Container(
-              height: 4,
-              decoration: BoxDecoration(
-                color: badge.color,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(16)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppColors.line.withValues(alpha: 0.8)),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.045),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Text(
+                  badgeLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: badgeColor,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
+                  ),
+                ),
               ),
-            ),
-
-            // ── Konten Card ──────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
+              const SizedBox(height: 10),
+              Text(
+                _title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 14,
+                  height: 1.25,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 7),
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Baris atas: nama pelapor + badge status
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          schedule.reporterName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            color: AppColors.ink,
-                          ),
-                        ),
+                  const Icon(
+                    Icons.location_on_outlined,
+                    size: 15,
+                    color: AppColors.muted,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '${schedule.village} - RT ${schedule.rt}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 11,
                       ),
-                      const SizedBox(width: 8),
-                      _StatusBadge(label: badge.label, color: badge.color),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Kategori laporan
-                  _InfoRow(
-                    icon: Icons.category_outlined,
-                    text: schedule.category,
-                    bold: true,
-                    iconColor: AppColors.primary,
-                  ),
-                  const SizedBox(height: 4),
-
-                  // Alamat + Desa
-                  _InfoRow(
-                    icon: Icons.location_on_outlined,
-                    text:
-                        '${schedule.address}, RT ${schedule.rt}/RW ${schedule.rw} — ${schedule.village}',
-                  ),
-                  const SizedBox(height: 4),
-
-                  // Tanggal kunjungan
-                  _InfoRow(
-                    icon: Icons.calendar_today_outlined,
-                    text: 'Kunjungan: ${_formatDate(schedule.visitDate)}',
-                    iconColor: AppColors.amber,
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Footer: tombol lihat detail ──────────────────────
-            const Divider(height: 1, color: AppColors.line),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    schedule.ticketCode.isEmpty
-                        ? 'Detail Laporan'
-                        : schedule.ticketCode,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.muted,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  Row(
-                    children: [
-                      Text(
-                        'Lihat Detail',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
+                ],
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      schedule.visitDate == '-'
+                          ? schedule.ticketCode
+                          : 'Kunjungan: ${_formatDate(schedule.visitDate)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 32,
+                    child: FilledButton(
+                      onPressed: onAction ?? onTap,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 13),
+                        shape: const StadiumBorder(),
+                        textStyle: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 11,
-                        color: AppColors.primary,
-                      ),
-                    ],
+                      child: Text(actionLabel ?? 'Tindak Lanjut'),
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Helper: format tanggal '2026-10-18' → '18 Oktober 2026' ───
-  String _formatDate(String raw) {
-    try {
-      final parts = raw.split('-');
-      if (parts.length != 3) return raw;
-      const bulan = [
-        '',
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'Mei',
-        'Jun',
-        'Jul',
-        'Agu',
-        'Sep',
-        'Okt',
-        'Nov',
-        'Des',
-      ];
-      final m = int.tryParse(parts[1]) ?? 0;
-      return '${parts[2]} ${bulan[m]} ${parts[0]}';
-    } catch (_) {
-      return raw;
-    }
-  }
-
-  // ── Helper: tentukan label & warna badge berdasarkan status ───
-  _BadgeData _statusBadge(String status) {
-    switch (status.toLowerCase()) {
-      case 'selesai':
-        return _BadgeData('Selesai', AppColors.green);
-      case 'diproses':
-        return _BadgeData('Diproses', AppColors.amber);
-      default:
-        return _BadgeData('Belum Ditangani', AppColors.primary);
-    }
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────
-// Widget Badge Status (label berwarna)
-// ────────────────────────────────────────────────────────────────────────
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────
-// Widget baris info (icon + teks)
-// ────────────────────────────────────────────────────────────────────────
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.icon,
-    required this.text,
-    this.bold = false,
-    this.iconColor = AppColors.muted,
-  });
-
-  final IconData icon;
-  final String text;
-  final bool bold;
-  final Color iconColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 14, color: iconColor),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 12.5,
-              color: bold ? AppColors.ink : AppColors.muted,
-              fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
-            ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
-}
 
-// ── Data holder untuk badge ──────────────────────────────────────────────
-class _BadgeData {
-  const _BadgeData(this.label, this.color);
+  String get _title {
+    if (isInspection) return schedule.category;
+    final category = schedule.category.trim();
+    final reporter = schedule.reporterName.trim();
+    if (category.isEmpty || category == '-') return reporter;
+    if (reporter.isEmpty || reporter == '-') return category;
+    return '$category - $reporter';
+  }
 
-  final String label;
-  final Color color;
+  bool _isPending(String status) {
+    final normalized = status.toLowerCase();
+    return normalized == 'pending' ||
+        normalized == 'menunggu' ||
+        normalized == 'belum diverifikasi';
+  }
+
+  String _formatDate(String raw) {
+    final parts = raw.split('-');
+    if (parts.length != 3) return raw;
+    const months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
+    ];
+    final month = int.tryParse(parts[1]) ?? 0;
+    if (month < 1 || month >= months.length) return raw;
+    return '${parts[2]} ${months[month]} ${parts[0]}';
+  }
 }

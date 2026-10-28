@@ -90,6 +90,93 @@ void main() {
     expect(preferences.getString(AuthService.sessionRoleKey), 'petugas');
   });
 
+  test(
+    'tries the legacy login endpoint when the v1 route is unavailable',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final requestPaths = <String>[];
+      final authService = AuthService(
+        client: MockClient((request) async {
+          requestPaths.add(request.url.path);
+          if (request.url.path == '/api/v1/login') {
+            return http.Response('Not found', 404);
+          }
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'token': 'legacy-token',
+                'user': {'role': 'warga'},
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final user = await authService.login(
+        identifier: 'warga',
+        password: 'secret',
+      );
+
+      expect(requestPaths, ['/api/v1/login', '/api/auth/login']);
+      expect(user.token, 'legacy-token');
+      expect(user.roles, ['warga']);
+    },
+  );
+
+  test('parses Laravel access_token and a singular role field', () async {
+    SharedPreferences.setMockInitialValues({});
+    final authService = AuthService(
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'access_token': 'token-for-this-login',
+            'user': {'name': 'Petugas Contoh', 'role': 'Petugas'},
+          }),
+          200,
+        ),
+      ),
+    );
+
+    final user = await authService.login(
+      identifier: 'petugas',
+      password: 'secret',
+    );
+
+    expect(user.token, 'token-for-this-login');
+    expect(user.roles, ['petugas']);
+    expect(user.name, 'Petugas Contoh');
+  });
+
+  test(
+    'reports whether token or role is missing from login response',
+    () async {
+      final authService = AuthService(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'data': {
+                'user': {'name': 'Petugas Contoh', 'role': 'petugas'},
+              },
+            }),
+            200,
+          ),
+        ),
+      );
+
+      expect(
+        () => authService.login(identifier: 'petugas', password: 'secret'),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.message,
+            'message',
+            contains('Token tidak ditemukan'),
+          ),
+        ),
+      );
+    },
+  );
+
   test('returns server error message for rejected credentials', () async {
     final authService = AuthService(
       client: MockClient(

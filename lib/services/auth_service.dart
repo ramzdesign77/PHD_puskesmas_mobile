@@ -40,15 +40,23 @@ class AuthService {
     await preferences.remove(userNameKey);
   }
 
-  Uri get _loginUri {
+  Uri get _loginUri => _loginUriFor(versioned: true);
+
+  Uri get _legacyLoginUri => _loginUriFor(versioned: false);
+
+  Uri _loginUriFor({required bool versioned}) {
     final baseUri = Uri.parse(AppConfig.apiBaseUrl.trim());
-    final basePath = baseUri.path.replaceFirst(RegExp(r'/+$'), '');
-    final apiPath = basePath.endsWith('/api/auth')
-        ? basePath
-        : basePath.endsWith('/api')
-        ? '$basePath/auth'
-        : '$basePath/api/auth';
-    return baseUri.replace(path: '$apiPath/login', query: null, fragment: null);
+    var apiPath = baseUri.path.replaceFirst(RegExp(r'/+$'), '');
+    if (apiPath.endsWith('/api/auth')) {
+      apiPath = apiPath.substring(0, apiPath.length - '/auth'.length);
+    } else if (apiPath.endsWith('/api/v1')) {
+      apiPath = apiPath.substring(0, apiPath.length - '/v1'.length);
+    } else if (!apiPath.endsWith('/api')) {
+      apiPath = '$apiPath/api';
+    }
+
+    final loginPath = versioned ? '$apiPath/v1/login' : '$apiPath/auth/login';
+    return baseUri.replace(path: loginPath, query: null, fragment: null);
   }
 
   Future<UserModel> login({
@@ -59,7 +67,13 @@ class AuthService {
     final identifierField = normalizedIdentifier.contains('@')
         ? 'email'
         : 'username';
-    late final http.Response response;
+    final requestBody = jsonEncode({
+      'login': normalizedIdentifier,
+      'identifier': normalizedIdentifier,
+      identifierField: normalizedIdentifier,
+      'password': password,
+    });
+    late http.Response response;
     try {
       response = await _client
           .post(
@@ -68,14 +82,21 @@ class AuthService {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode({
-              'login': normalizedIdentifier,
-              'identifier': normalizedIdentifier,
-              identifierField: normalizedIdentifier,
-              'password': password,
-            }),
+            body: requestBody,
           )
           .timeout(const Duration(seconds: 20));
+      if (response.statusCode == 404 || response.statusCode == 405) {
+        response = await _client
+            .post(
+              _legacyLoginUri,
+              headers: const {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+              body: requestBody,
+            )
+            .timeout(const Duration(seconds: 20));
+      }
     } on http.ClientException {
       throw const AuthException(
         'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
@@ -106,8 +127,8 @@ class AuthService {
     final UserModel user;
     try {
       user = UserModel.fromLoginJson(body);
-    } on FormatException {
-      throw const AuthException('Respons login tidak memuat token dan role.');
+    } on FormatException catch (error) {
+      throw AuthException('Respons login tidak valid: ${error.message}');
     }
     if (user.roles.isEmpty) {
       throw const AuthException(

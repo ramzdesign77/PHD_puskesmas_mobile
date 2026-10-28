@@ -54,8 +54,12 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
-    expect(find.text('Selamat Datang,'), findsOneWidget);
-    expect(find.text('Petugas Contoh'), findsOneWidget);
+    expect(find.text('KLINIK SANITASI'), findsOneWidget);
+    expect(find.text('Halo, Petugas Contoh, SKM'), findsOneWidget);
+    expect(find.text('Beranda'), findsOneWidget);
+    expect(find.text('Tugas Aduan'), findsOneWidget);
+    expect(find.text('Input IKL'), findsOneWidget);
+    expect(find.text('Profil'), findsOneWidget);
   });
 
   testWidgets('existing home shell remains available', (
@@ -123,8 +127,15 @@ void main() {
     await _openLogin(tester, const ['petugas']);
     await _submitLogin(tester);
 
-    expect(find.text('Selamat Datang,'), findsOneWidget);
-    expect(find.text('Petugas Contoh'), findsOneWidget);
+    expect(find.text('KLINIK SANITASI'), findsOneWidget);
+    expect(find.text('Halo, Petugas Contoh, SKM'), findsOneWidget);
+    expect(find.text('Ringkasan Tugas Lapangan Hari Ini:'), findsOneWidget);
+    final headerSize = tester.getSize(
+      find.byKey(const Key('officer_header_background')),
+    );
+    final viewportWidth =
+        tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    expect(headerSize.width, closeTo(viewportWidth, 0.1));
   });
 
   testWidgets('admin role opens the field dashboard', (
@@ -133,8 +144,8 @@ void main() {
     await _openLogin(tester, const ['admin']);
     await _submitLogin(tester);
 
-    expect(find.text('Selamat Datang,'), findsOneWidget);
-    expect(find.text('Petugas Contoh'), findsOneWidget);
+    expect(find.text('KLINIK SANITASI'), findsOneWidget);
+    expect(find.text('Halo, Petugas Contoh, SKM'), findsOneWidget);
   });
 
   testWidgets('warga role opens the existing public home', (
