@@ -1,12 +1,15 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:klinik_sanitasi_mobile/services/api_service.dart';
 
 void main() {
   group('ApiService.submitReport', () {
+    // Tes baru: memastikan kontrak POST /api/laporan dan kode tiket.
     test('posts multipart report data and returns the ticket code', () async {
       final client = MockClient((request) async {
         expect(request, isA<http.Request>());
@@ -43,6 +46,33 @@ void main() {
       });
 
       expect(ticketCode, 'IKL-20261028-0001');
+      client.close();
+    });
+
+    test('uploads image bytes as a multipart file', () async {
+      final client = MockClient((request) async {
+        expect(request, isA<http.Request>());
+        expect(request.body, contains('name="foto_bukti"; filename='));
+        expect(request.body, contains('\r\nIMG\r\n'));
+
+        return http.Response(
+          jsonEncode({'kode_tiket': 'IKL-20261028-0002'}),
+          201,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      final apiService = ApiService(client: client);
+
+      final ticketCode = await apiService.submitReport(
+        {'deskripsi': 'Air keruh'},
+        imageFile: XFile.fromData(
+          Uint8List.fromList([0x49, 0x4D, 0x47]),
+          name: 'bukti.png',
+          mimeType: 'image/png',
+        ),
+      );
+
+      expect(ticketCode, 'IKL-20261028-0002');
       client.close();
     });
 

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -32,6 +32,7 @@ class _ReportViewState extends State<ReportView> {
   String? _selectedRw;
   String _category = 'air_masalah';
   XFile? _image;
+  Uint8List? _imageBytes;
   bool _isSubmitting = false;
 
   @override
@@ -50,13 +51,25 @@ class _ReportViewState extends State<ReportView> {
   }
 
   Future<void> _pickImage() async {
-    final image = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 82,
-      maxWidth: 1600,
-    );
-    if (mounted && image != null) {
-      setState(() => _image = image);
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 82,
+        maxWidth: 1600,
+      );
+      if (image == null) return;
+
+      final bytes = await image.readAsBytes();
+      if (mounted) {
+        setState(() {
+          _image = image;
+          _imageBytes = bytes;
+        });
+      }
+    } on Exception catch (error) {
+      if (mounted) {
+        _showError('Gagal memilih foto. $error');
+      }
     }
   }
 
@@ -107,7 +120,7 @@ class _ReportViewState extends State<ReportView> {
         'deskripsi': _description.text.trim(),
         'latitude': position.latitude.toString(),
         'longitude': position.longitude.toString(),
-      }, imageFile: _image == null ? null : File(_image!.path));
+      }, imageFile: _image);
 
       if (!mounted) return;
       await showDialog<void>(
@@ -186,6 +199,7 @@ class _ReportViewState extends State<ReportView> {
         _selectedRw = null;
         _category = 'air_masalah';
         _image = null;
+        _imageBytes = null;
       });
     } on ApiException catch (error) {
       _showError(error.message);
@@ -228,7 +242,8 @@ class _ReportViewState extends State<ReportView> {
       suffixIcon: suffixIcon,
       filled: true,
       fillColor: const Color(0xFFF8F9FA),
-      contentPadding: contentPadding ??
+      contentPadding:
+          contentPadding ??
           const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -253,10 +268,7 @@ class _ReportViewState extends State<ReportView> {
     );
   }
 
-  Widget _buildSectionHeader({
-    required IconData icon,
-    required String title,
-  }) {
+  Widget _buildSectionHeader({required IconData icon, required String title}) {
     return Row(
       children: [
         Container(
@@ -448,7 +460,8 @@ class _ReportViewState extends State<ReportView> {
                                 if (value == null || value.trim().isEmpty) {
                                   return null;
                                 }
-                                return RegExp(r'^\d{16}$').hasMatch(value.trim())
+                                return RegExp(r'^\d{16}$')
+                                        .hasMatch(value.trim())
                                     ? null
                                     : 'NIK harus terdiri dari 16 angka.';
                               },
@@ -499,8 +512,8 @@ class _ReportViewState extends State<ReportView> {
                                 if (snapshot.hasError) {
                                   return _RetryVillage(
                                     onRetry: () => setState(
-                                      () => _villages =
-                                          widget.apiService.getVillages(),
+                                      () => _villages = widget.apiService
+                                          .getVillages(),
                                     ),
                                   );
                                 }
@@ -581,8 +594,10 @@ class _ReportViewState extends State<ReportView> {
                                       ),
                                     ),
                                     items: List.generate(30, (i) {
-                                      final numStr =
-                                          (i + 1).toString().padLeft(2, '0');
+                                      final numStr = (i + 1).toString().padLeft(
+                                        2,
+                                        '0',
+                                      );
                                       return DropdownMenuItem(
                                         value: numStr,
                                         child: Text(
@@ -598,8 +613,8 @@ class _ReportViewState extends State<ReportView> {
                                         setState(() => _selectedRt = val),
                                     validator: (val) =>
                                         val == null || val.isEmpty
-                                            ? 'Pilih RT'
-                                            : null,
+                                        ? 'Pilih RT'
+                                        : null,
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -630,8 +645,10 @@ class _ReportViewState extends State<ReportView> {
                                       ),
                                     ),
                                     items: List.generate(20, (i) {
-                                      final numStr =
-                                          (i + 1).toString().padLeft(2, '0');
+                                      final numStr = (i + 1).toString().padLeft(
+                                        2,
+                                        '0',
+                                      );
                                       return DropdownMenuItem(
                                         value: numStr,
                                         child: Text(
@@ -647,8 +664,8 @@ class _ReportViewState extends State<ReportView> {
                                         setState(() => _selectedRw = val),
                                     validator: (val) =>
                                         val == null || val.isEmpty
-                                            ? 'Pilih RW'
-                                            : null,
+                                        ? 'Pilih RW'
+                                        : null,
                                   ),
                                 ),
                               ],
@@ -710,16 +727,14 @@ class _ReportViewState extends State<ReportView> {
                                     required currentLength,
                                     required isFocused,
                                     maxLength,
-                                  }) =>
-                                      null,
+                                  }) => null,
                                   onChanged: (_) => setState(() {}),
                                   style: GoogleFonts.dmSans(
                                     fontSize: 14,
                                     color: AppColors.ink,
                                   ),
                                   decoration: _fieldDecoration(
-                                    hintText:
-                                        'Jelaskan secara singkat dan jelas mengenai masalah yang terjadi...',
+                                    hintText: 'Jelaskan secara singkat dan jelas mengenai masalah yang terjadi...',
                                     contentPadding: const EdgeInsets.fromLTRB(
                                       40,
                                       14,
@@ -802,7 +817,10 @@ class _ReportViewState extends State<ReportView> {
                                     ),
                                     if (_image != null)
                                       InkWell(
-                                        onTap: () => setState(() => _image = null),
+                                        onTap: () => setState(() {
+                                          _image = null;
+                                          _imageBytes = null;
+                                        }),
                                         child: const Icon(
                                           Icons.close,
                                           size: 18,
@@ -813,12 +831,12 @@ class _ReportViewState extends State<ReportView> {
                                 ),
                               ),
                             ),
-                            if (_image != null) ...[
+                            if (_image != null && _imageBytes != null) ...[
                               const SizedBox(height: 10),
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
-                                child: Image.file(
-                                  File(_image!.path),
+                                child: Image.memory(
+                                  _imageBytes!,
                                   height: 150,
                                   width: double.infinity,
                                   fit: BoxFit.cover,

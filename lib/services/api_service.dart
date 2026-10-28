@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_config.dart';
@@ -210,7 +210,7 @@ class ApiService {
 
   Future<String> submitReport(
     Map<String, dynamic> reportData, {
-    File? imageFile,
+    XFile? imageFile,
   }) async {
     final request = http.MultipartRequest('POST', _endpoint('laporan'))
       ..headers['Accept'] = 'application/json'
@@ -221,7 +221,11 @@ class ApiService {
 
     if (imageFile != null) {
       request.files.add(
-        await http.MultipartFile.fromPath('foto_bukti', imageFile.path),
+        http.MultipartFile.fromBytes(
+          'foto_bukti',
+          await imageFile.readAsBytes(),
+          filename: imageFile.name,
+        ),
       );
     }
 
