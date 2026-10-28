@@ -96,26 +96,19 @@ class _ReportViewState extends State<ReportView> {
     setState(() => _isSubmitting = true);
     try {
       final position = await _currentPosition();
-      final submitted = await widget.apiService.submitReport(
-        {
-          'nama_pelapor': _name.text.trim(),
-          'nik_pelapor': _nik.text.trim(),
-          'no_wa': _phone.text.trim(),
-          'id_desa': _selectedVillage!.id.toString(),
-          'rt': _selectedRt ?? '',
-          'rw': _selectedRw ?? '',
-          'kategori_laporan': _category,
-          'deskripsi': _description.text.trim(),
-          'latitude': position.latitude.toString(),
-          'longitude': position.longitude.toString(),
-        },
-        imageFile: _image == null ? null : File(_image!.path),
-      );
+      final ticketCode = await widget.apiService.submitReport({
+        'nama_pelapor': _name.text.trim(),
+        'nik_pelapor': _nik.text.trim(),
+        'no_wa': _phone.text.trim(),
+        'id_desa': _selectedVillage!.id.toString(),
+        'rt': _selectedRt ?? '',
+        'rw': _selectedRw ?? '',
+        'kategori_laporan': _category,
+        'deskripsi': _description.text.trim(),
+        'latitude': position.latitude.toString(),
+        'longitude': position.longitude.toString(),
+      }, imageFile: _image == null ? null : File(_image!.path));
 
-      if (!submitted) {
-        _showError('Laporan belum dapat dikirim. Silakan coba lagi.');
-        return;
-      }
       if (!mounted) return;
       await showDialog<void>(
         context: context,
@@ -141,10 +134,23 @@ class _ReportViewState extends State<ReportView> {
               Text(
                 'Terima kasih telah menyampaikan masalah air atau sanitasi di lingkungan Anda.',
                 textAlign: TextAlign.center,
+                style: GoogleFonts.dmSans(color: AppColors.muted, fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Kode tiket: $ticketCode',
+                textAlign: TextAlign.center,
                 style: GoogleFonts.dmSans(
-                  color: AppColors.muted,
-                  fontSize: 14,
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
                 ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Simpan kode ini untuk melacak status laporan.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.dmSans(color: AppColors.muted, fontSize: 12),
               ),
             ],
           ),

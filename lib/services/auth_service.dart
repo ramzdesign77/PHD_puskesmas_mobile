@@ -43,11 +43,11 @@ class AuthService {
   Uri get _loginUri {
     final baseUri = Uri.parse(AppConfig.apiBaseUrl.trim());
     final basePath = baseUri.path.replaceFirst(RegExp(r'/+$'), '');
-    final apiPath = basePath.endsWith('/api/v1')
+    final apiPath = basePath.endsWith('/api/auth')
         ? basePath
         : basePath.endsWith('/api')
-        ? '$basePath/v1'
-        : '$basePath/api/v1';
+        ? '$basePath/auth'
+        : '$basePath/api/auth';
     return baseUri.replace(path: '$apiPath/login', query: null, fragment: null);
   }
 

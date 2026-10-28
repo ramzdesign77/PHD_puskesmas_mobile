@@ -208,11 +208,11 @@ class ApiService {
         .toList();
   }
 
-  Future<bool> submitReport(
+  Future<String> submitReport(
     Map<String, dynamic> reportData, {
     File? imageFile,
   }) async {
-    final request = http.MultipartRequest('POST', _endpoint('reports'))
+    final request = http.MultipartRequest('POST', _endpoint('laporan'))
       ..headers['Accept'] = 'application/json'
       ..fields.addAll({
         for (final entry in reportData.entries)
@@ -227,15 +227,21 @@ class ApiService {
 
     final streamedResponse = await _client.send(request);
     final response = await http.Response.fromStream(streamedResponse);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      _decode(response);
+    final body = _decode(response);
+    final ticketCode = body['kode_tiket'];
+    if (ticketCode is! String || ticketCode.trim().isEmpty) {
+      throw ApiException(
+        'Kode tiket tidak diterima dari server.',
+        statusCode: response.statusCode,
+      );
     }
-    return true;
+    return ticketCode;
   }
 
   Future<TicketStatus> getTicket(String code) async {
     final response = await _client.get(
       _endpoint('laporan/${Uri.encodeComponent(code)}'),
+      headers: {'Accept': 'application/json'},
     );
     final body = _decode(response);
 

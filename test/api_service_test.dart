@@ -7,11 +7,11 @@ import 'package:klinik_sanitasi_mobile/services/api_service.dart';
 
 void main() {
   group('ApiService.submitReport', () {
-    test('posts multipart report data to the reports endpoint', () async {
+    test('posts multipart report data and returns the ticket code', () async {
       final client = MockClient((request) async {
         expect(request, isA<http.Request>());
         expect(request.method, 'POST');
-        expect(request.url.path, '/api/reports');
+        expect(request.url.path, '/api/laporan');
         expect(
           request.headers['content-type'],
           startsWith('multipart/form-data; boundary='),
@@ -23,21 +23,30 @@ void main() {
         expect(request.body, contains('Air keruh'));
         expect(request.headers['Accept'], 'application/json');
 
-        return http.Response('', 204);
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'message': 'Laporan berhasil dikirim.',
+            'kode_tiket': 'IKL-20261028-0001',
+            'id_laporan': 1,
+          }),
+          201,
+          headers: {'content-type': 'application/json'},
+        );
       });
       final apiService = ApiService(client: client);
 
-      final result = await apiService.submitReport({
+      final ticketCode = await apiService.submitReport({
         'nama_pelapor': 'Warga Contoh',
         'id_desa': 12,
         'deskripsi': 'Air keruh',
       });
 
-      expect(result, isTrue);
+      expect(ticketCode, 'IKL-20261028-0001');
       client.close();
     });
 
-    test('surfaces validation errors from the reports endpoint', () async {
+    test('surfaces validation errors from the laporan endpoint', () async {
       final client = MockClient(
         (_) async => http.Response(
           jsonEncode({
