@@ -27,6 +27,8 @@ class ApiService {
   static const _roleKey = 'auth_role';
   static const _userNameKey = 'auth_user_name';
   static const _rolesKey = 'auth_roles';
+  static const _savedCitizenTicketsKey = 'saved_citizen_tickets';
+  static const _ticketCachePrefix = 'citizen_ticket_cache_';
   final Uri _baseUri = Uri.parse(
     '${AppConfig.apiBaseUrl.replaceFirst(RegExp(r'/$'), '')}/',
   );
@@ -217,7 +219,7 @@ class ApiService {
       ..fields.addAll({
         for (final entry in reportData.entries)
           if (entry.key != 'nik' && entry.key != 'nik_pelapor')
-          entry.key: entry.value?.toString() ?? '',
+            entry.key: entry.value?.toString() ?? '',
       });
 
     if (imageFile != null) {
@@ -240,7 +242,30 @@ class ApiService {
         statusCode: response.statusCode,
       );
     }
-    return ticketCode;
+    final normalizedTicketCode = ticketCode.trim();
+    await saveCitizenTicketCode(normalizedTicketCode);
+    final responseData = body['data'] as Map<String, dynamic>? ?? const {};
+    await cacheTicketStatus(
+      TicketStatus.fromJson({
+        ...responseData,
+        'kode_tiket': normalizedTicketCode,
+        'status_laporan': responseData['status_laporan'] ?? 'dikirim',
+        'kategori_laporan':
+            responseData['kategori_laporan'] ??
+            reportData['kategori_laporan']?.toString() ??
+            '',
+        'deskripsi':
+            responseData['deskripsi'] ??
+            reportData['deskripsi']?.toString() ??
+            '',
+        'nama_pelapor':
+            responseData['nama_pelapor'] ??
+            reportData['nama_pelapor']?.toString(),
+        'rt': responseData['rt'] ?? reportData['rt']?.toString() ?? '-',
+        'rw': responseData['rw'] ?? reportData['rw']?.toString() ?? '-',
+      }),
+    );
+    return normalizedTicketCode;
   }
 
   Future<TicketStatus> getTicket(String code) async {
@@ -249,9 +274,74 @@ class ApiService {
       headers: {'Accept': 'application/json'},
     );
     final body = _decode(response);
-
-    return TicketStatus.fromJson(body['data'] as Map<String, dynamic>);
+    final ticketData = body['data'] as Map<String, dynamic>;
+    final responseCode = ticketData['kode_tiket'];
+    final ticket = TicketStatus.fromJson({
+      ...ticketData,
+      'kode_tiket': responseCode is String && responseCode.trim().isNotEmpty
+          ? responseCode
+          : code,
+    });
+    await cacheTicketStatus(ticket);
+    return ticket;
   }
+
+  Future<List<String>> getSavedCitizenTicketCodes() async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getStringList(_savedCitizenTicketsKey) ?? [];
+  }
+
+  Future<void> saveCitizenTicketCode(String code) async {
+    final normalizedCode = code.trim();
+    if (normalizedCode.isEmpty) {
+      throw const ApiException('Kode tiket tidak boleh kosong.');
+    }
+
+    final preferences = await SharedPreferences.getInstance();
+    final savedCodes = preferences.getStringList(_savedCitizenTicketsKey) ?? [];
+    final updatedCodes = [
+      normalizedCode,
+      ...savedCodes.where(
+        (savedCode) => savedCode.toLowerCase() != normalizedCode.toLowerCase(),
+      ),
+    ];
+    if (!await preferences.setStringList(
+      _savedCitizenTicketsKey,
+      updatedCodes,
+    )) {
+      throw const ApiException('Riwayat tiket tidak dapat disimpan.');
+    }
+  }
+
+  Future<TicketStatus?> getCachedTicketStatus(String code) async {
+    final preferences = await SharedPreferences.getInstance();
+    final cachedJson = preferences.getString(_ticketCacheKey(code));
+    if (cachedJson == null) return null;
+
+    try {
+      final decoded = jsonDecode(cachedJson);
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('Cache tiket bukan objek JSON.');
+      }
+      return TicketStatus.fromJson(decoded);
+    } on FormatException catch (error) {
+      throw ApiException('Cache tiket tidak dapat dibaca: $error');
+    }
+  }
+
+  Future<void> cacheTicketStatus(TicketStatus ticket) async {
+    final preferences = await SharedPreferences.getInstance();
+    final saved = await preferences.setString(
+      _ticketCacheKey(ticket.code),
+      jsonEncode(ticket.toJson()),
+    );
+    if (!saved) {
+      throw const ApiException('Status tiket tidak dapat disimpan ke cache.');
+    }
+  }
+
+  String _ticketCacheKey(String code) =>
+      '$_ticketCachePrefix${Uri.encodeComponent(code)}';
 
   Uri _endpoint(String path) => _baseUri.resolve(path);
 

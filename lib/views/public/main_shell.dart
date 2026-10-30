@@ -8,11 +8,7 @@ import 'report_view.dart';
 import 'tracking_view.dart';
 
 class MainShell extends StatefulWidget {
-  const MainShell({
-    super.key,
-    required this.apiService,
-    this.authService,
-  });
+  const MainShell({super.key, required this.apiService, this.authService});
 
   final ApiService apiService;
   final AuthService? authService;
@@ -160,10 +156,9 @@ class _MainShellState extends State<MainShell> {
               label: 'Lapor',
             ),
             NavigationDestination(
-              icon: Icon(Icons.access_time, color: AppColors.muted),
-              selectedIcon:
-                  Icon(Icons.access_time_filled, color: AppColors.primary),
-              label: 'Lacak',
+              icon: Icon(Icons.receipt_long_outlined, color: AppColors.muted),
+              selectedIcon: Icon(Icons.receipt_long, color: AppColors.primary),
+              label: 'Riwayat',
             ),
             NavigationDestination(
               icon: Icon(Icons.person_outline, color: AppColors.muted),

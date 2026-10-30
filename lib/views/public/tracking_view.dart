@@ -21,37 +21,38 @@ class TrackingView extends StatefulWidget {
 
 class _TrackingViewState extends State<TrackingView> {
   final _ticketController = TextEditingController();
-  TicketStatus? _ticket;
-  bool _isLoading = false;
+  List<TicketStatus> _tickets = [];
+  String? _selectedCode;
+  bool _showCompleted = false;
+  bool _isLoading = true;
   String? _error;
   int _requestId = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadInitialTicket(widget.initialTicketCode);
+    _selectedCode = _normalizedCode(widget.initialTicketCode);
+    if (_selectedCode != null) _ticketController.text = _selectedCode!;
+    _loadHistory(preferredCode: _selectedCode);
   }
 
   @override
   void didUpdateWidget(covariant TrackingView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final newCode = widget.initialTicketCode?.trim();
-    if (newCode != null &&
-        newCode.isNotEmpty &&
-        newCode != oldWidget.initialTicketCode?.trim()) {
-      _loadInitialTicket(newCode);
+    final oldCode = _normalizedCode(oldWidget.initialTicketCode);
+    final newCode = _normalizedCode(widget.initialTicketCode);
+    if (newCode != null && newCode != oldCode) {
+      _selectedCode = newCode;
+      _ticketController.text = newCode;
+      _loadHistory(preferredCode: newCode);
     }
   }
 
-  void _loadInitialTicket(String? ticketCode) {
-    final code = ticketCode?.trim();
-    if (code == null || code.isEmpty) return;
-    _ticketController.text = code;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _ticketController.text.trim() == code) {
-        _trackTicket();
-      }
-    });
+  String? _normalizedCode(String? code) {
+    final normalized = code?.trim();
+    return normalized == null || normalized.isEmpty
+        ? null
+        : normalized.toUpperCase();
   }
 
   @override
@@ -60,34 +61,79 @@ class _TrackingViewState extends State<TrackingView> {
     super.dispose();
   }
 
-  Future<void> _trackTicket({bool clearPrevious = true}) async {
-    final code = _ticketController.text.trim();
-    if (code.isEmpty) {
-      setState(() => _error = 'Masukkan kode tiket laporan.');
-      return;
-    }
-
+  Future<void> _loadHistory({String? preferredCode}) async {
     final requestId = ++_requestId;
     setState(() {
-      _error = null;
-      if (clearPrevious) _ticket = null;
       _isLoading = true;
+      _error = null;
     });
 
     try {
-      final ticket = await widget.apiService.getTicket(code);
-      if (mounted && requestId == _requestId) {
-        setState(() => _ticket = ticket);
+      final savedCodes = await widget.apiService.getSavedCitizenTicketCodes();
+      if (preferredCode != null && !savedCodes.contains(preferredCode)) {
+        await widget.apiService.saveCitizenTicketCode(preferredCode);
+        savedCodes.insert(0, preferredCode);
       }
+      final preferredCodes = preferredCode == null
+          ? <String>[]
+          : <String>[preferredCode];
+      final codes = <String>[
+        ...preferredCodes,
+        ...savedCodes.where((code) => code != preferredCode),
+      ];
+
+      final cachedTickets = <TicketStatus>[];
+      String? cacheError;
+      for (final code in codes) {
+        try {
+          final cached = await widget.apiService.getCachedTicketStatus(code);
+          if (cached != null) cachedTickets.add(cached);
+        } on ApiException catch (error) {
+          cacheError ??= error.message;
+        }
+      }
+      if (!mounted || requestId != _requestId) return;
+      setState(() {
+        _tickets = cachedTickets;
+        _error = cacheError;
+      });
+
+      final refreshedTickets = <TicketStatus>[];
+      final refreshErrors = <String>[];
+      for (final code in codes) {
+        try {
+          refreshedTickets.add(await widget.apiService.getTicket(code));
+        } on ApiException catch (error) {
+          refreshErrors.add(error.message);
+        } on Exception catch (error) {
+          refreshErrors.add(error.toString());
+        }
+      }
+      if (!mounted || requestId != _requestId) return;
+
+      final refreshedByCode = {
+        for (final ticket in refreshedTickets) ticket.code: ticket,
+      };
+      final ticketsByCode = {
+        for (final ticket in cachedTickets) ticket.code: ticket,
+        ...refreshedByCode,
+      };
+      setState(() {
+        _tickets = [
+          for (final code in codes)
+            if (ticketsByCode[code] != null) ticketsByCode[code]!,
+        ];
+        _error = refreshErrors.isEmpty
+            ? null
+            : 'Sebagian status belum dapat diperbarui: ${refreshErrors.first}';
+      });
     } on ApiException catch (error) {
       if (mounted && requestId == _requestId) {
         setState(() => _error = error.message);
       }
-    } catch (_) {
+    } on Exception catch (error) {
       if (mounted && requestId == _requestId) {
-        setState(
-          () => _error = 'Status belum dapat dimuat. Periksa koneksi Anda.',
-        );
+        setState(() => _error = 'Riwayat laporan tidak dapat dimuat: $error');
       }
     } finally {
       if (mounted && requestId == _requestId) {
@@ -96,58 +142,239 @@ class _TrackingViewState extends State<TrackingView> {
     }
   }
 
+  Future<void> _searchTicket() async {
+    final code = _normalizedCode(_ticketController.text);
+    if (code == null) {
+      setState(() => _error = 'Masukkan kode tiket laporan.');
+      return;
+    }
+
+    final requestId = ++_requestId;
+    setState(() {
+      _error = null;
+      _selectedCode = code;
+      _ticketController.text = code;
+      _isLoading = true;
+    });
+
+    try {
+      final ticket = await widget.apiService.getTicket(code);
+      if (!mounted || requestId != _requestId) return;
+      setState(() => _upsertTicket(ticket));
+      await widget.apiService.saveCitizenTicketCode(code);
+    } on ApiException catch (error) {
+      if (mounted && requestId == _requestId) {
+        setState(() => _error = error.message);
+      }
+    } on Exception catch (error) {
+      if (mounted && requestId == _requestId) {
+        setState(() => _error = 'Status tiket tidak dapat dimuat: $error');
+      }
+    } finally {
+      if (mounted && requestId == _requestId) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _upsertTicket(TicketStatus ticket) {
+    _tickets = [
+      ticket,
+      ..._tickets.where((savedTicket) => savedTicket.code != ticket.code),
+    ];
+  }
+
   Future<void> _refresh() async {
-    if (_ticketController.text.trim().isNotEmpty) {
-      await _trackTicket(clearPrevious: false);
+    if (_selectedCode == null) {
+      await _loadHistory();
+      return;
+    }
+
+    final code = _selectedCode!;
+    final requestId = ++_requestId;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final ticket = await widget.apiService.getTicket(code);
+      if (mounted && requestId == _requestId) {
+        setState(() => _upsertTicket(ticket));
+      }
+    } on ApiException catch (error) {
+      if (mounted && requestId == _requestId) {
+        setState(() => _error = error.message);
+      }
+    } on Exception catch (error) {
+      if (mounted && requestId == _requestId) {
+        setState(() => _error = 'Status tiket tidak dapat diperbarui: $error');
+      }
+    } finally {
+      if (mounted && requestId == _requestId) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: _refresh,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
-          children: [
-            Text(
-              'Lacak laporan',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppColors.ink,
-                fontWeight: FontWeight.w800,
-              ),
+    final selectedTicket = _selectedCode == null
+        ? null
+        : _ticketForCode(_selectedCode!);
+    return Scaffold(
+      backgroundColor: AppColors.canvas,
+      body: SafeArea(
+        child: selectedTicket != null || _selectedCode != null
+            ? _buildTicketDetail(selectedTicket)
+            : _buildHistory(),
+      ),
+    );
+  }
+
+  TicketStatus? _ticketForCode(String code) {
+    for (final ticket in _tickets) {
+      if (ticket.code == code) return ticket;
+    }
+    return null;
+  }
+
+  Widget _buildHistory() {
+    final visibleTickets = _tickets
+        .where((ticket) => ticket.isCompleted == _showCompleted)
+        .toList();
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
+        children: [
+          Text(
+            'Riwayat & Status Laporan',
+            style: Theme.of(context).textTheme.headlineSmall
+                ?.copyWith(color: AppColors.ink, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Pantau dan buka kembali laporan yang pernah Anda kirim.',
+            style: TextStyle(color: AppColors.muted),
+          ),
+          const SizedBox(height: 18),
+          _buildSearchBar(),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            _MessagePanel(
+              icon: Icons.info_outline,
+              message: _error!,
+              color: AppColors.primary,
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'Pantau perkembangan penanganan laporan Anda.',
-              style: TextStyle(color: AppColors.muted),
-            ),
-            const SizedBox(height: 18),
-            _buildSearchBar(),
-            if (_error != null) ...[
-              const SizedBox(height: 14),
-              _MessagePanel(
-                icon: Icons.info_outline,
-                message: _error!,
-                color: AppColors.primary,
-              ),
-            ],
-            if (_isLoading && _ticket == null) ...[
-              const SizedBox(height: 52),
-              const Center(
+          ],
+          const SizedBox(height: 20),
+          _buildHistoryFilters(),
+          const SizedBox(height: 14),
+          if (_isLoading && _tickets.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 40),
+              child: Center(
                 child: CircularProgressIndicator(color: AppColors.primary),
               ),
-            ] else if (_ticket != null) ...[
-              const SizedBox(height: 18),
-              _TicketDetails(ticket: _ticket!),
-            ] else if (_error == null) ...[
-              const SizedBox(height: 72),
-              const _EmptyTrackingState(),
+            )
+          else if (visibleTickets.isEmpty)
+            _EmptyTrackingState(hasHistory: _tickets.isNotEmpty)
+          else
+            for (final ticket in visibleTickets)
+              _OrderHistoryCard(
+                ticket: ticket,
+                onTap: () => setState(() {
+                  _selectedCode = ticket.code;
+                  _ticketController.text = ticket.code;
+                  _error = null;
+                }),
+              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryFilters() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppColors.line),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          _HistoryFilter(
+            title: 'Dalam Proses',
+            selected: !_showCompleted,
+            onTap: () => setState(() => _showCompleted = false),
+          ),
+          _HistoryFilter(
+            title: 'Selesai / Riwayat',
+            selected: _showCompleted,
+            onTap: () => setState(() => _showCompleted = true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTicketDetail(TicketStatus? ticket) {
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 32),
+        children: [
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Kembali ke riwayat',
+                onPressed: () => setState(() {
+                  _selectedCode = null;
+                  _error = null;
+                }),
+                icon: const Icon(Icons.arrow_back, color: AppColors.ink),
+              ),
+              Expanded(
+                child: Text(
+                  'Status Laporan',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Perbarui status',
+                onPressed: _isLoading ? null : _refresh,
+                icon: const Icon(Icons.refresh, color: AppColors.primary),
+              ),
             ],
+          ),
+          const SizedBox(height: 6),
+          if (ticket != null) ...[
+            _TicketDetails(ticket: ticket),
+          ] else if (_isLoading) ...[
+            const Padding(
+              padding: EdgeInsets.only(top: 80),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+            ),
           ],
-        ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            _MessagePanel(
+              icon: Icons.info_outline,
+              message: _error!,
+              color: AppColors.primary,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -170,9 +397,9 @@ class _TrackingViewState extends State<TrackingView> {
         controller: _ticketController,
         textCapitalization: TextCapitalization.characters,
         textInputAction: TextInputAction.search,
-        onSubmitted: (_) => _trackTicket(),
+        onSubmitted: (_) => _searchTicket(),
         decoration: InputDecoration(
-          hintText: 'Masukkan kode tiket (TK-...)',
+          hintText: 'Cari kode tiket lain (TK-...)',
           hintStyle: const TextStyle(color: AppColors.muted, fontSize: 13),
           prefixIcon: const Icon(
             Icons.confirmation_number_outlined,
@@ -180,7 +407,7 @@ class _TrackingViewState extends State<TrackingView> {
           ),
           suffixIcon: IconButton(
             tooltip: 'Cari tiket',
-            onPressed: _isLoading ? null : _trackTicket,
+            onPressed: _isLoading ? null : _searchTicket,
             icon: _isLoading
                 ? const SizedBox(
                     width: 19,
@@ -194,6 +421,196 @@ class _TrackingViewState extends State<TrackingView> {
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryFilter extends StatelessWidget {
+  const _HistoryFilter({
+    required this.title,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(11),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 5),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: selected ? Colors.white : AppColors.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderHistoryCard extends StatelessWidget {
+  const _OrderHistoryCard({required this.ticket, required this.onTap});
+
+  final TicketStatus ticket;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _statusPresentation(ticket.status);
+    final progress = ticket.isRejected
+        ? 'Laporan tidak dapat ditindaklanjuti'
+        : switch (ticket.currentStepIndex) {
+            0 => 'Laporan berhasil diterima sistem',
+            1 => 'Laporan sedang diverifikasi',
+            2 => 'Kunjungan petugas sedang dijadwalkan',
+            3 => 'Petugas sedang melakukan pemeriksaan',
+            4 => 'Pemeriksaan dan rekomendasi selesai',
+            _ => 'Status laporan diperbarui',
+          };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppColors.line),
+        borderRadius: BorderRadius.circular(17),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.025),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(17),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(17),
+          child: Padding(
+            padding: const EdgeInsets.all(15),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.receipt_long_outlined,
+                      color: AppColors.primary,
+                      size: 19,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        ticket.code,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.ink,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: status.$2.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        status.$1,
+                        style: TextStyle(
+                          color: status.$2,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '${_categoryLabel(ticket.category)} · ${ticket.village ?? '-'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.schedule_outlined,
+                      size: 13,
+                      color: AppColors.muted,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        ticket.createdAt ?? 'Tanggal laporan tidak tersedia',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, color: AppColors.muted),
+                  ],
+                ),
+                const SizedBox(height: 11),
+                if (!ticket.isRejected)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      minHeight: 4,
+                      value: ((ticket.currentStepIndex ?? 0) + 1) / 5,
+                      backgroundColor: AppColors.line,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                if (ticket.isRejected) const SizedBox(height: 4),
+                const SizedBox(height: 7),
+                Text(
+                  progress,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -495,10 +912,7 @@ class _ScheduleCard extends StatelessWidget {
                   children: [
                     const Text(
                       'Petugas Kesehatan Lingkungan',
-                      style: TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 11,
-                      ),
+                      style: TextStyle(color: AppColors.muted, fontSize: 11),
                     ),
                     const SizedBox(height: 3),
                     Text(
@@ -593,8 +1007,7 @@ class _TimelineCard extends StatelessWidget {
           if (ticket.isRejected)
             _TimelineEntry(
               title: 'Ditolak',
-              description:
-                  ticket.rejectionReason?.trim().isNotEmpty == true
+              description: ticket.rejectionReason?.trim().isNotEmpty == true
                   ? ticket.rejectionReason!
                   : 'Laporan tidak dapat ditindaklanjuti.',
               timestamp: 'Status terbaru',
@@ -798,7 +1211,8 @@ class _ReportSummaryCard extends StatelessWidget {
           ),
           _DetailRow(
             label: 'Lokasi',
-            value: '${ticket.village ?? '-'}, RT ${ticket.rt} / RW ${ticket.rw}',
+            value:
+                '${ticket.village ?? '-'}, RT ${ticket.rt} / RW ${ticket.rw}',
           ),
           _DetailRow(label: 'Kategori', value: _categoryLabel(ticket.category)),
           _DetailRow(
@@ -1014,10 +1428,7 @@ class _SectionHeading extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  color: AppColors.muted,
-                  fontSize: 11,
-                ),
+                style: const TextStyle(color: AppColors.muted, fontSize: 11),
               ),
             ],
           ),
@@ -1139,10 +1550,17 @@ class _MessagePanel extends StatelessWidget {
 }
 
 class _EmptyTrackingState extends StatelessWidget {
-  const _EmptyTrackingState();
+  const _EmptyTrackingState({this.hasHistory = false});
+
+  final bool hasHistory;
 
   @override
   Widget build(BuildContext context) {
+    final title = hasHistory
+        ? 'Tidak ada laporan di kategori ini'
+        : 'Belum ada riwayat laporan';
+    const description =
+        'Kode tiket laporan yang pernah dikirim akan tersimpan dan tampil di sini.';
     return Column(
       children: [
         Container(
@@ -1159,8 +1577,8 @@ class _EmptyTrackingState extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        const Text(
-          'Belum ada tiket yang dilacak',
+        Text(
+          title,
           style: TextStyle(
             color: AppColors.ink,
             fontSize: 15,
@@ -1169,7 +1587,7 @@ class _EmptyTrackingState extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Masukkan kode tiket laporan untuk melihat progres penanganannya.',
+          description,
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.muted, fontSize: 12, height: 1.4),
         ),
@@ -1203,9 +1621,10 @@ String _timestampFor(TicketStatus ticket, int step) {
   return switch (step) {
     0 => ticket.createdAt ?? 'Waktu pengiriman',
     2 || 3 || 4 => ticket.visitDate ?? 'Belum tercatat',
-    _ => ticket.currentStepIndex != null && step <= ticket.currentStepIndex!
-        ? 'Sedang berlangsung'
-        : 'Menunggu',
+    _ =>
+      ticket.currentStepIndex != null && step <= ticket.currentStepIndex!
+          ? 'Sedang berlangsung'
+          : 'Menunggu',
   };
 }
 

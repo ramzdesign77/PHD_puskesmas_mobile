@@ -81,7 +81,8 @@ void main() {
     expect(find.text('Status\nLaporan'), findsOneWidget);
     expect(find.text('Edukasi &\nSTBM'), findsOneWidget);
     expect(find.text('PENGUMUMAN'), findsOneWidget);
-    expect(find.text('Lacak'), findsOneWidget);
+    expect(find.text('Riwayat'), findsOneWidget);
+    expect(find.text('Lacak'), findsNothing);
     expect(find.text('Profil'), findsOneWidget);
 
     await tester.tap(find.text('Profil'));

@@ -47,6 +47,28 @@ class TicketStatus {
 
   bool get isRejected => status.trim().toLowerCase() == 'ditolak';
 
+  bool get isCompleted =>
+      status.trim().toLowerCase() == 'selesai' || isRejected;
+
+  Map<String, dynamic> toJson() => {
+    'kode_tiket': code,
+    'status_laporan': status,
+    'kategori_laporan': category,
+    'deskripsi': description,
+    'nama_pelapor': reporterName,
+    'desa': village,
+    'rt': rt,
+    'rw': rw,
+    'created_at': createdAt,
+    'tanggal_kunjungan': visitDate,
+    'petugas': officer,
+    'status_kunjungan': visitStatus,
+    'intervensi_fisik': intervention,
+    'kategori_risiko_air': riskCategory,
+    'rekomendasi_sanitarian': recommendation,
+    'alasan_penolakan': rejectionReason,
+  };
+
   factory TicketStatus.fromJson(Map<String, dynamic> json) {
     final schedule = json['jadwal'] as Map<String, dynamic>?;
     final inspection =
@@ -66,8 +88,10 @@ class TicketStatus {
       visitDate:
           schedule?['tanggal_kunjungan'] as String? ??
           json['tanggal_kunjungan'] as String?,
-      officer: schedule?['petugas'] as String?,
-      visitStatus: schedule?['status_kunjungan'] as String?,
+      officer: schedule?['petugas'] as String? ?? json['petugas'] as String?,
+      visitStatus:
+          schedule?['status_kunjungan'] as String? ??
+          json['status_kunjungan'] as String?,
       intervention:
           inspection?['intervensi_fisik'] as String? ??
           schedule?['intervensi_fisik'] as String? ??
