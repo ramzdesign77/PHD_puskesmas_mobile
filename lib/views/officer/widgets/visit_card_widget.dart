@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../models/visit_schedule.dart';
+import '../../../theme/app_theme.dart';
 
 class VisitCardWidget extends StatelessWidget {
   const VisitCardWidget({
@@ -90,11 +91,12 @@ class VisitCardWidget extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
+                  fontFamily: AppTheme.headlineFontFamily,
                   color: AppColors.ink,
                   fontSize: 14,
                   height: 1.25,
                   fontWeight: FontWeight.w800,
-                ),
+                ).asHeading,
               ),
               const SizedBox(height: 7),
               Row(

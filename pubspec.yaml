@@ -14,7 +14,6 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.6.0
   image_picker: ^1.2.3
-  google_fonts: ^9.0.0
   geolocator: ^14.1.1
   shared_preferences: ^2.5.6
   flutter_svg: ^2.0.0
@@ -30,3 +29,13 @@ flutter:
 
   assets:
     - assets/images/logo.jpg
+
+  fonts:
+    - family: Heading Now
+      fonts:
+        - asset: assets/fonts/HeadingNow-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/HeadingNow-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/HeadingNow-Bold.ttf
+          weight: 700

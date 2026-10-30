@@ -4,6 +4,7 @@ import '../../constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/officer_api_service.dart';
+import '../../theme/app_theme.dart';
 import 'auth_components.dart';
 import '../officer/officer_dashboard_view.dart';
 
@@ -109,13 +110,14 @@ class _LoginViewState extends State<LoginView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               'Masuk ke Akun',
-              style: TextStyle(
+              style: const TextStyle(
+                fontFamily: AppTheme.headlineFontFamily,
                 color: AppColors.ink,
                 fontSize: 23,
                 fontWeight: FontWeight.w800,
-              ),
+              ).asHeading,
             ),
             const SizedBox(height: 5),
             const Text(

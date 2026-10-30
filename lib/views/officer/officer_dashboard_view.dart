@@ -7,6 +7,7 @@ import '../../models/officer_dashboard_data.dart';
 import '../../models/visit_schedule.dart';
 import '../../services/api_service.dart';
 import '../../services/officer_api_service.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
 import 'officer_detail_view.dart';
 import 'widgets/visit_card_widget.dart';
@@ -312,14 +313,15 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                               ),
                             ),
                             const SizedBox(height: 10),
-                            const Text(
+                            Text(
                               'KLINIK SANITASI',
-                              style: TextStyle(
+                              style: const TextStyle(
+                                fontFamily: AppTheme.headlineFontFamily,
                                 color: Colors.white,
                                 fontWeight: FontWeight.w800,
                                 fontSize: 20,
                                 letterSpacing: 1.1,
-                              ),
+                              ).asHeading,
                             ),
                             const SizedBox(height: 3),
                             Text(
@@ -362,14 +364,15 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
             padding: const EdgeInsets.fromLTRB(18, 24, 18, 10),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Daftar Tugas & Aduan Terbaru',
-                    style: TextStyle(
+                  style: const TextStyle(
+                      fontFamily: AppTheme.headlineFontFamily,
                       color: AppColors.ink,
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
-                    ),
+                  ).asHeading,
                   ),
                 ),
                 TextButton(
@@ -422,10 +425,11 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
+                    fontFamily: AppTheme.headlineFontFamily,
                     color: AppColors.ink,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
-                  ),
+                  ).asHeading,
                 ),
               ),
               const SizedBox(width: 8),
@@ -884,11 +888,12 @@ class _MetricCard extends StatelessWidget {
           Text(
             '$count',
             style: TextStyle(
+              fontFamily: AppTheme.headlineFontFamily,
               color: color,
               fontSize: 25,
               height: 1.1,
               fontWeight: FontWeight.w800,
-            ),
+            ).asHeading,
           ),
           const SizedBox(height: 3),
           Icon(icon, size: 14, color: color),
@@ -946,10 +951,11 @@ class _PageHeader extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
+                    fontFamily: AppTheme.headlineFontFamily,
                     color: Colors.white,
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
-                  ),
+                  ).asHeading,
                 ),
                 const SizedBox(height: 4),
                 Text(

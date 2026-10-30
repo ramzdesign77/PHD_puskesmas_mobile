@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../models/ticket_status.dart';
 import '../../services/api_service.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
 
 class TrackingView extends StatefulWidget {
@@ -219,8 +220,12 @@ class _TicketCard extends StatelessWidget {
           const SizedBox(height: 7),
           Text(
             ticket.code,
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontFamily: AppTheme.headlineFontFamily,
+              fontWeight: FontWeight.w700,
+              height: 1.25,
+              letterSpacing: -0.16,
+            ),
           ),
           const Divider(height: 24),
           _TicketDetail(

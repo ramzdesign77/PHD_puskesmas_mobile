@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
 import '../../services/api_service.dart';
+import '../../theme/app_theme.dart';
 import 'auth_components.dart';
 
 class RegisterView extends StatefulWidget {
@@ -140,13 +141,14 @@ class _RegisterViewState extends State<RegisterView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               'Buat Akun',
-              style: TextStyle(
+              style: const TextStyle(
+                fontFamily: AppTheme.headlineFontFamily,
                 color: AppColors.ink,
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
-              ),
+              ).asHeading,
             ),
             const SizedBox(height: 5),
             const Text(

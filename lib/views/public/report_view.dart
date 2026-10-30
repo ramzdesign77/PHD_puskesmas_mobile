@@ -3,12 +3,12 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../constants/app_colors.dart';
 import '../../models/village.dart';
 import '../../services/api_service.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
 
 class ReportView extends StatefulWidget {
@@ -138,10 +138,11 @@ class _ReportViewState extends State<ReportView> {
           ),
           title: Text(
             'Laporan Terkirim',
-            style: GoogleFonts.dmSans(
+            style: TextStyle(
+              fontFamily: AppTheme.bodyFontFamily,
               fontWeight: FontWeight.bold,
               fontSize: 19,
-            ),
+            ).asHeading,
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -149,13 +150,13 @@ class _ReportViewState extends State<ReportView> {
               Text(
                 'Terima kasih telah menyampaikan masalah air atau sanitasi di lingkungan Anda.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.dmSans(color: AppColors.muted, fontSize: 14),
+                style: TextStyle(fontFamily: AppTheme.bodyFontFamily,color: AppColors.muted, fontSize: 14),
               ),
               const SizedBox(height: 12),
               Text(
                 'Kode tiket: $ticketCode',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.dmSans(
+                style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                   color: AppColors.primary,
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
@@ -165,7 +166,7 @@ class _ReportViewState extends State<ReportView> {
               Text(
                 'Simpan kode ini untuk melacak status laporan.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.dmSans(color: AppColors.muted, fontSize: 12),
+                style: TextStyle(fontFamily: AppTheme.bodyFontFamily,color: AppColors.muted, fontSize: 12),
               ),
             ],
           ),
@@ -235,7 +236,7 @@ class _ReportViewState extends State<ReportView> {
   }) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: GoogleFonts.dmSans(
+      hintStyle: TextStyle(fontFamily: AppTheme.bodyFontFamily,
         color: AppColors.muted,
         fontSize: 14,
         fontWeight: FontWeight.w400,
@@ -285,11 +286,12 @@ class _ReportViewState extends State<ReportView> {
         const SizedBox(width: 12),
         Text(
           title,
-          style: GoogleFonts.dmSans(
+          style: TextStyle(
+            fontFamily: AppTheme.bodyFontFamily,
             fontSize: 16,
             fontWeight: FontWeight.w700,
             color: AppColors.primary,
-          ),
+          ).asHeading,
         ),
       ],
     );
@@ -300,7 +302,7 @@ class _ReportViewState extends State<ReportView> {
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         label,
-        style: GoogleFonts.dmSans(
+        style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
           fontSize: 13,
           fontWeight: FontWeight.w600,
           color: const Color(0xFF374151),
@@ -363,17 +365,17 @@ class _ReportViewState extends State<ReportView> {
                         const SizedBox(height: 14),
                         Text(
                           'Buat Laporan',
-                          style: GoogleFonts.dmSans(
+                          style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                             fontSize: 26,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
                             letterSpacing: -0.3,
-                          ),
+                          ).asHeading,
                         ),
                         const SizedBox(height: 6),
                         Text(
                           'Sampaikan masalah air atau sanitasi\ndi lingkungan Anda.',
-                          style: GoogleFonts.dmSans(
+                          style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                             fontSize: 14,
                             color: Colors.white.withValues(alpha: 0.88),
                             height: 1.35,
@@ -418,7 +420,7 @@ class _ReportViewState extends State<ReportView> {
                               controller: _name,
                               validator: _required,
                               textCapitalization: TextCapitalization.words,
-                              style: GoogleFonts.dmSans(
+                              style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                 fontSize: 14,
                                 color: AppColors.ink,
                               ),
@@ -444,7 +446,7 @@ class _ReportViewState extends State<ReportView> {
                                     ? null
                                     : 'NIK harus terdiri dari 16 angka.';
                               },
-                              style: GoogleFonts.dmSans(
+                              style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                 fontSize: 14,
                                 color: AppColors.ink,
                               ),
@@ -461,7 +463,7 @@ class _ReportViewState extends State<ReportView> {
                             TextFormField(
                               controller: _phone,
                               keyboardType: TextInputType.phone,
-                              style: GoogleFonts.dmSans(
+                              style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                 fontSize: 14,
                                 color: AppColors.ink,
                               ),
@@ -503,7 +505,7 @@ class _ReportViewState extends State<ReportView> {
                                     Icons.keyboard_arrow_down,
                                     color: AppColors.muted,
                                   ),
-                                  style: GoogleFonts.dmSans(
+                                  style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                     fontSize: 14,
                                     color: AppColors.ink,
                                   ),
@@ -520,7 +522,7 @@ class _ReportViewState extends State<ReportView> {
                                       value: village,
                                       child: Text(
                                         village.name,
-                                        style: GoogleFonts.dmSans(
+                                        style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                           fontSize: 14,
                                           color: AppColors.ink,
                                         ),
@@ -535,7 +537,7 @@ class _ReportViewState extends State<ReportView> {
                                       : null,
                                   hint: Text(
                                     'Pilih desa',
-                                    style: GoogleFonts.dmSans(
+                                    style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                       color: AppColors.muted,
                                       fontSize: 14,
                                     ),
@@ -553,7 +555,7 @@ class _ReportViewState extends State<ReportView> {
                                       Icons.keyboard_arrow_down,
                                       color: AppColors.muted,
                                     ),
-                                    style: GoogleFonts.dmSans(
+                                    style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                       fontSize: 14,
                                       color: AppColors.ink,
                                     ),
@@ -567,7 +569,7 @@ class _ReportViewState extends State<ReportView> {
                                     ),
                                     hint: Text(
                                       'RT',
-                                      style: GoogleFonts.dmSans(
+                                      style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                         color: AppColors.muted,
                                         fontSize: 14,
                                       ),
@@ -581,7 +583,7 @@ class _ReportViewState extends State<ReportView> {
                                         value: numStr,
                                         child: Text(
                                           'RT $numStr',
-                                          style: GoogleFonts.dmSans(
+                                          style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                             fontSize: 14,
                                             color: AppColors.ink,
                                           ),
@@ -604,7 +606,7 @@ class _ReportViewState extends State<ReportView> {
                                       Icons.keyboard_arrow_down,
                                       color: AppColors.muted,
                                     ),
-                                    style: GoogleFonts.dmSans(
+                                    style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                       fontSize: 14,
                                       color: AppColors.ink,
                                     ),
@@ -618,7 +620,7 @@ class _ReportViewState extends State<ReportView> {
                                     ),
                                     hint: Text(
                                       'RW',
-                                      style: GoogleFonts.dmSans(
+                                      style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                         color: AppColors.muted,
                                         fontSize: 14,
                                       ),
@@ -632,7 +634,7 @@ class _ReportViewState extends State<ReportView> {
                                         value: numStr,
                                         child: Text(
                                           'RW $numStr',
-                                          style: GoogleFonts.dmSans(
+                                          style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                             fontSize: 14,
                                             color: AppColors.ink,
                                           ),
@@ -666,7 +668,7 @@ class _ReportViewState extends State<ReportView> {
                                 Icons.keyboard_arrow_down,
                                 color: AppColors.muted,
                               ),
-                              style: GoogleFonts.dmSans(
+                              style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                 fontSize: 14,
                                 color: AppColors.ink,
                               ),
@@ -708,7 +710,7 @@ class _ReportViewState extends State<ReportView> {
                                     maxLength,
                                   }) => null,
                                   onChanged: (_) => setState(() {}),
-                                  style: GoogleFonts.dmSans(
+                                  style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                     fontSize: 14,
                                     color: AppColors.ink,
                                   ),
@@ -743,7 +745,7 @@ class _ReportViewState extends State<ReportView> {
                                   bottom: 8,
                                   child: Text(
                                     '${_description.text.length}/2000',
-                                    style: GoogleFonts.dmSans(
+                                    style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                       color: AppColors.muted,
                                       fontSize: 11,
                                     ),
@@ -783,7 +785,7 @@ class _ReportViewState extends State<ReportView> {
                                           _image == null
                                               ? 'Pilih foto bukti (opsional)'
                                               : 'Foto: ${_image!.name}',
-                                          style: GoogleFonts.dmSans(
+                                          style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                             color: _image == null
                                                 ? AppColors.muted
                                                 : AppColors.ink,
@@ -867,7 +869,7 @@ class _ReportViewState extends State<ReportView> {
                                           const SizedBox(width: 8),
                                           Text(
                                             'Kirim Laporan',
-                                            style: GoogleFonts.dmSans(
+                                            style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700,
                                               color: Colors.white,
@@ -917,7 +919,7 @@ class _RetryVillage extends StatelessWidget {
           icon: const Icon(Icons.refresh, color: AppColors.primary),
           label: Text(
             'Muat ulang',
-            style: GoogleFonts.dmSans(color: AppColors.primary),
+            style: TextStyle(fontFamily: AppTheme.bodyFontFamily,color: AppColors.primary),
           ),
         ),
       ),

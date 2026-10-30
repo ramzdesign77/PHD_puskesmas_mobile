@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../constants/app_colors.dart';
 import '../../models/visit_schedule.dart';
 import '../../services/officer_api_service.dart';
+import '../../theme/app_theme.dart';
 
 class OfficerDetailView extends StatefulWidget {
   const OfficerDetailView({
@@ -216,7 +217,11 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
           schedule.ticketCode.isEmpty
               ? 'Form Inspeksi IKL'
               : schedule.ticketCode,
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+          style: const TextStyle(
+            fontFamily: AppTheme.headlineFontFamily,
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+          ).asHeading,
         ),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.ink,
@@ -609,10 +614,11 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
         Text(
           title,
           style: const TextStyle(
+            fontFamily: AppTheme.headlineFontFamily,
             color: AppColors.ink,
             fontSize: 15,
             fontWeight: FontWeight.w800,
-          ),
+          ).asHeading,
         ),
       ],
     );

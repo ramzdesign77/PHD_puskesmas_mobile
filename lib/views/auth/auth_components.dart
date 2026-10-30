@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../constants/app_colors.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
 
 const authSoftBackground = AppColors.canvas;
@@ -14,13 +14,35 @@ class AuthPageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseTheme = Theme.of(context);
-    final jakartaFontFamily = GoogleFonts.plusJakartaSans().fontFamily;
+    final headingNowTheme = baseTheme.textTheme.apply(
+      fontFamily: AppTheme.bodyFontFamily,
+    );
+    final textTheme = headingNowTheme.copyWith(
+      displayLarge: headingNowTheme.displayLarge?.copyWith(
+        fontFamily: AppTheme.headlineFontFamily,
+      ),
+      displayMedium: headingNowTheme.displayMedium?.copyWith(
+        fontFamily: AppTheme.headlineFontFamily,
+      ),
+      headlineLarge: headingNowTheme.headlineLarge?.copyWith(
+        fontFamily: AppTheme.headlineFontFamily,
+      ),
+      headlineMedium: headingNowTheme.headlineMedium?.copyWith(
+        fontFamily: AppTheme.headlineFontFamily,
+      ),
+      headlineSmall: headingNowTheme.headlineSmall?.copyWith(
+        fontFamily: AppTheme.headlineFontFamily,
+      ),
+      titleLarge: headingNowTheme.titleLarge?.copyWith(
+        fontFamily: AppTheme.headlineFontFamily,
+      ),
+    );
 
     return Theme(
       data: baseTheme.copyWith(
-        textTheme: baseTheme.textTheme.apply(fontFamily: jakartaFontFamily),
+        textTheme: textTheme,
         primaryTextTheme: baseTheme.primaryTextTheme.apply(
-          fontFamily: jakartaFontFamily,
+          fontFamily: AppTheme.bodyFontFamily,
         ),
       ),
       child: Scaffold(
@@ -126,10 +148,11 @@ class AuthBrandHeader extends StatelessWidget {
                     'E-Klinik Sanitasi Air',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
+                      fontFamily: AppTheme.headlineFontFamily,
                       color: Colors.white,
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
-                    ),
+                    ).asHeading,
                   ),
                   const SizedBox(height: 3),
                   Text(

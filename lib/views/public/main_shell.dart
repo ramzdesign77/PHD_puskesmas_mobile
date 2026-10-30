@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
 import '../../services/api_service.dart';
+import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/ocean_widgets.dart';
 import 'home_view.dart';
@@ -259,9 +260,10 @@ class _ProfileTab extends StatelessWidget {
                             Text(
                               user.userName.isEmpty ? 'Warga' : user.userName,
                               style: const TextStyle(
+                                fontFamily: AppTheme.headlineFontFamily,
                                 color: AppColors.ink,
                                 fontWeight: FontWeight.w600,
-                              ),
+                              ).asHeading,
                             ),
                             const SizedBox(height: 16),
                             const Text(
