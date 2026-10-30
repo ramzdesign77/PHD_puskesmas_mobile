@@ -22,7 +22,8 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  int _selectedIndex = 0;
+  int _currentIndex = 0;
+  String? _activeTrackingTicketCode;
   late Future<AuthSession?> _session;
   late final AuthService _authService = widget.authService ?? AuthService();
   bool _isLoggingOut = false;
@@ -33,7 +34,14 @@ class _MainShellState extends State<MainShell> {
     _session = widget.apiService.loadSavedSession();
   }
 
-  void _selectTab(int index) => setState(() => _selectedIndex = index);
+  void _selectTab(int index) => setState(() => _currentIndex = index);
+
+  void _handleReportSubmitted(String ticketCode) {
+    setState(() {
+      _activeTrackingTicketCode = ticketCode;
+      _currentIndex = 2;
+    });
+  }
 
   Future<void> _logout() async {
     final confirmed = await showDialog<bool>(
@@ -95,8 +103,14 @@ class _MainShellState extends State<MainShell> {
           );
         },
       ),
-      ReportView(apiService: widget.apiService),
-      TrackingView(apiService: widget.apiService),
+      ReportView(
+        apiService: widget.apiService,
+        onReportSubmitted: _handleReportSubmitted,
+      ),
+      TrackingView(
+        apiService: widget.apiService,
+        initialTicketCode: _activeTrackingTicketCode,
+      ),
       _ProfileTab(
         session: _session,
         onLogout: _logout,
@@ -105,7 +119,7 @@ class _MainShellState extends State<MainShell> {
     ];
 
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: screens),
+      body: IndexedStack(index: _currentIndex, children: screens),
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
           labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>(
@@ -121,7 +135,7 @@ class _MainShellState extends State<MainShell> {
           ),
         ),
         child: NavigationBar(
-          selectedIndex: _selectedIndex,
+          selectedIndex: _currentIndex,
           onDestinationSelected: _selectTab,
           backgroundColor: Colors.white,
           indicatorColor: AppColors.softRed,

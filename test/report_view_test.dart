@@ -38,7 +38,7 @@ void main() {
     // Verify Section 1: Data Pelapor
     expect(find.text('Data Pelapor'), findsOneWidget);
     expect(find.text('Nama lengkap'), findsOneWidget);
-    expect(find.text('NIK'), findsOneWidget);
+    expect(find.text('NIK'), findsNothing);
     expect(find.text('Nomor telepon'), findsOneWidget);
 
     // Verify Section 2: Lokasi Kejadian

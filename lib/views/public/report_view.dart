@@ -10,9 +10,14 @@ import '../../models/village.dart';
 import '../../services/api_service.dart';
 
 class ReportView extends StatefulWidget {
-  const ReportView({super.key, required this.apiService});
+  const ReportView({
+    super.key,
+    required this.apiService,
+    this.onReportSubmitted,
+  });
 
   final ApiService apiService;
+  final ValueChanged<String>? onReportSubmitted;
 
   @override
   State<ReportView> createState() => _ReportViewState();
@@ -21,7 +26,6 @@ class ReportView extends StatefulWidget {
 class _ReportViewState extends State<ReportView> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
-  final _nik = TextEditingController();
   final _phone = TextEditingController();
   final _description = TextEditingController();
   final _imagePicker = ImagePicker();
@@ -44,7 +48,6 @@ class _ReportViewState extends State<ReportView> {
   @override
   void dispose() {
     _name.dispose();
-    _nik.dispose();
     _phone.dispose();
     _description.dispose();
     super.dispose();
@@ -111,7 +114,6 @@ class _ReportViewState extends State<ReportView> {
       final position = await _currentPosition();
       final ticketCode = await widget.apiService.submitReport({
         'nama_pelapor': _name.text.trim(),
-        'nik_pelapor': _nik.text.trim(),
         'no_wa': _phone.text.trim(),
         'id_desa': _selectedVillage!.id.toString(),
         'rt': _selectedRt ?? '',
@@ -123,74 +125,20 @@ class _ReportViewState extends State<ReportView> {
       }, imageFile: _image);
 
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+      final onReportSubmitted = widget.onReportSubmitted;
+      if (onReportSubmitted != null) {
+        onReportSubmitted(ticketCode);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Laporan terkirim. Kode tiket: $ticketCode'),
+            behavior: SnackBarBehavior.floating,
           ),
-          icon: const Icon(
-            Icons.check_circle_outline,
-            color: AppColors.green,
-            size: 48,
-          ),
-          title: Text(
-            'Laporan Terkirim',
-            style: GoogleFonts.dmSans(
-              fontWeight: FontWeight.bold,
-              fontSize: 19,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Terima kasih telah menyampaikan masalah air atau sanitasi di lingkungan Anda.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.dmSans(color: AppColors.muted, fontSize: 14),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Kode tiket: $ticketCode',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.dmSans(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Simpan kode ini untuk melacak status laporan.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.dmSans(color: AppColors.muted, fontSize: 12),
-              ),
-            ],
-          ),
-          actions: [
-            Center(
-              child: SizedBox(
-                width: 140,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('Selesai'),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
+        );
+      }
 
       _formKey.currentState!.reset();
       _name.clear();
-      _nik.clear();
       _phone.clear();
       _description.clear();
       setState(() {
@@ -447,32 +395,6 @@ class _ReportViewState extends State<ReportView> {
                                 hintText: 'Nama lengkap',
                                 prefixIcon: const Icon(
                                   Icons.person_outline,
-                                  color: AppColors.muted,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              controller: _nik,
-                              keyboardType: TextInputType.number,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return null;
-                                }
-                                return RegExp(r'^\d{16}$')
-                                        .hasMatch(value.trim())
-                                    ? null
-                                    : 'NIK harus terdiri dari 16 angka.';
-                              },
-                              style: GoogleFonts.dmSans(
-                                fontSize: 14,
-                                color: AppColors.ink,
-                              ),
-                              decoration: _fieldDecoration(
-                                hintText: 'NIK',
-                                prefixIcon: const Icon(
-                                  Icons.badge_outlined,
                                   color: AppColors.muted,
                                   size: 20,
                                 ),

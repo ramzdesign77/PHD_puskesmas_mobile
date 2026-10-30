@@ -216,6 +216,7 @@ class ApiService {
       ..headers['Accept'] = 'application/json'
       ..fields.addAll({
         for (final entry in reportData.entries)
+          if (entry.key != 'nik' && entry.key != 'nik_pelapor')
           entry.key: entry.value?.toString() ?? '',
       });
 
