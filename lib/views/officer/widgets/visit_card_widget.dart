@@ -22,13 +22,14 @@ class VisitCardWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pending = _isPending(schedule.status);
+    final normalizedStatus = schedule.status.toLowerCase();
     final badgeColor = isInspection
-        ? AppColors.orange
+        ? AppColors.accent
         : pending
-        ? const Color(0xFFE53935)
-        : schedule.status.toLowerCase() == 'selesai'
+        ? AppColors.amber
+        : normalizedStatus == 'selesai'
         ? AppColors.green
-        : AppColors.amber;
+        : AppColors.primary;
     final badgeLabel = isInspection
         ? 'JADWAL IKL HARI INI'
         : pending
@@ -39,19 +40,24 @@ class VisitCardWidget extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: AppColors.line.withValues(alpha: 0.8)),
-        borderRadius: BorderRadius.circular(16),
+        border: Border(
+          left: BorderSide(color: badgeColor, width: 4),
+          top: BorderSide(color: AppColors.line.withValues(alpha: 0.8)),
+          right: BorderSide(color: AppColors.line.withValues(alpha: 0.8)),
+          bottom: BorderSide(color: AppColors.line.withValues(alpha: 0.8)),
+        ),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.045),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
+            color: AppColors.primary.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(

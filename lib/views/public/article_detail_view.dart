@@ -43,7 +43,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
         widget.article.imageUrl != null && widget.article.imageUrl!.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
+      backgroundColor: AppColors.canvas,
       body: CustomScrollView(
         controller: _scrollController,
         physics: const BouncingScrollPhysics(),
@@ -63,15 +63,6 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                 onTap: () => Navigator.pop(context),
               ),
             ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: _GlassButton(
-                  icon: Icons.bookmark_border_rounded,
-                  onTap: () {},
-                ),
-              ),
-            ],
             flexibleSpace: FlexibleSpaceBar(
               stretchModes: const [
                 StretchMode.zoomBackground,
@@ -139,7 +130,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                     topRight: Radius.circular(32),
                   ),
                 ),
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 100),
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -184,19 +175,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                             ),
                           ),
                           const Spacer(),
-                          const Icon(
-                            Icons.access_time_rounded,
-                            size: 16,
-                            color: AppColors.muted,
-                          ),
                           const SizedBox(width: 4),
-                          Text(
-                            '4 mnt baca',
-                            style: GoogleFonts.dmSans(
-                              fontSize: 12,
-                              color: AppColors.muted,
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -223,7 +202,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                         children: [
                           const CircleAvatar(
                             radius: 20,
-                            backgroundColor: Color(0xFFF1E9E7),
+                            backgroundColor: AppColors.softRed,
                             child: Icon(
                               Icons.health_and_safety,
                               color: AppColors.primary,
@@ -285,60 +264,6 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
             ),
           ),
         ],
-      ),
-
-      // Floating Bottom Bar
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: _AnimatedEntry(
-        delay: 800,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 24),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppColors.ink,
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.ink.withValues(alpha: 0.3),
-                blurRadius: 15,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.thumb_up_alt_outlined,
-                color: Colors.white,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Bermanfaat',
-                style: GoogleFonts.dmSans(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                height: 20,
-                width: 1,
-                color: Colors.white30,
-              ),
-              const Icon(Icons.share_outlined, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Bagikan',
-                style: GoogleFonts.dmSans(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

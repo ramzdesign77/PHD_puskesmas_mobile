@@ -154,7 +154,7 @@ class _LoginViewState extends State<LoginView> {
               },
             ),
             const SizedBox(height: 21),
-            const Divider(color: Color(0xFFF1E9E7), height: 1),
+            const Divider(color: AppColors.line, height: 1),
             const SizedBox(height: 17),
             const AuthSecurityNote(),
             const SizedBox(height: 13),

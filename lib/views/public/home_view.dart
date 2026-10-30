@@ -1,10 +1,19 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../constants/app_colors.dart';
 import '../../models/education_article.dart';
 import '../../services/api_service.dart';
+import '../../widgets/ocean_widgets.dart';
 import 'article_detail_view.dart';
+
+const _oceanBlue = AppColors.primary;
+const _deepOceanBlue = AppColors.primaryDark;
+const _aquaBlue = AppColors.primaryLight;
+const _paleBlue = AppColors.softBlue;
+const _offWhiteBlue = Color(0xFFF4F9F9);
 
 class HomeView extends StatefulWidget {
   const HomeView({
@@ -37,7 +46,7 @@ class _HomeViewState extends State<HomeView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _offWhiteBlue,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -48,12 +57,21 @@ class _HomeViewState extends State<HomeView> {
                 children: [
                   _buildHeaderAndGreeting(),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                    padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        Text(
+                          'Layanan',
+                          style: GoogleFonts.dmSans(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
                         _buildQuickActions(),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 30),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -68,7 +86,7 @@ class _HomeViewState extends State<HomeView> {
                             TextButton(
                               onPressed: _showAllArticles,
                               style: TextButton.styleFrom(
-                                foregroundColor: AppColors.primary,
+                                foregroundColor: _oceanBlue,
                               ),
                               child: const Text('Lihat Semua'),
                             ),
@@ -86,11 +104,7 @@ class _HomeViewState extends State<HomeView> {
                                   ConnectionState.waiting) {
                                 return const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 40),
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
+                                  child: Center(child: WaterLoadingIndicator()),
                                 );
                               }
 
@@ -130,7 +144,10 @@ class _HomeViewState extends State<HomeView> {
                                         bottom: 12,
                                       ),
                                       child: _ArticleTile(
-                                        article: article,
+                                        imageUrl: article.imageUrl,
+                                        category: article.category,
+                                        title: article.title,
+                                        subtitle: article.excerpt,
                                         onTap: () => Navigator.of(context).push(
                                           MaterialPageRoute<void>(
                                             builder: (_) => ArticleDetailView(
@@ -170,112 +187,210 @@ class _HomeViewState extends State<HomeView> {
 
   Widget _buildHeaderAndGreeting() {
     return SizedBox(
-      height: 420,
+      height: 430,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
-            height: 278,
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: DynamicWaterHeader(
+              height: 356,
+              child: const SizedBox.expand(),
             ),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 20),
-              child: Column(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      'assets/images/logo.jpg',
-                      width: 58,
-                      height: 58,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const CircleAvatar(
-                        backgroundColor: Colors.white,
-                        radius: 29,
-                        child: Icon(
-                          Icons.health_and_safety,
-                          color: AppColors.primary,
-                          size: 34,
+          ),
+          Positioned(
+            top: 32,
+            left: 24,
+            right: 24,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Selamat Datang,',
+                  style: GoogleFonts.dmSans(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  widget.greetingName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.dmSans(
+                    color: Colors.white,
+                    fontSize: 29,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'KLINIK SANITASI',
+                  style: GoogleFonts.dmSans(
+                    color: Colors.white.withValues(alpha: 0.84),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 126,
+            left: 20,
+            right: 20,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Material(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  child: InkWell(
+                    onTap: widget.onOpenTracking,
+                    splashColor: Colors.white.withValues(alpha: 0.18),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.48),
                         ),
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.88),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.receipt_long_rounded,
+                              color: _oceanBlue,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 11),
+                          Expanded(
+                            child: Text(
+                              'Pantau status laporan sanitasi Anda',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.dmSans(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: Colors.white,
+                            size: 21,
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'KLINIK SANITASI',
-                    style: GoogleFonts.dmSans(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    'PUSKESMAS SUMBERSARI',
-                    style: GoogleFonts.dmSans(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      fontSize: 11,
-                      letterSpacing: 0.4,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
           Positioned(
-            top: 164,
+            top: 196,
             left: 20,
             right: 20,
             child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 22),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
+                    color: _oceanBlue.withValues(alpha: 0.17),
+                    blurRadius: 28,
+                    offset: const Offset(0, 12),
                   ),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Halo, ${widget.greetingName}',
-                    style: GoogleFonts.dmSans(
-                      color: AppColors.ink,
-                      fontSize: 23,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Desa Sumbersari - RT 02 / RW 04',
-                    style: GoogleFonts.dmSans(
-                      color: AppColors.muted,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 56),
-                  FilledButton.icon(
-                    onPressed: widget.onOpenReports,
-                    icon: const Icon(Icons.add, size: 22),
-                    label: const Text('Buat Laporan Baru'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 13,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
-                      shape: const StadiumBorder(),
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          right: -8,
+                          top: 8,
+                          child: Icon(
+                            Icons.water_drop_rounded,
+                            color: _aquaBlue.withValues(alpha: 0.1),
+                            size: 76,
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Buat Laporan Sanitasi Baru',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.dmSans(
+                                color: AppColors.ink,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                height: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 7),
+                            Text(
+                              'Sampaikan masalah sanitasi di lingkungan Anda.',
+                              style: GoogleFonts.dmSans(
+                                color: AppColors.muted,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: FilledButton.icon(
+                                onPressed: widget.onOpenReports,
+                                icon: const Icon(Icons.add_rounded, size: 19),
+                                label: const Text('Buat Laporan'),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: _deepOceanBlue,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 18,
+                                    vertical: 12,
+                                  ),
+                                  shape: const StadiumBorder(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -287,18 +402,18 @@ class _HomeViewState extends State<HomeView> {
   Widget _buildQuickActions() {
     final items = [
       (
-        icon: Icons.filter_alt_outlined,
-        label: 'Lapor\nPengaduan',
+        icon: Icons.add_location_alt_outlined,
+        label: 'Lapor Pengaduan',
         onTap: widget.onOpenReports,
       ),
       (
-        icon: Icons.description_outlined,
-        label: 'Status\nLaporan',
+        icon: Icons.assignment_outlined,
+        label: 'Laporan Saya',
         onTap: widget.onOpenTracking,
       ),
       (
         icon: Icons.menu_book_outlined,
-        label: 'Edukasi &\nSTBM',
+        label: 'Artikel STBM',
         onTap: _showAllArticles,
       ),
     ];
@@ -308,34 +423,58 @@ class _HomeViewState extends State<HomeView> {
       children: [
         for (final item in items)
           Expanded(
-            child: InkWell(
-              onTap: item.onTap,
-              borderRadius: BorderRadius.circular(18),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 42,
-                      backgroundColor: AppColors.softRed,
-                      child: Icon(
-                        item.icon,
-                        color: AppColors.primary,
-                        size: 36,
-                      ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: item.onTap,
+                  borderRadius: BorderRadius.circular(16),
+                  splashColor: _aquaBlue.withValues(alpha: 0.18),
+                  highlightColor: _aquaBlue.withValues(alpha: 0.08),
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 116),
+                    padding: const EdgeInsets.fromLTRB(10, 14, 10, 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _oceanBlue.withValues(alpha: 0.08),
+                          blurRadius: 16,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 9),
-                    Text(
-                      item.label,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.dmSans(
-                        color: AppColors.ink,
-                        fontSize: 13,
-                        height: 1.25,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: _paleBlue,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(item.icon, color: _oceanBlue, size: 22),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          item.label,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.dmSans(
+                            color: AppColors.ink,
+                            fontSize: 12,
+                            height: 1.2,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -365,7 +504,7 @@ class _AnnouncementCard extends StatelessWidget {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryDark],
+          colors: [_deepOceanBlue, _oceanBlue, _aquaBlue],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -428,56 +567,72 @@ class _AnnouncementCard extends StatelessWidget {
 // Card Artikel Edukasi
 // ===========================================================
 class _ArticleTile extends StatelessWidget {
-  const _ArticleTile({required this.article, required this.onTap});
+  const _ArticleTile({
+    required this.imageUrl,
+    required this.category,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
 
-  final EducationArticle article;
+  final String? imageUrl;
+  final String category;
+  final String title;
+  final String subtitle;
   final VoidCallback onTap;
 
   Widget _imageFallback() {
     return const ColoredBox(
-      color: Color(0xFFF1E9E7),
+      color: _paleBlue,
       child: Center(
-        child: Icon(
-          Icons.water_drop_outlined,
-          color: AppColors.primary,
-          size: 31,
-        ),
+        child: Icon(Icons.water_drop_outlined, color: _oceanBlue, size: 42),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = article.imageUrl;
+    const borderRadius = BorderRadius.all(Radius.circular(24));
 
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  width: 82,
-                  height: 82,
-                  child: imageUrl == null || imageUrl.isEmpty
-                      ? _imageFallback()
-                      : Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (_, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Center(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: borderRadius,
+        boxShadow: [
+          BoxShadow(
+            color: _oceanBlue.withValues(alpha: 0.12),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: borderRadius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 196,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                imageUrl == null || imageUrl!.isEmpty
+                    ? _imageFallback()
+                    : Image.network(
+                        imageUrl!,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (_, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return ColoredBox(
+                            color: _paleBlue,
+                            child: Center(
                               child: SizedBox(
-                                width: 20,
-                                height: 20,
+                                width: 24,
+                                height: 24,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
+                                  color: _oceanBlue,
                                   value:
                                       loadingProgress.expectedTotalBytes != null
                                       ? loadingProgress.cumulativeBytesLoaded /
@@ -487,56 +642,101 @@ class _ArticleTile extends StatelessWidget {
                                       : null,
                                 ),
                               ),
-                            );
-                          },
-                          errorBuilder: (_, _, _) => _imageFallback(),
-                        ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (_, _, _) => _imageFallback(),
+                      ),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0x0000213A),
+                        Color(0x3300213A),
+                        Color(0xE600213A),
+                      ],
+                      stops: [0, 0.42, 1],
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      article.category.toUpperCase(),
+                Positioned(
+                  top: 14,
+                  left: 14,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _paleBlue.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      category,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.dmSans(
-                        color: AppColors.primary,
+                        color: _deepOceanBlue,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      article.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.dmSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      article.excerpt,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.dmSans(
-                        fontSize: 12,
-                        color: AppColors.muted,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right, color: AppColors.muted),
-            ],
+                Positioned(
+                  left: 18,
+                  right: 18,
+                  bottom: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          height: 1.15,
+                          shadows: const [
+                            Shadow(
+                              color: Color(0x55000000),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.menu_book_outlined,
+                            size: 14,
+                            color: Color(0xFFD8F3FF),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.dmSans(
+                                fontSize: 11,
+                                color: const Color(0xFFEAF8FF),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -552,14 +752,10 @@ class _EmptyArticles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 34),
-      child: Center(
-        child: Text(
-          'Belum ada artikel edukasi.',
-          style: TextStyle(color: AppColors.muted),
-        ),
-      ),
+    return const WaterEmptyState(
+      icon: Icons.menu_book_outlined,
+      title: 'Belum ada artikel edukasi',
+      message: 'Artikel sanitasi terbaru akan tampil di sini.',
     );
   }
 }
@@ -590,7 +786,7 @@ class _LoadError extends StatelessWidget {
             icon: const Icon(Icons.refresh),
             label: const Text('Coba Lagi'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: _oceanBlue,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),

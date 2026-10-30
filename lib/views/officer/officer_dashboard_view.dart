@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
@@ -5,6 +7,7 @@ import '../../models/officer_dashboard_data.dart';
 import '../../models/visit_schedule.dart';
 import '../../services/api_service.dart';
 import '../../services/officer_api_service.dart';
+import '../../widgets/ocean_widgets.dart';
 import 'officer_detail_view.dart';
 import 'widgets/visit_card_widget.dart';
 
@@ -223,35 +226,40 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
         bottom: false,
         child: IndexedStack(index: _selectedTab, children: pages),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedTab,
-        onDestinationSelected: _selectTab,
-        backgroundColor: const Color(0xFFFDF2F2),
-        indicatorColor: const Color(0xFFFADBD8),
-        height: 72,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Beranda',
+      bottomNavigationBar: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: NavigationBar(
+            selectedIndex: _selectedTab,
+            onDestinationSelected: _selectTab,
+            backgroundColor: Colors.white.withValues(alpha: 0.86),
+            indicatorColor: AppColors.softRed,
+            height: 72,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home_rounded),
+                label: 'Beranda',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.fact_check_outlined),
+                selectedIcon: Icon(Icons.fact_check_rounded),
+                label: 'Tugas Aduan',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.note_add_outlined),
+                selectedIcon: Icon(Icons.note_add_rounded),
+                label: 'Input IKL',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline_rounded),
+                selectedIcon: Icon(Icons.person_rounded),
+                label: 'Profil',
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.fact_check_outlined),
-            selectedIcon: Icon(Icons.fact_check_rounded),
-            label: 'Tugas Aduan',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.note_add_outlined),
-            selectedIcon: Icon(Icons.note_add_rounded),
-            label: 'Input IKL',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: 'Profil',
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -273,71 +281,60 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                   left: 0,
                   right: 0,
                   height: 306,
-                  child: ClipPath(
+                  child: DynamicWaterHeader(
                     key: const Key('officer_header_background'),
-                    clipper: _HeaderCurveClipper(),
-                    child: Container(
-                      width: double.infinity,
-                      height: 306,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF8B1515), Color(0xFFB71C1C)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: SafeArea(
-                        bottom: false,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 14),
-                          child: Column(
-                            children: [
-                              Container(
-                                height: 72,
-                                width: 72,
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(11),
-                                  child: Image.asset(
-                                    'assets/images/logo.jpg',
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (_, _, _) => const Icon(
-                                      Icons.health_and_safety_outlined,
-                                      color: AppColors.primary,
-                                      size: 44,
-                                    ),
+                    height: 306,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 14),
+                        child: Column(
+                          children: [
+                            Container(
+                              height: 72,
+                              width: 72,
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(11),
+                                child: Image.asset(
+                                  'assets/images/logo.jpg',
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, _, _) => const Icon(
+                                    Icons.health_and_safety_outlined,
+                                    color: AppColors.primary,
+                                    size: 44,
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 10),
-                              const Text(
-                                'KLINIK SANITASI',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 20,
-                                  letterSpacing: 1.1,
-                                ),
+                            ),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'KLINIK SANITASI',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 20,
+                                letterSpacing: 1.1,
                               ),
-                              const SizedBox(height: 3),
-                              Text(
-                                _dashboard?.profile.healthCenter.isNotEmpty ==
-                                        true
-                                    ? _dashboard!.profile.healthCenter
-                                    : 'PUSKESMAS SUMBERSARI',
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.8,
-                                ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _dashboard?.profile.healthCenter.isNotEmpty ==
+                                      true
+                                  ? _dashboard!.profile.healthCenter
+                                  : 'PUSKESMAS SUMBERSARI',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.8,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -477,7 +474,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                       child: _MetricCard(
                         count: _todayInspectionCount,
                         label: 'Jadwal IKL',
-                        color: AppColors.orange,
+                        color: AppColors.accent,
                         icon: Icons.assignment_outlined,
                       ),
                     ),
@@ -490,7 +487,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                 child: Container(
                   height: 92,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF5F2),
+                    color: AppColors.softBlue,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Stack(
@@ -498,7 +495,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                     children: [
                       Icon(
                         Icons.water_drop_rounded,
-                        color: Color(0xFFF8D7DA),
+                        color: Color(0x3029B6F6),
                         size: 68,
                       ),
                       Icon(
@@ -559,7 +556,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                           height: 62,
                           width: 62,
                           decoration: const BoxDecoration(
-                            color: Color(0xFFF8D7DA),
+                            color: AppColors.softBlue,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -594,20 +591,16 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
     if (_isLoading) {
       return const SizedBox(
         height: 155,
-        child: Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
+        child: Center(child: WaterLoadingIndicator()),
       );
     }
     if (_errorMessage != null) return _buildError(_errorMessage!);
     final tasks = _recentTasks;
     if (tasks.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.fromLTRB(18, 12, 18, 18),
-        child: Text(
-          'Belum ada tugas lapangan untuk ditampilkan.',
-          style: TextStyle(color: AppColors.muted, fontSize: 13),
-        ),
+      return const WaterEmptyState(
+        icon: Icons.assignment_outlined,
+        title: 'Belum ada tugas lapangan',
+        message: 'Tugas terbaru akan muncul di sini.',
       );
     }
     return SizedBox(
@@ -671,23 +664,16 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
           onRefresh: _loadData,
         ),
         if (_isLoading)
-          const Expanded(
-            child: Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            ),
-          )
+          const Expanded(child: Center(child: WaterLoadingIndicator()))
         else if (_errorMessage != null)
           Expanded(child: Center(child: _buildError(_errorMessage!)))
         else if (tasks.isEmpty)
           Expanded(
             child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  emptyMessage,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.muted),
-                ),
+              child: WaterEmptyState(
+                icon: Icons.assignment_outlined,
+                title: 'Belum ada tugas',
+                message: emptyMessage,
               ),
             ),
           )
@@ -738,16 +724,37 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                   color: Colors.white,
                   border: Border.all(color: AppColors.line),
                   borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      blurRadius: 18,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
                 ),
                 child: Column(
                   children: [
-                    const CircleAvatar(
-                      radius: 34,
-                      backgroundColor: AppColors.softRed,
-                      child: Icon(
-                        Icons.person_rounded,
-                        size: 38,
-                        color: AppColors.primary,
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.18),
+                            blurRadius: 18,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: const CircleAvatar(
+                        radius: 31,
+                        backgroundColor: AppColors.softBlue,
+                        child: Icon(
+                          Icons.person_rounded,
+                          size: 38,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -787,6 +794,13 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                   foregroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   side: const BorderSide(color: AppColors.primary),
+                ),
+              ),
+              const SizedBox(height: 28),
+              const Center(
+                child: Text(
+                  'E-Klinik Sanitasi · Versi 1.0.0',
+                  style: TextStyle(color: AppColors.muted, fontSize: 11),
                 ),
               ),
             ],
@@ -840,26 +854,6 @@ bool _isPending(String status) {
   return normalized == 'pending' ||
       normalized == 'menunggu' ||
       normalized == 'belum diverifikasi';
-}
-
-class _HeaderCurveClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    return Path()
-      ..lineTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width, size.height - 42)
-      ..quadraticBezierTo(
-        size.width * 0.52,
-        size.height + 38,
-        0,
-        size.height - 20,
-      )
-      ..close();
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
 class _MetricCard extends StatelessWidget {
@@ -939,19 +933,20 @@ class _PageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(18, 15, 10, 15),
+    return DynamicWaterHeader(
+      height: 138,
+      padding: const EdgeInsets.fromLTRB(20, 12, 12, 34),
       child: Row(
         children: [
           Expanded(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
                   style: const TextStyle(
-                    color: AppColors.ink,
+                    color: Colors.white,
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                   ),
@@ -959,7 +954,7 @@ class _PageHeader extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
@@ -968,7 +963,7 @@ class _PageHeader extends StatelessWidget {
             IconButton(
               tooltip: 'Muat ulang',
               onPressed: onRefresh,
-              icon: const Icon(Icons.refresh_rounded, color: AppColors.primary),
+              icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             ),
         ],
       ),
@@ -1086,13 +1081,15 @@ class _StbmDesaSheetState extends State<_StbmDesaSheet> {
                   );
                 }
                 if (!snapshot.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
-                  );
+                  return const Center(child: WaterLoadingIndicator());
                 }
                 final villages = snapshot.data!;
                 if (villages.isEmpty) {
-                  return const Center(child: Text('Belum ada data STBM desa.'));
+                  return const WaterEmptyState(
+                    icon: Icons.insights_outlined,
+                    title: 'Belum ada data STBM',
+                    message: 'Data capaian sanitasi desa belum tersedia.',
+                  );
                 }
                 return ListView.separated(
                   itemCount: villages.length,

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../constants/app_colors.dart';
 import '../../models/ticket_status.dart';
 import '../../services/api_service.dart';
+import '../../widgets/ocean_widgets.dart';
 
 class TrackingView extends StatefulWidget {
   const TrackingView({
@@ -249,15 +250,24 @@ class _TrackingViewState extends State<TrackingView> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
         children: [
-          Text(
-            'Riwayat & Status Laporan',
-            style: Theme.of(context).textTheme.headlineSmall
-                ?.copyWith(color: AppColors.ink, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Pantau dan buka kembali laporan yang pernah Anda kirim.',
-            style: TextStyle(color: AppColors.muted),
+          DynamicWaterHeader(
+            height: 158,
+            padding: const EdgeInsets.fromLTRB(20, 26, 20, 34),
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Riwayat & Status Laporan',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: Colors.white, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 5),
+                  const Text('Pantau dan buka kembali laporan yang pernah Anda kirim.',
+                      style: TextStyle(color: Colors.white70, fontSize: 12)),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 18),
           _buildSearchBar(),
