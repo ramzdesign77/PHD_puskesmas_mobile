@@ -14,37 +14,9 @@ class AuthPageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseTheme = Theme.of(context);
-    final headingNowTheme = baseTheme.textTheme.apply(
-      fontFamily: AppTheme.bodyFontFamily,
-    );
-    final textTheme = headingNowTheme.copyWith(
-      displayLarge: headingNowTheme.displayLarge?.copyWith(
-        fontFamily: AppTheme.headlineFontFamily,
-      ),
-      displayMedium: headingNowTheme.displayMedium?.copyWith(
-        fontFamily: AppTheme.headlineFontFamily,
-      ),
-      headlineLarge: headingNowTheme.headlineLarge?.copyWith(
-        fontFamily: AppTheme.headlineFontFamily,
-      ),
-      headlineMedium: headingNowTheme.headlineMedium?.copyWith(
-        fontFamily: AppTheme.headlineFontFamily,
-      ),
-      headlineSmall: headingNowTheme.headlineSmall?.copyWith(
-        fontFamily: AppTheme.headlineFontFamily,
-      ),
-      titleLarge: headingNowTheme.titleLarge?.copyWith(
-        fontFamily: AppTheme.headlineFontFamily,
-      ),
-    );
 
     return Theme(
-      data: baseTheme.copyWith(
-        textTheme: textTheme,
-        primaryTextTheme: baseTheme.primaryTextTheme.apply(
-          fontFamily: AppTheme.bodyFontFamily,
-        ),
-      ),
+      data: baseTheme,
       child: Scaffold(
         backgroundColor: authSoftBackground,
         body: SafeArea(

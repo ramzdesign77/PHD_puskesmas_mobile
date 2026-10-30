@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
 abstract final class AppTheme {
-  static const headlineFontFamily = 'Heading Now';
-  static const bodyFontFamily = 'Heading Now';
+  static const headlineFontFamily = 'Montserrat';
+  static const bodyFontFamily = 'Montserrat';
 
-  static TextTheme _headingNowTextTheme() {
+  static TextTheme _appTextTheme() {
     final baseTextTheme = ThemeData().textTheme;
     TextStyle? body(TextStyle? style) => style?.copyWith(
       fontFamily: bodyFontFamily,
@@ -17,6 +17,12 @@ abstract final class AppTheme {
     TextStyle? heading(TextStyle? style) => style?.copyWith(
       fontFamily: headlineFontFamily,
       fontWeight: FontWeight.w700,
+      height: 1.25,
+      letterSpacing: -(style.fontSize ?? 14) * 0.01,
+    );
+    TextStyle? title(TextStyle? style) => style?.copyWith(
+      fontFamily: headlineFontFamily,
+      fontWeight: FontWeight.w500,
       height: 1.25,
       letterSpacing: -(style.fontSize ?? 14) * 0.01,
     );
@@ -34,8 +40,8 @@ abstract final class AppTheme {
       headlineMedium: heading(baseTextTheme.headlineMedium),
       headlineSmall: heading(baseTextTheme.headlineSmall),
       titleLarge: heading(baseTextTheme.titleLarge),
-      titleMedium: medium(baseTextTheme.titleMedium),
-      titleSmall: medium(baseTextTheme.titleSmall),
+      titleMedium: title(baseTextTheme.titleMedium),
+      titleSmall: title(baseTextTheme.titleSmall),
       bodyLarge: body(baseTextTheme.bodyLarge),
       bodyMedium: body(baseTextTheme.bodyMedium),
       bodySmall: body(baseTextTheme.bodySmall),
@@ -52,7 +58,7 @@ abstract final class AppTheme {
       secondary: AppColors.accent,
       surface: Colors.white,
     );
-    final textTheme = _headingNowTextTheme();
+    final textTheme = _appTextTheme();
 
     return ThemeData(
       useMaterial3: true,
@@ -126,7 +132,7 @@ abstract final class AppTheme {
   }
 }
 
-extension HeadingNowTextStyle on TextStyle {
+extension MontserratHeadingTextStyle on TextStyle {
   TextStyle get asHeading => copyWith(
     fontFamily: AppTheme.headlineFontFamily,
     fontWeight: FontWeight.w700,

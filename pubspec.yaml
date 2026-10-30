@@ -31,11 +31,11 @@ flutter:
     - assets/images/logo.jpg
 
   fonts:
-    - family: Heading Now
+    - family: Montserrat
       fonts:
-        - asset: assets/fonts/HeadingNow-Regular.ttf
+        - asset: assets/fonts/Montserrat-400.ttf
           weight: 400
-        - asset: assets/fonts/HeadingNow-Medium.ttf
+        - asset: assets/fonts/Montserrat-500.ttf
           weight: 500
-        - asset: assets/fonts/HeadingNow-Bold.ttf
+        - asset: assets/fonts/Montserrat-700.ttf
           weight: 700
