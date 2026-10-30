@@ -37,7 +37,7 @@ class _HomeViewState extends State<HomeView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.canvas,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -48,12 +48,21 @@ class _HomeViewState extends State<HomeView> {
                 children: [
                   _buildHeaderAndGreeting(),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                    padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        Text(
+                          'Layanan',
+                          style: GoogleFonts.dmSans(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
                         _buildQuickActions(),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 30),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -170,74 +179,148 @@ class _HomeViewState extends State<HomeView> {
 
   Widget _buildHeaderAndGreeting() {
     return SizedBox(
-      height: 420,
+      height: 430,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
-            height: 278,
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 20),
-              child: Column(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      'assets/images/logo.jpg',
-                      width: 58,
-                      height: 58,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const CircleAvatar(
-                        backgroundColor: Colors.white,
-                        radius: 29,
-                        child: Icon(
-                          Icons.health_and_safety,
-                          color: AppColors.primary,
-                          size: 34,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'KLINIK SANITASI',
-                    style: GoogleFonts.dmSans(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    'PUSKESMAS SUMBERSARI',
-                    style: GoogleFonts.dmSans(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      fontSize: 11,
-                      letterSpacing: 0.4,
-                    ),
-                  ),
-                ],
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 330,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.primaryDark,
+                    AppColors.primary,
+                    AppColors.orange,
+                    Color(0xFFF9E6DF),
+                    AppColors.canvas,
+                  ],
+                  stops: [0, 0.3, 0.58, 0.82, 1],
+                ),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(34),
+                ),
               ),
             ),
           ),
           Positioned(
-            top: 164,
+            top: 32,
+            left: 24,
+            right: 24,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Selamat Datang,',
+                  style: GoogleFonts.dmSans(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  widget.greetingName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.dmSans(
+                    color: Colors.white,
+                    fontSize: 29,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Klinik Sanitasi · Puskesmas Sumbersari',
+                  style: GoogleFonts.dmSans(
+                    color: Colors.white.withValues(alpha: 0.84),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 126,
+            left: 20,
+            right: 20,
+            child: Material(
+              color: Colors.white.withValues(alpha: 0.22),
+              borderRadius: BorderRadius.circular(28),
+              child: InkWell(
+                onTap: widget.onOpenTracking,
+                borderRadius: BorderRadius.circular(28),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.48),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.88),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.receipt_long_rounded,
+                          color: AppColors.primary,
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Text(
+                          'Pantau status laporan sanitasi Anda',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.white,
+                        size: 21,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 196,
             left: 20,
             right: 20,
             child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 22),
+              padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
+                    color: AppColors.ink.withValues(alpha: 0.1),
+                    blurRadius: 28,
+                    offset: const Offset(0, 12),
                   ),
                 ],
               ),
@@ -245,34 +328,40 @@ class _HomeViewState extends State<HomeView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Halo, ${widget.greetingName}',
+                    'Buat Laporan Sanitasi Baru',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.dmSans(
                       color: AppColors.ink,
-                      fontSize: 23,
+                      fontSize: 20,
                       fontWeight: FontWeight.w800,
+                      height: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 7),
                   Text(
-                    'Desa Sumbersari - RT 02 / RW 04',
+                    'Sampaikan masalah sanitasi di lingkungan Anda.',
                     style: GoogleFonts.dmSans(
                       color: AppColors.muted,
-                      fontSize: 15,
+                      fontSize: 13,
                     ),
                   ),
-                  const SizedBox(height: 56),
-                  FilledButton.icon(
-                    onPressed: widget.onOpenReports,
-                    icon: const Icon(Icons.add, size: 22),
-                    label: const Text('Buat Laporan Baru'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 13,
+                  const SizedBox(height: 18),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.icon(
+                      onPressed: widget.onOpenReports,
+                      icon: const Icon(Icons.add_rounded, size: 19),
+                      label: const Text('Buat Laporan'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.ink,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 12,
+                        ),
+                        shape: const StadiumBorder(),
                       ),
-                      shape: const StadiumBorder(),
                     ),
                   ),
                 ],
@@ -287,52 +376,51 @@ class _HomeViewState extends State<HomeView> {
   Widget _buildQuickActions() {
     final items = [
       (
-        icon: Icons.filter_alt_outlined,
-        label: 'Lapor\nPengaduan',
+        icon: Icons.add_location_alt_outlined,
+        label: 'Lapor Pengaduan',
         onTap: widget.onOpenReports,
       ),
       (
-        icon: Icons.description_outlined,
-        label: 'Status\nLaporan',
+        icon: Icons.assignment_outlined,
+        label: 'Laporan Saya',
         onTap: widget.onOpenTracking,
       ),
       (
         icon: Icons.menu_book_outlined,
-        label: 'Edukasi &\nSTBM',
+        label: 'Artikel STBM',
         onTap: _showAllArticles,
       ),
     ];
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
       children: [
         for (final item in items)
-          Expanded(
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            elevation: 1,
+            shadowColor: AppColors.ink.withValues(alpha: 0.08),
             child: InkWell(
               onTap: item.onTap,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(24),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircleAvatar(
-                      radius: 42,
-                      backgroundColor: AppColors.softRed,
-                      child: Icon(
-                        item.icon,
-                        color: AppColors.primary,
-                        size: 36,
-                      ),
-                    ),
-                    const SizedBox(height: 9),
+                    Icon(item.icon, color: AppColors.primary, size: 18),
+                    const SizedBox(width: 8),
                     Text(
                       item.label,
-                      textAlign: TextAlign.center,
                       style: GoogleFonts.dmSans(
                         color: AppColors.ink,
-                        fontSize: 13,
-                        height: 1.25,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
