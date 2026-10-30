@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import 'constants/app_colors.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
+import 'theme/app_theme.dart';
 import 'views/auth/login_view.dart';
 import 'views/auth/register_view.dart';
 import 'views/public/main_shell.dart';
@@ -26,53 +25,15 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Klinik Sanitasi',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primary,
-          primary: AppColors.primary,
-          surface: AppColors.canvas,
-        ),
-        scaffoldBackgroundColor: AppColors.canvas,
-        fontFamily: GoogleFonts.dmSans().fontFamily,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.canvas,
-          foregroundColor: AppColors.ink,
-          surfaceTintColor: Colors.transparent,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 15,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.line),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.line),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-          ),
-        ),
-      ),
+      theme: AppTheme.light,
       home: SplashView(apiService: _apiService, authService: _authService),
       routes: {
         '/login': (_) => LoginView(authService: _authService),
         '/register': (_) => RegisterView(apiService: _apiService),
-        '/home': (_) => MainShell(
-          apiService: _apiService,
-          authService: _authService,
-        ),
-        '/home-warga': (_) => MainShell(
-          apiService: _apiService,
-          authService: _authService,
-        ),
+        '/home': (_) =>
+            MainShell(apiService: _apiService, authService: _authService),
+        '/home-warga': (_) =>
+            MainShell(apiService: _apiService, authService: _authService),
       },
     );
   }

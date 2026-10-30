@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../models/ticket_status.dart';
 import '../../services/api_service.dart';
+import '../../widgets/ocean_widgets.dart';
 
 class TrackingView extends StatefulWidget {
   const TrackingView({super.key, required this.apiService});
@@ -63,19 +64,34 @@ class _TrackingViewState extends State<TrackingView> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
         children: [
-          Text(
-            'Lacak laporan',
-            style: Theme.of(context).textTheme.headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w700),
+          DynamicWaterHeader(
+            height: 158,
+            padding: const EdgeInsets.fromLTRB(20, 26, 20, 34),
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Lacak laporan',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'Pantau perkembangan laporan sanitasi Anda.',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 5),
-          const Text(
-            'Periksa perkembangan laporan menggunakan kode tiket.',
-            style: TextStyle(color: AppColors.muted),
-          ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 18),
           TextField(
             controller: _ticketController,
             textCapitalization: TextCapitalization.characters,
@@ -111,6 +127,13 @@ class _TrackingViewState extends State<TrackingView> {
                   )
                 : const Text('Periksa status'),
           ),
+          if (!_isLoading && _ticket == null && _error == null)
+            const WaterEmptyState(
+              icon: Icons.search_rounded,
+              title: 'Siap melacak laporan',
+              message:
+                  'Masukkan kode tiket laporan untuk melihat status terbaru.',
+            ),
           if (_error != null) ...[
             const SizedBox(height: 14),
             _MessagePanel(
@@ -142,8 +165,20 @@ class _TicketCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.line),
+        borderRadius: BorderRadius.circular(20),
+        border: Border(
+          left: BorderSide(color: status.$2, width: 4),
+          top: BorderSide(color: AppColors.line),
+          right: BorderSide(color: AppColors.line),
+          bottom: BorderSide(color: AppColors.line),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,6 +326,7 @@ class _MessagePanel extends StatelessWidget {
 (String, Color) _statusPresentation(String status) {
   return switch (status) {
     'menunggu' => ('Menunggu', AppColors.amber),
+    'diproses' || 'proses' || 'dalam_proses' => ('Diproses', AppColors.primary),
     'dijadwalkan' => ('Dijadwalkan', AppColors.primary),
     'selesai' => ('Selesai', AppColors.green),
     'ditolak' => ('Ditolak', AppColors.primaryDark),

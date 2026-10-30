@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../constants/app_colors.dart';
+import '../../widgets/ocean_widgets.dart';
 
-const authSoftBackground = Color(0xFFF1E9E7);
+const authSoftBackground = AppColors.canvas;
 
 class AuthPageScaffold extends StatelessWidget {
   const AuthPageScaffold({super.key, required this.content});
@@ -41,7 +42,7 @@ class AuthPageScaffold extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 206),
                         child: Container(
                           width: double.infinity,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.vertical(
                               top: Radius.circular(30),
@@ -49,6 +50,13 @@ class AuthPageScaffold extends StatelessWidget {
                             border: Border(
                               top: BorderSide(color: Colors.white70),
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0x140277BD),
+                                blurRadius: 22,
+                                offset: Offset(0, -4),
+                              ),
+                            ],
                           ),
                           padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
                           child: content,
@@ -69,19 +77,12 @@ class AuthPageScaffold extends StatelessWidget {
 class AuthBrandHeader extends StatelessWidget {
   const AuthBrandHeader({super.key});
 
-  static const _gradient = LinearGradient(
-    colors: [Color(0xFF8D0712), AppColors.primary, Color(0xFFE34B50)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
+    return DynamicWaterHeader(
       height: 230,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(gradient: _gradient),
+      child: SizedBox(
+        width: double.infinity,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -219,28 +220,28 @@ class AuthFormField extends StatelessWidget {
                     ),
                   ),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: AppColors.fieldFill,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
               vertical: 14,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: AppColors.line),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: AppColors.line),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(
                 color: AppColors.primary,
                 width: 1.5,
               ),
             ),
             errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: Color(0xFFB3261E)),
             ),
             focusedErrorBorder: OutlineInputBorder(

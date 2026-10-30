@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../constants/app_colors.dart';
 import '../../models/village.dart';
 import '../../services/api_service.dart';
+import '../../widgets/ocean_widgets.dart';
 
 class ReportView extends StatefulWidget {
   const ReportView({super.key, required this.apiService});
@@ -241,24 +243,24 @@ class _ReportViewState extends State<ReportView> {
       prefixIcon: prefixIcon,
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: const Color(0xFFF8F9FA),
+      fillColor: AppColors.fieldFill,
       contentPadding:
           contentPadding ??
           const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: Colors.redAccent, width: 1.0),
       ),
       focusedErrorBorder: OutlineInputBorder(
@@ -310,39 +312,16 @@ class _ReportViewState extends State<ReportView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.canvas,
       body: SingleChildScrollView(
         child: Stack(
           clipBehavior: Clip.none,
           children: [
             // Header Curved Maroon Background
-            Container(
+            DynamicWaterHeader(
               height: 250,
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryDark],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.vertical(
-                  bottom: Radius.circular(32),
-                ),
-              ),
               child: Stack(
                 children: [
-                  Positioned(
-                    right: -25,
-                    top: -15,
-                    child: Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.05),
-                      ),
-                    ),
-                  ),
                   Positioned(
                     right: 18,
                     top: 48,
@@ -415,7 +394,7 @@ class _ReportViewState extends State<ReportView> {
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
+                            color: AppColors.primary.withValues(alpha: 0.1),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
@@ -777,57 +756,57 @@ class _ReportViewState extends State<ReportView> {
                             const SizedBox(height: 12),
                             InkWell(
                               onTap: _pickImage,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 11,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF8F9FA),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: const Color(0xFFE5E7EB),
+                              borderRadius: BorderRadius.circular(16),
+                              child: CustomPaint(
+                                painter: _DashedBorderPainter(),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 11,
                                   ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _image == null
-                                          ? Icons.camera_alt_outlined
-                                          : Icons.check_circle,
-                                      color: AppColors.primary,
-                                      size: 19,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
+                                  decoration: BoxDecoration(
+                                    color: AppColors.fieldFill,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
                                         _image == null
-                                            ? 'Pilih foto bukti (opsional)'
-                                            : 'Foto: ${_image!.name}',
-                                        style: GoogleFonts.dmSans(
-                                          color: _image == null
-                                              ? AppColors.muted
-                                              : AppColors.ink,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
+                                            ? Icons.camera_alt_outlined
+                                            : Icons.check_circle,
+                                        color: AppColors.primary,
+                                        size: 19,
                                       ),
-                                    ),
-                                    if (_image != null)
-                                      InkWell(
-                                        onTap: () => setState(() {
-                                          _image = null;
-                                          _imageBytes = null;
-                                        }),
-                                        child: const Icon(
-                                          Icons.close,
-                                          size: 18,
-                                          color: AppColors.muted,
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          _image == null
+                                              ? 'Pilih foto bukti (opsional)'
+                                              : 'Foto: ${_image!.name}',
+                                          style: GoogleFonts.dmSans(
+                                            color: _image == null
+                                                ? AppColors.muted
+                                                : AppColors.ink,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
-                                  ],
+                                      if (_image != null)
+                                        InkWell(
+                                          onTap: () => setState(() {
+                                            _image = null;
+                                            _imageBytes = null;
+                                          }),
+                                          child: const Icon(
+                                            Icons.close,
+                                            size: 18,
+                                            color: AppColors.muted,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -925,7 +904,7 @@ class _RetryVillage extends StatelessWidget {
         labelText: 'Desa / kelurahan',
         errorText: 'Daftar desa tidak dapat dimuat.',
         filled: true,
-        fillColor: const Color(0xFFF8F9FA),
+        fillColor: AppColors.fieldFill,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -944,4 +923,30 @@ class _RetryVillage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final borderPath = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(16)),
+      );
+    final paint = Paint()
+      ..color = AppColors.primary.withValues(alpha: 0.42)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+
+    for (final metric in borderPath.computeMetrics()) {
+      for (var distance = 0.0; distance < metric.length; distance += 9) {
+        canvas.drawPath(
+          metric.extractPath(distance, math.min(distance + 5, metric.length)),
+          paint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) => false;
 }

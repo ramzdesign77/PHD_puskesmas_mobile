@@ -43,7 +43,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
         widget.article.imageUrl != null && widget.article.imageUrl!.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
+      backgroundColor: AppColors.canvas,
       body: CustomScrollView(
         controller: _scrollController,
         physics: const BouncingScrollPhysics(),
@@ -202,7 +202,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                         children: [
                           const CircleAvatar(
                             radius: 20,
-                            backgroundColor: Color(0xFFF1E9E7),
+                            backgroundColor: AppColors.softRed,
                             child: Icon(
                               Icons.health_and_safety,
                               color: AppColors.primary,
@@ -265,7 +265,6 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
           ),
         ],
       ),
-
     );
   }
 }

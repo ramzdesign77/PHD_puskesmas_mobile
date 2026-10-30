@@ -5,6 +5,7 @@ import '../../constants/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/officer_api_service.dart';
+import '../../widgets/ocean_widgets.dart';
 import '../auth/auth_components.dart';
 import '../auth/login_view.dart';
 import '../officer/officer_dashboard_view.dart';
@@ -54,10 +55,7 @@ class _SplashViewState extends State<SplashView> {
                   : session.userName,
               apiService: OfficerApiService(),
             )
-          : MainShell(
-              apiService: _apiService,
-              authService: _authService,
-            );
+          : MainShell(apiService: _apiService, authService: _authService);
       Navigator.of(
         context,
       ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
@@ -102,88 +100,98 @@ class _SplashViewState extends State<SplashView> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
-            child: Column(
-              children: [
-                const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 104,
-                        height: 104,
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: authSoftBackground,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: Image.asset(
-                          'assets/images/logo.jpg',
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, _, _) => const Icon(
-                            Icons.health_and_safety_outlined,
-                            color: AppColors.primary,
-                            size: 62,
+      backgroundColor: AppColors.canvas,
+      body: Stack(
+        children: [
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: DynamicWaterHeader(height: 210, child: SizedBox.expand()),
+          ),
+          SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 430),
+                child: Column(
+                  children: [
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 104,
+                            height: 104,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: authSoftBackground,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Image.asset(
+                              'assets/images/logo.jpg',
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => const Icon(
+                                Icons.health_and_safety_outlined,
+                                color: AppColors.primary,
+                                size: 62,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 23),
+                          Text(
+                            'E-Klinik Sanitasi',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppColors.primaryDark,
+                              fontSize: 23,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+                          Text(
+                            'Sanitasi Air • UPTD Puskesmas Sumbersari',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppColors.muted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 23),
-                      Text(
-                        'E-Klinik Sanitasi',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppColors.primaryDark,
-                          fontSize: 23,
-                          fontWeight: FontWeight.w800,
-                        ),
+                    ),
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 18),
+                      child: Column(
+                        children: [
+                          Text(
+                            'UPTD Puskesmas Sumbersari © 2026',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppColors.muted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Surveilans Kesehatan Lingkungan Terpadu',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppColors.muted.withValues(alpha: 0.78),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 7),
-                      Text(
-                        'Sanitasi Air • UPTD Puskesmas Sumbersari',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppColors.muted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 18),
-                  child: Column(
-                    children: [
-                      Text(
-                        'UPTD Puskesmas Sumbersari © 2026',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppColors.muted,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Surveilans Kesehatan Lingkungan Terpadu',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppColors.muted.withValues(alpha: 0.78),
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
