@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../constants/app_colors.dart';
 import '../../services/api_service.dart';
@@ -142,17 +141,18 @@ class _SplashViewState extends State<SplashView> {
                           Text(
                             'E-Klinik Sanitasi',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.plusJakartaSans(
+                            style: const TextStyle(
                               color: AppColors.primaryDark,
                               fontSize: 23,
                               fontWeight: FontWeight.w800,
+                              fontFamily: 'Poppins',
                             ),
                           ),
                           const SizedBox(height: 7),
                           Text(
                             'Sanitasi Air • UPTD Puskesmas Sumbersari',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.plusJakartaSans(
+                            style: TextStyle(
                               color: AppColors.muted,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -168,7 +168,7 @@ class _SplashViewState extends State<SplashView> {
                         children: [
                           Text(
                             'UPTD Puskesmas Sumbersari © 2026',
-                            style: GoogleFonts.plusJakartaSans(
+                            style: TextStyle(
                               color: AppColors.muted,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -178,7 +178,7 @@ class _SplashViewState extends State<SplashView> {
                           Text(
                             'Surveilans Kesehatan Lingkungan Terpadu',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.plusJakartaSans(
+                            style: TextStyle(
                               color: AppColors.muted.withValues(alpha: 0.78),
                               fontSize: 10,
                             ),

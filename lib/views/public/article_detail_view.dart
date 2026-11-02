@@ -1,7 +1,6 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../constants/app_colors.dart';
 import '../../models/education_article.dart';
@@ -80,7 +79,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                   widget.article.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.dmSans(
+                  style: TextStyle(
                     color: AppColors.ink,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -166,7 +165,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                             ),
                             child: Text(
                               widget.article.category.toUpperCase(),
-                              style: GoogleFonts.dmSans(
+                              style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 color: AppColors.primary,
@@ -185,7 +184,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                       delay: 250,
                       child: Text(
                         widget.article.title,
-                        style: GoogleFonts.dmSans(
+                        style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
                           color: AppColors.ink,
@@ -216,7 +215,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                                 children: [
                                   Text(
                                     'Tim Medis Sanitasi',
-                                    style: GoogleFonts.dmSans(
+                                    style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
                                       color: AppColors.ink,
@@ -232,7 +231,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                               ),
                               Text(
                                 'Puskesmas Sumbersari',
-                                style: GoogleFonts.dmSans(
+                                style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.muted,
                                 ),
@@ -251,7 +250,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                       delay: 650,
                       child: Text(
                         widget.article.content,
-                        style: GoogleFonts.dmSans(
+                        style: TextStyle(
                           fontSize: 15,
                           color: const Color(0xFF333333),
                           height: 1.8,

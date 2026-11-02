@@ -30,3 +30,8 @@ flutter:
 
   assets:
     - assets/images/logo.jpg
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Bold.ttf

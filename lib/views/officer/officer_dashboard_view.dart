@@ -288,53 +288,60 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                       bottom: false,
                       child: Padding(
                         padding: const EdgeInsets.only(top: 14),
-                        child: Column(
-                          children: [
-                            Container(
-                              height: 72,
-                              width: 72,
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(11),
-                                child: Image.asset(
-                                  'assets/images/logo.jpg',
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, _, _) => const Icon(
-                                    Icons.health_and_safety_outlined,
-                                    color: AppColors.primary,
-                                    size: 44,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                height: 72,
+                                width: 72,
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(11),
+                                  child: Image.asset(
+                                    'assets/images/logo.jpg',
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, _, _) => const Icon(
+                                      Icons.health_and_safety_outlined,
+                                      color: AppColors.primary,
+                                      size: 44,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              'KLINIK SANITASI',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 20,
-                                letterSpacing: 1.1,
+                              const SizedBox(height: 10),
+                              const Text(
+                                'KLINIK SANITASI',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 40,
+                                  letterSpacing: 1.1,
+                                  fontFamily: 'Poppins',
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              _dashboard?.profile.healthCenter.isNotEmpty ==
-                                      true
-                                  ? _dashboard!.profile.healthCenter
-                                  : 'PUSKESMAS SUMBERSARI',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.8,
+                              const SizedBox(height: 3),
+                              Text(
+                                _dashboard?.profile.healthCenter.isNotEmpty ==
+                                        true
+                                    ? _dashboard!.profile.healthCenter
+                                    : 'PUSKESMAS SUMBERSARI',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.8,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),

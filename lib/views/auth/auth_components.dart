@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../constants/app_colors.dart';
 import '../../widgets/ocean_widgets.dart';
@@ -14,13 +13,13 @@ class AuthPageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseTheme = Theme.of(context);
-    final jakartaFontFamily = GoogleFonts.plusJakartaSans().fontFamily;
+    const poppinsFontFamily = 'Poppins';
 
     return Theme(
       data: baseTheme.copyWith(
-        textTheme: baseTheme.textTheme.apply(fontFamily: jakartaFontFamily),
+        textTheme: baseTheme.textTheme.apply(fontFamily: poppinsFontFamily),
         primaryTextTheme: baseTheme.primaryTextTheme.apply(
-          fontFamily: jakartaFontFamily,
+          fontFamily: poppinsFontFamily,
         ),
       ),
       child: Scaffold(

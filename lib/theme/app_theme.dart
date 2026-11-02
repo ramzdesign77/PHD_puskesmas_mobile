@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../constants/app_colors.dart';
 
@@ -16,7 +15,7 @@ abstract final class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.canvas,
-      fontFamily: GoogleFonts.dmSans().fontFamily,
+      fontFamily: 'Poppins',
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.canvas,
         foregroundColor: AppColors.ink,

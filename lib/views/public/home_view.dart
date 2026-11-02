@@ -1,7 +1,6 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../constants/app_colors.dart';
 import '../../models/education_article.dart';
@@ -63,7 +62,7 @@ class _HomeViewState extends State<HomeView> {
                       children: [
                         Text(
                           'Layanan',
-                          style: GoogleFonts.dmSans(
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
                             color: AppColors.ink,
@@ -77,7 +76,7 @@ class _HomeViewState extends State<HomeView> {
                           children: [
                             Text(
                               'Info Kesehatan',
-                              style: GoogleFonts.dmSans(
+                              style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.ink,
@@ -131,7 +130,7 @@ class _HomeViewState extends State<HomeView> {
                                 children: [
                                   Text(
                                     'Artikel Edukasi',
-                                    style: GoogleFonts.dmSans(
+                                    style: TextStyle(
                                       fontSize: 17,
                                       fontWeight: FontWeight.w700,
                                       color: AppColors.ink,
@@ -209,7 +208,7 @@ class _HomeViewState extends State<HomeView> {
               children: [
                 Text(
                   'Selamat Datang,',
-                  style: GoogleFonts.dmSans(
+                  style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
@@ -220,7 +219,7 @@ class _HomeViewState extends State<HomeView> {
                   widget.greetingName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.dmSans(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 29,
                     fontWeight: FontWeight.w800,
@@ -230,11 +229,12 @@ class _HomeViewState extends State<HomeView> {
                 const SizedBox(height: 5),
                 Text(
                   'KLINIK SANITASI',
-                  style: GoogleFonts.dmSans(
+                  style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.84),
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.7,
+                    fontFamily: 'Poppins',
                   ),
                 ),
               ],
@@ -285,7 +285,7 @@ class _HomeViewState extends State<HomeView> {
                               'Pantau status laporan sanitasi Anda',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.dmSans(
+                              style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -352,7 +352,7 @@ class _HomeViewState extends State<HomeView> {
                               'Buat Laporan Sanitasi Baru',
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.dmSans(
+                              style: TextStyle(
                                 color: AppColors.ink,
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
@@ -362,7 +362,7 @@ class _HomeViewState extends State<HomeView> {
                             const SizedBox(height: 7),
                             Text(
                               'Sampaikan masalah sanitasi di lingkungan Anda.',
-                              style: GoogleFonts.dmSans(
+                              style: TextStyle(
                                 color: AppColors.muted,
                                 fontSize: 13,
                               ),
@@ -465,7 +465,7 @@ class _HomeViewState extends State<HomeView> {
                           textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.dmSans(
+                          style: TextStyle(
                             color: AppColors.ink,
                             fontSize: 12,
                             height: 1.2,
@@ -536,7 +536,7 @@ class _AnnouncementCard extends StatelessWidget {
               children: [
                 Text(
                   'PENGUMUMAN',
-                  style: GoogleFonts.dmSans(
+                  style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.84),
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -547,7 +547,7 @@ class _AnnouncementCard extends StatelessWidget {
                 Text(
                   'Lingkungan Sehat,\nBerawal Dari Kita.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.dmSans(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 21,
                     fontWeight: FontWeight.w800,
@@ -677,7 +677,7 @@ class _ArticleTile extends StatelessWidget {
                       category,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.dmSans(
+                      style: TextStyle(
                         color: _deepOceanBlue,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -696,7 +696,7 @@ class _ArticleTile extends StatelessWidget {
                         title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
@@ -724,7 +724,7 @@ class _ArticleTile extends StatelessWidget {
                               subtitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.dmSans(
+                              style: TextStyle(
                                 fontSize: 11,
                                 color: const Color(0xFFEAF8FF),
                               ),
