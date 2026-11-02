@@ -707,6 +707,21 @@ class _StatusHero extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(22),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border(
+          left: BorderSide(color: status.$2, width: 4),
+          top: BorderSide(color: AppColors.line),
+          right: BorderSide(color: AppColors.line),
+          bottom: BorderSide(color: AppColors.line),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
