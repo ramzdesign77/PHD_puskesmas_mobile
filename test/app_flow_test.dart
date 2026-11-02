@@ -187,8 +187,9 @@ void main() {
     await enterField(0, 'Siti Aminah');
     await enterField(1, 'siti');
     await enterField(2, 'siti@example.com');
-    await enterField(3, 'password123');
-    await enterField(4, 'different123');
+    await enterField(3, '081234567890');
+    await enterField(4, 'password123');
+    await enterField(5, 'different123');
     tester.testTextInput.hide();
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Daftar'));
@@ -197,7 +198,7 @@ void main() {
 
     expect(find.text('Kata sandi tidak cocok.'), findsOneWidget);
 
-    await enterField(4, 'password123');
+    await enterField(5, 'password123');
     tester.testTextInput.hide();
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Daftar'));
@@ -244,6 +245,7 @@ class _FakeApiService extends ApiService {
     required String username,
     required String email,
     required String password,
+    String? phone,
   }) async {
     throw const ApiException('Autentikasi belum terhubung ke backend.');
   }

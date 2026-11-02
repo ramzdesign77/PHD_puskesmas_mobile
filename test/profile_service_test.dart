@@ -158,9 +158,11 @@ void main() {
   );
 
   test('legacy registration replaces the previous local profile', () async {
+    late Map<String, dynamic> requestBody;
     final api = ApiService(
-      client: MockClient(
-        (_) async => http.Response(
+      client: MockClient((request) async {
+        requestBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
           jsonEncode({
             'token': 'account-b',
             'user': {
@@ -170,14 +172,15 @@ void main() {
             },
           }),
           201,
-        ),
-      ),
+        );
+      }),
     );
 
     await api.register(
       namaLengkap: 'Warga Baru',
       username: 'warga_baru',
       email: 'warga@example.com',
+      phone: '081234567890',
       password: 'password',
     );
     final profile = await ProfileService().load(fallbackName: 'Warga');
@@ -185,9 +188,36 @@ void main() {
     expect(profile.name, 'Warga Baru');
     expect(profile.email, 'warga@example.com');
     expect(profile.username, 'warga_baru');
-    expect(profile.phone, isEmpty);
+    expect(profile.phone, '081234567890');
     expect(profile.avatarBytes, isNull);
+    expect(requestBody['email'], 'warga@example.com');
+    expect(requestBody['no_hp'], '081234567890');
   });
+
+  test(
+    'registration seeds submitted details if response omits user data',
+    () async {
+      final api = ApiService(
+        client: MockClient(
+          (_) async => http.Response(jsonEncode({'token': 'account-b'}), 201),
+        ),
+      );
+
+      await api.register(
+        namaLengkap: 'Warga Baru',
+        username: 'warga_baru',
+        email: 'warga@example.com',
+        phone: '081234567890',
+        password: 'password',
+      );
+      final profile = await ProfileService().load(fallbackName: 'Warga');
+
+      expect(profile.name, 'Warga Baru');
+      expect(profile.email, 'warga@example.com');
+      expect(profile.phone, '081234567890');
+      expect(profile.username, 'warga_baru');
+    },
+  );
 
   for (final legacy in [false, true]) {
     test(
