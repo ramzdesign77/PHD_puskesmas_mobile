@@ -25,7 +25,7 @@ void main() {
   });
 
   test('edits persist across views within the same login session', () async {
-    final service = ProfileService();
+    final service = ProfileService(client: _successfulProfileClient());
     final original = await service.load(fallbackName: 'Warga');
     final photo = Uint8List.fromList([5, 6, 7]);
     final changed = original.copyWith(
@@ -86,6 +86,7 @@ void main() {
     final failingPreferences = _FailOncePreferences(preferences);
     final service = ProfileService(
       preferencesProvider: () async => failingPreferences,
+      client: _successfulProfileClient(),
     );
     final original = await service.load(fallbackName: 'Warga');
 
@@ -100,6 +101,76 @@ void main() {
     expect(preferences.getString('auth_user_email'), 'awal@example.com');
     expect(preferences.getString('auth_user_avatar'), base64Encode([1, 2, 3]));
   });
+
+  test(
+    'updates the authenticated profile on the API before local storage',
+    () async {
+      late http.Request request;
+      final service = ProfileService(
+        client: MockClient((receivedRequest) async {
+          request = receivedRequest;
+          return http.Response('{}', 200);
+        }),
+      );
+      final original = await service.load(fallbackName: 'Warga');
+
+      await service.save(
+        original.copyWith(
+          name: 'Nama Baru',
+          email: 'baru@example.com',
+          phone: '089876543210',
+          username: 'baru',
+        ),
+      );
+
+      expect(request.method, 'PUT');
+      expect(request.url.path, '/api/v1/profile');
+      expect(request.headers['authorization'], 'Bearer account-a');
+      expect(jsonDecode(request.body), {
+        'nama_lengkap': 'Nama Baru',
+        'username': 'baru',
+        'email': 'baru@example.com',
+        'no_telepon': '089876543210',
+      });
+      final preferences = await SharedPreferences.getInstance();
+      expect(
+        preferences.getString(ProfileService.emailKey),
+        'baru@example.com',
+      );
+    },
+  );
+
+  test(
+    'does not save locally when the API rejects the profile update',
+    () async {
+      final service = ProfileService(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({'message': 'Email sudah digunakan.'}),
+            422,
+          ),
+        ),
+      );
+      final original = await service.load(fallbackName: 'Warga');
+
+      await expectLater(
+        service.save(original.copyWith(email: 'terpakai@example.com')),
+        throwsA(
+          isA<ProfileException>().having(
+            (error) => error.message,
+            'message',
+            'Email sudah digunakan.',
+          ),
+        ),
+      );
+
+      final preferences = await SharedPreferences.getInstance();
+      expect(
+        preferences.getString(ProfileService.emailKey),
+        'awal@example.com',
+      );
+    },
+  );
 
   test('login seeds profile fields and removes the previous photo', () async {
     final auth = AuthService(
@@ -239,6 +310,9 @@ void main() {
     );
   }
 }
+
+http.Client _successfulProfileClient() =>
+    MockClient((_) async => http.Response('{}', 200));
 
 /// Models a rejected storage write, including SharedPreferences' updated cache.
 class _FailOncePreferences implements SharedPreferences {
