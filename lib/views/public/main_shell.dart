@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:ui';
+
+import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
 import '../../services/api_service.dart';
@@ -139,7 +140,7 @@ class _MainShellState extends State<MainShell> {
               selectedIndex: _currentIndex,
               onDestinationSelected: _selectTab,
               backgroundColor: Colors.white.withValues(alpha: 0.88),
-              indicatorColor: AppColors.softBlue,
+              indicatorColor: AppColors.softRed,
               labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
               destinations: const [
                 NavigationDestination(
@@ -161,9 +162,12 @@ class _MainShellState extends State<MainShell> {
                   label: 'Lapor',
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.receipt_long_outlined, color: AppColors.muted),
-                  selectedIcon: Icon(Icons.receipt_long, color: AppColors.primary),
-                  label: 'Riwayat',
+                  icon: Icon(Icons.access_time, color: AppColors.muted),
+                  selectedIcon: Icon(
+                    Icons.access_time_filled,
+                    color: AppColors.primary,
+                  ),
+                  label: 'Lacak',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.person_outline, color: AppColors.muted),

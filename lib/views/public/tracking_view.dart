@@ -259,12 +259,18 @@ class _TrackingViewState extends State<TrackingView> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Riwayat & Status Laporan',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Colors.white, fontWeight: FontWeight.w800)),
+                  Text(
+                    'Lacak laporan',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   const SizedBox(height: 5),
-                  const Text('Pantau dan buka kembali laporan yang pernah Anda kirim.',
-                      style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  const Text(
+                    'Pantau perkembangan laporan sanitasi Anda.',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
                 ],
               ),
             ),
@@ -707,14 +713,6 @@ class _StatusHero extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(22),
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border(
-          left: BorderSide(color: status.$2, width: 4),
-          top: BorderSide(color: AppColors.line),
-          right: BorderSide(color: AppColors.line),
-          bottom: BorderSide(color: AppColors.line),
-        ),
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withValues(alpha: 0.08),
@@ -1633,7 +1631,8 @@ IconData _stepIcon(int? step) => switch (step) {
 (String, Color) _statusPresentation(String status) {
   return switch (status.trim().toLowerCase()) {
     'dikirim' => ('Dikirim', AppColors.primary),
-    'menunggu' || 'diproses' || 'pending' => ('Diproses', AppColors.amber),
+    'menunggu' || 'pending' => ('Menunggu', AppColors.amber),
+    'diproses' || 'proses' || 'dalam_proses' => ('Diproses', AppColors.primary),
     'dijadwalkan' => ('Dijadwalkan', AppColors.primary),
     'ditindaklanjuti' => ('Ditindaklanjuti', AppColors.primary),
     'selesai' => ('Selesai', AppColors.green),

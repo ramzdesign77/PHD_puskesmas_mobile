@@ -26,6 +26,9 @@ class ReportView extends StatefulWidget {
 }
 
 class _ReportViewState extends State<ReportView> {
+  // Set to true to include the device's GPS coordinates in report submissions.
+  static const bool _attachDeviceLocation = false;
+
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _phone = TextEditingController();
@@ -113,8 +116,8 @@ class _ReportViewState extends State<ReportView> {
 
     setState(() => _isSubmitting = true);
     try {
-      final position = await _currentPosition();
-      final ticketCode = await widget.apiService.submitReport({
+      final position = _attachDeviceLocation ? await _currentPosition() : null;
+      final reportData = <String, String>{
         'nama_pelapor': _name.text.trim(),
         'no_wa': _phone.text.trim(),
         'id_desa': _selectedVillage!.id.toString(),
@@ -122,9 +125,15 @@ class _ReportViewState extends State<ReportView> {
         'rw': _selectedRw ?? '',
         'kategori_laporan': _category,
         'deskripsi': _description.text.trim(),
-        'latitude': position.latitude.toString(),
-        'longitude': position.longitude.toString(),
-      }, imageFile: _image);
+      };
+      if (position != null) {
+        reportData['latitude'] = position.latitude.toString();
+        reportData['longitude'] = position.longitude.toString();
+      }
+      final ticketCode = await widget.apiService.submitReport(
+        reportData,
+        imageFile: _image,
+      );
 
       if (!mounted) return;
       final onReportSubmitted = widget.onReportSubmitted;
@@ -155,7 +164,7 @@ class _ReportViewState extends State<ReportView> {
       _showError(error.message);
     } on Exception catch (error) {
       _showError(
-        'Laporan belum dapat dikirim. Periksa koneksi dan izin lokasi. $error',
+        'Laporan belum dapat dikirim. Periksa koneksi internet. $error',
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
