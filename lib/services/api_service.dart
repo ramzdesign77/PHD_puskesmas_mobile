@@ -61,18 +61,16 @@ class ApiService {
     required String username,
     required String email,
     required String password,
-    String? phone,
+    required String phone,
   }) async {
-    final requestBody = <String, dynamic>{
+    final requestBody = {
       'nama_lengkap': namaLengkap.trim(),
       'username': username.trim(),
       'email': email.trim(),
       'password': password,
       'password_confirmation': password,
+      'no_hp': phone.trim(),
     };
-    if (phone != null && phone.trim().isNotEmpty) {
-      requestBody['no_hp'] = phone.trim();
-    }
     final response = await _client.post(
       _endpoint('auth/register'),
       headers: {

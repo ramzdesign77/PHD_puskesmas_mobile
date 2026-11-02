@@ -59,7 +59,7 @@ class _RegisterViewState extends State<RegisterView> {
 
   String? _validatePhone(String? value) {
     final phone = value?.trim() ?? '';
-    if (phone.isEmpty) return null;
+    if (phone.isEmpty) return 'Nomor telepon wajib diisi.';
     final compact = phone.replaceAll(RegExp(r'[\s()-]'), '');
     return RegExp(r'^\+?[0-9]{8,15}$').hasMatch(compact)
         ? null

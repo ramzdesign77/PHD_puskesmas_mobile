@@ -211,6 +211,16 @@ void main() {
 
     await tester.ensureVisible(find.byType(Checkbox));
     await tester.tap(find.byType(Checkbox));
+    await enterField(3, '');
+    await tester.ensureVisible(find.text('Daftar'));
+    await tester.tap(find.text('Daftar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nomor telepon wajib diisi.'), findsOneWidget);
+
+    await enterField(3, '081234567890');
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Daftar'));
     await tester.tap(find.text('Daftar'));
     await tester.pumpAndSettle();
@@ -245,7 +255,7 @@ class _FakeApiService extends ApiService {
     required String username,
     required String email,
     required String password,
-    String? phone,
+    required String phone,
   }) async {
     throw const ApiException('Autentikasi belum terhubung ke backend.');
   }
