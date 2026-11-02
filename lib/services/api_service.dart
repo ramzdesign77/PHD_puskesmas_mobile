@@ -8,6 +8,7 @@ import '../constants/app_config.dart';
 import '../models/education_article.dart';
 import '../models/ticket_status.dart';
 import '../models/village.dart';
+import 'profile_service.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message, {this.statusCode});
@@ -110,8 +111,20 @@ class ApiService {
     final preferences = await SharedPreferences.getInstance();
     final tokenSaved = await preferences.setString(_tokenKey, token);
     final roleSaved = await preferences.setString(_roleKey, role);
-    final userNameSaved = await preferences.setString(_userNameKey, userName);
-    if (!tokenSaved || !roleSaved || !userNameSaved) {
+    final profileSaved = await ProfileService.replaceForSession(
+      preferences,
+      name: userName,
+      email: user['email'] as String?,
+      phone:
+          (user['phone'] ??
+                  user['phone_number'] ??
+                  user['no_hp'] ??
+                  user['nomor_telepon'])
+              as String?,
+      username: user['username'] as String?,
+    );
+    if (!tokenSaved || !roleSaved || !profileSaved) {
+      await clearSavedSession();
       throw const ApiException(
         'Sesi login tidak dapat disimpan pada perangkat.',
       );
@@ -136,7 +149,7 @@ class ApiService {
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove(_tokenKey);
     await preferences.remove(_roleKey);
-    await preferences.remove(_userNameKey);
+    await ProfileService.clearForSession(preferences);
     await preferences.remove(_rolesKey);
   }
 

@@ -4,12 +4,16 @@ class UserModel {
     required this.roles,
     this.name,
     this.email,
+    this.phone,
+    this.username,
   });
 
   final String token;
   final List<String> roles;
   final String? name;
   final String? email;
+  final String? phone;
+  final String? username;
 
   factory UserModel.fromLoginJson(Map<String, dynamic> json) {
     final data = _asMap(json['data']) ?? json;
@@ -55,7 +59,20 @@ class UserModel {
       name: _stringOrNull(
         user['name'] ?? user['nama_lengkap'] ?? data['name'] ?? json['name'],
       ),
-      email: _stringOrNull(user['email']),
+      email: _stringOrNull(user['email'] ?? data['email'] ?? json['email']),
+      phone: _stringOrNull(
+        user['phone'] ??
+            user['phone_number'] ??
+            user['no_hp'] ??
+            user['nomor_telepon'] ??
+            data['phone'] ??
+            data['no_hp'] ??
+            json['phone'] ??
+            json['no_hp'],
+      ),
+      username: _stringOrNull(
+        user['username'] ?? data['username'] ?? json['username'],
+      ),
     );
   }
 

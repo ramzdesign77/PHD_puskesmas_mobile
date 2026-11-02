@@ -1,0 +1,238 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:klinik_sanitasi_mobile/services/api_service.dart';
+import 'package:klinik_sanitasi_mobile/services/auth_service.dart';
+import 'package:klinik_sanitasi_mobile/services/profile_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({
+      'auth_token': 'account-a',
+      'auth_user_name': 'Nama Awal',
+      'auth_user_email': 'awal@example.com',
+      'auth_user_phone': '081234567890',
+      'auth_user_username': 'awal',
+      'auth_user_avatar': base64Encode([1, 2, 3]),
+      'saved_citizen_tickets': ['TIKET-1'],
+    });
+  });
+
+  test('edits persist across views within the same login session', () async {
+    final service = ProfileService();
+    final original = await service.load(fallbackName: 'Warga');
+    final photo = Uint8List.fromList([5, 6, 7]);
+    final changed = original.copyWith(
+      name: ' Nama Baru ',
+      email: 'baru@example.com',
+      phone: '089876543210',
+      username: 'baru',
+      avatarBytes: photo,
+    );
+    photo[0] = 99;
+
+    await service.save(changed);
+    final restored = await ProfileService().load(fallbackName: 'Warga');
+
+    expect(restored.name, 'Nama Baru');
+    expect(restored.email, 'baru@example.com');
+    expect(restored.phone, '089876543210');
+    expect(restored.username, 'baru');
+    expect(restored.avatarBytes, [5, 6, 7]);
+    expect(() => restored.avatarBytes![0] = 42, throwsUnsupportedError);
+    expect(original.name, 'Nama Awal');
+  });
+
+  test(
+    'an old edit cannot overwrite another account after switching',
+    () async {
+      final service = ProfileService();
+      final original = await service.load(fallbackName: 'Warga');
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString('auth_token', 'account-b');
+      await preferences.setString('auth_user_name', 'Akun Baru');
+
+      await expectLater(
+        service.save(original.copyWith(name: 'Perubahan Akun Lama')),
+        throwsA(isA<ProfileException>()),
+      );
+
+      expect(preferences.getString('auth_user_name'), 'Akun Baru');
+    },
+  );
+
+  test('missing session rejects loading and a save after logout', () async {
+    final service = ProfileService();
+    final original = await service.load(fallbackName: 'Warga');
+    await AuthService().logout();
+
+    await expectLater(service.save(original), throwsA(isA<ProfileException>()));
+    await expectLater(
+      ProfileService().load(fallbackName: 'Warga'),
+      throwsA(isA<ProfileException>()),
+    );
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getString('auth_user_name'), isNull);
+  });
+
+  test('failed writes are reported and restore the prior profile', () async {
+    final preferences = await SharedPreferences.getInstance();
+    final failingPreferences = _FailOncePreferences(preferences);
+    final service = ProfileService(
+      preferencesProvider: () async => failingPreferences,
+    );
+    final original = await service.load(fallbackName: 'Warga');
+
+    await expectLater(
+      service.save(
+        original.copyWith(name: 'Tidak Tersimpan', email: 'baru@example.com'),
+      ),
+      throwsA(isA<ProfileException>()),
+    );
+
+    expect(preferences.getString('auth_user_name'), 'Nama Awal');
+    expect(preferences.getString('auth_user_email'), 'awal@example.com');
+    expect(preferences.getString('auth_user_avatar'), base64Encode([1, 2, 3]));
+  });
+
+  test('login seeds profile fields and removes the previous photo', () async {
+    final auth = AuthService(
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'data': {
+              'token': 'account-b',
+              'user': {
+                'name': 'Pengguna Baru',
+                'email': 'baru@example.com',
+                'no_hp': '081111111111',
+                'username': 'pengguna_baru',
+                'roles': ['warga'],
+              },
+            },
+          }),
+          200,
+        ),
+      ),
+    );
+
+    await auth.login(identifier: 'pengguna_baru', password: 'password');
+    final profile = await ProfileService().load(fallbackName: 'Warga');
+
+    expect(profile.name, 'Pengguna Baru');
+    expect(profile.email, 'baru@example.com');
+    expect(profile.phone, '081111111111');
+    expect(profile.username, 'pengguna_baru');
+    expect(profile.avatarBytes, isNull);
+  });
+
+  test(
+    'login without optional fields does not retain old account data',
+    () async {
+      final auth = AuthService(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'token': 'account-b',
+              'user': {'name': 'Pengguna Baru', 'role': 'warga'},
+            }),
+            200,
+          ),
+        ),
+      );
+
+      await auth.login(identifier: 'pengguna_baru', password: 'password');
+      final profile = await ProfileService().load(fallbackName: 'Warga');
+
+      expect(profile.email, isEmpty);
+      expect(profile.phone, isEmpty);
+      expect(profile.username, isEmpty);
+      expect(profile.avatarBytes, isNull);
+    },
+  );
+
+  test('legacy registration replaces the previous local profile', () async {
+    final api = ApiService(
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'token': 'account-b',
+            'user': {
+              'nama_lengkap': 'Warga Baru',
+              'email': 'warga@example.com',
+              'username': 'warga_baru',
+            },
+          }),
+          201,
+        ),
+      ),
+    );
+
+    await api.register(
+      namaLengkap: 'Warga Baru',
+      username: 'warga_baru',
+      email: 'warga@example.com',
+      password: 'password',
+    );
+    final profile = await ProfileService().load(fallbackName: 'Warga');
+
+    expect(profile.name, 'Warga Baru');
+    expect(profile.email, 'warga@example.com');
+    expect(profile.username, 'warga_baru');
+    expect(profile.phone, isEmpty);
+    expect(profile.avatarBytes, isNull);
+  });
+
+  for (final legacy in [false, true]) {
+    test(
+      '${legacy ? 'legacy' : 'current'} logout clears all local fields',
+      () async {
+        if (legacy) {
+          await ApiService.clearSavedSession();
+        } else {
+          await AuthService().logout();
+        }
+        final preferences = await SharedPreferences.getInstance();
+
+        expect(
+          preferences.getKeys().where((key) => key.startsWith('auth_')),
+          isEmpty,
+        );
+        expect(preferences.getStringList('saved_citizen_tickets'), ['TIKET-1']);
+      },
+    );
+  }
+}
+
+/// Models a rejected storage write, including SharedPreferences' updated cache.
+class _FailOncePreferences implements SharedPreferences {
+  _FailOncePreferences(this.delegate);
+
+  final SharedPreferences delegate;
+  bool _failed = false;
+
+  @override
+  String? getString(String key) => delegate.getString(key);
+
+  @override
+  Future<bool> setString(String key, String value) async {
+    final result = await delegate.setString(key, value);
+    if (key == ProfileService.emailKey && !_failed) {
+      _failed = true;
+      return false;
+    }
+    return result;
+  }
+
+  @override
+  Future<bool> remove(String key) => delegate.remove(key);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}

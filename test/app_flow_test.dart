@@ -105,6 +105,14 @@ void main() {
 
     await tester.tap(find.text('Profil'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Keluar'),
+      200,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('profile_settings_scroll')),
+        matching: find.byType(Scrollable),
+      ),
+    );
     expect(find.text('Keluar'), findsOneWidget);
 
     await tester.tap(find.text('Keluar'));
