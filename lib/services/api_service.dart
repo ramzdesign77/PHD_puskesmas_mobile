@@ -8,6 +8,7 @@ import '../constants/app_config.dart';
 import '../models/education_article.dart';
 import '../models/ticket_status.dart';
 import '../models/village.dart';
+import 'profile_service.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message, {this.statusCode});
@@ -60,22 +61,32 @@ class ApiService {
     required String username,
     required String email,
     required String password,
+    required String phone,
   }) async {
+    final requestBody = {
+      'nama_lengkap': namaLengkap.trim(),
+      'username': username.trim(),
+      'email': email.trim(),
+      'password': password,
+      'password_confirmation': password,
+      'no_hp': phone.trim(),
+    };
     final response = await _client.post(
       _endpoint('auth/register'),
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
-      body: jsonEncode({
-        'nama_lengkap': namaLengkap.trim(),
-        'username': username.trim(),
-        'email': email.trim(),
-        'password': password,
-        'password_confirmation': password,
-      }),
+      body: jsonEncode(requestBody),
     );
-    return _saveSession(_decode(response), fallbackRole: 'warga');
+    return _saveSession(
+      _decode(response),
+      fallbackRole: 'warga',
+      fallbackName: namaLengkap,
+      fallbackUsername: username,
+      fallbackEmail: email,
+      fallbackPhone: phone,
+    );
   }
 
   Future<http.Response> _postLogin(
@@ -96,6 +107,10 @@ class ApiService {
   Future<Map<String, dynamic>> _saveSession(
     Map<String, dynamic> response, {
     required String fallbackRole,
+    String? fallbackName,
+    String? fallbackUsername,
+    String? fallbackEmail,
+    String? fallbackPhone,
   }) async {
     final data = response['data'] as Map<String, dynamic>?;
     final token = response['token'] as String? ?? data?['token'] as String?;
@@ -106,18 +121,44 @@ class ApiService {
     final user = _userFromResponse(response);
     final role = _roleFromResponse(response) ?? fallbackRole;
     final userName =
-        user['nama_lengkap'] as String? ?? user['name'] as String? ?? '';
+        _firstNonEmptyString([user['nama_lengkap'], user['name']]) ??
+        fallbackName?.trim() ??
+        '';
     final preferences = await SharedPreferences.getInstance();
     final tokenSaved = await preferences.setString(_tokenKey, token);
     final roleSaved = await preferences.setString(_roleKey, role);
-    final userNameSaved = await preferences.setString(_userNameKey, userName);
-    if (!tokenSaved || !roleSaved || !userNameSaved) {
+    final profileSaved = await ProfileService.replaceForSession(
+      preferences,
+      name: userName,
+      email:
+          _firstNonEmptyString([user['email']]) ?? fallbackEmail?.trim(),
+      phone:
+          _firstNonEmptyString([
+            user['phone'],
+            user['phone_number'],
+            user['no_hp'],
+            user['nomor_telepon'],
+          ]) ??
+          fallbackPhone?.trim(),
+      username:
+          _firstNonEmptyString([user['username']]) ??
+          fallbackUsername?.trim(),
+    );
+    if (!tokenSaved || !roleSaved || !profileSaved) {
+      await clearSavedSession();
       throw const ApiException(
         'Sesi login tidak dapat disimpan pada perangkat.',
       );
     }
 
     return {...response, 'token': token, 'role': role};
+  }
+
+  String? _firstNonEmptyString(Iterable<Object?> values) {
+    for (final value in values) {
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+    return null;
   }
 
   Future<AuthSession?> loadSavedSession() async {
@@ -136,7 +177,7 @@ class ApiService {
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove(_tokenKey);
     await preferences.remove(_roleKey);
-    await preferences.remove(_userNameKey);
+    await ProfileService.clearForSession(preferences);
     await preferences.remove(_rolesKey);
   }
 
