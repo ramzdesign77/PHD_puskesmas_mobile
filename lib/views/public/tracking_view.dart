@@ -11,10 +11,12 @@ class TrackingView extends StatefulWidget {
     super.key,
     required this.apiService,
     this.initialTicketCode,
+    this.isActive = true,
   });
 
   final ApiService apiService;
   final String? initialTicketCode;
+  final bool isActive;
 
   @override
   State<TrackingView> createState() => _TrackingViewState();
@@ -34,7 +36,7 @@ class _TrackingViewState extends State<TrackingView> {
     super.initState();
     _selectedCode = _normalizedCode(widget.initialTicketCode);
     if (_selectedCode != null) _ticketController.text = _selectedCode!;
-    _loadHistory(preferredCode: _selectedCode);
+    if (widget.isActive) _loadHistory(preferredCode: _selectedCode);
   }
 
   @override
@@ -45,8 +47,10 @@ class _TrackingViewState extends State<TrackingView> {
     if (newCode != null && newCode != oldCode) {
       _selectedCode = newCode;
       _ticketController.text = newCode;
-      _loadHistory(preferredCode: newCode);
+      if (widget.isActive) _loadHistory(preferredCode: newCode);
+      return;
     }
+    if (widget.isActive && !oldWidget.isActive) _refresh();
   }
 
   String? _normalizedCode(String? code) {
@@ -658,13 +662,14 @@ class _TicketDetails extends StatelessWidget {
           _ScheduleCard(ticket: ticket),
         ],
         const SizedBox(height: 14),
+        if (!ticket.isRejected) ...[
+          _RecommendationCard(ticket: ticket),
+          const SizedBox(height: 14),
+        ],
         _TimelineCard(ticket: ticket),
         const SizedBox(height: 14),
         _ReportSummaryCard(ticket: ticket),
-        if (ticket.status.trim().toLowerCase() == 'selesai') ...[
-          const SizedBox(height: 14),
-          _RecommendationCard(ticket: ticket),
-        ],
+
       ],
     );
   }
@@ -1257,69 +1262,73 @@ class _RecommendationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final risk = ticket.riskCategory?.trim().isNotEmpty == true
-        ? ticket.riskCategory!
-        : 'Belum dicantumkan';
-    final recommendation = ticket.recommendation?.trim().isNotEmpty == true
-        ? ticket.recommendation!
-        : 'Rekomendasi belum tersedia.';
+    final hasResult = ticket.hasInspectionResult;
+    final color = hasResult ? switch (ticket.riskLabel) {
+      'Aman' => AppColors.green,
+      'Sedang' => AppColors.orange,
+      'Tinggi' => const Color(0xFFE53935),
+      _ => AppColors.muted,
+    } : AppColors.muted;
     return _SectionCard(
-      color: const Color(0xFFF5FAF7),
-      borderColor: const Color(0xFFD9EADF),
+      color: color.withValues(alpha: 0.04),
+      borderColor: color.withValues(alpha: 0.25),
       child: Column(
+        key: const Key('citizen_inspection_result'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionHeading(
-            title: 'Hasil & Rekomendasi Sanitarian',
-            subtitle: 'Ringkasan pemeriksaan lingkungan',
-            icon: Icons.verified_user_outlined,
-            iconColor: AppColors.green,
+          _SectionHeading(
+            title: 'Hasil Inspeksi Petugas',
+            subtitle: 'Hasil pemeriksaan pada laporan ini',
+            icon: Icons.health_and_safety_outlined,
+            iconColor: color,
           ),
           const SizedBox(height: 16),
-          const Text(
-            'KATEGORI RISIKO AIR',
-            style: TextStyle(
-              color: AppColors.muted,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.7,
+          if (!hasResult)
+            Text(
+              ticket.status.toLowerCase() == 'selesai'
+                  ? 'Hasil inspeksi belum tersedia. Tarik halaman untuk memperbarui.'
+                  : 'Menunggu hasil inspeksi petugas.',
+              style: const TextStyle(color: AppColors.muted, fontSize: 13),
+            )
+          else ...[
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    ticket.riskLabel,
+                    key: const Key('citizen_risk_label'),
+                    style: TextStyle(color: color, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                if (ticket.riskScore != null)
+                  Text('Skor: ${ticket.riskScore} dari 5',
+                    key: const Key('citizen_risk_score'),
+                    style: const TextStyle(color: AppColors.ink, fontWeight: FontWeight.w700)),
+              ],
             ),
-          ),
-          const SizedBox(height: 7),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5F3EC),
-              borderRadius: BorderRadius.circular(20),
+            const SizedBox(height: 16),
+            _DetailRow(label: 'Tanggal inspeksi', value: ticket.inspectionDate ?? 'Belum dicantumkan'),
+            if (ticket.officer?.trim().isNotEmpty == true)
+              _DetailRow(label: 'Petugas', value: ticket.officer!),
+            if (ticket.intervention?.trim().isNotEmpty == true)
+              _DetailRow(label: 'Intervensi', value: ticket.intervention!),
+            const Text('Rekomendasi Petugas',
+              style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w800, fontSize: 12)),
+            const SizedBox(height: 6),
+            Text(
+              ticket.recommendation?.trim().isNotEmpty == true
+                  ? ticket.recommendation! : 'Rekomendasi belum tersedia.',
+              style: const TextStyle(color: AppColors.ink, fontSize: 13, height: 1.45),
             ),
-            child: Text(
-              risk,
-              style: const TextStyle(
-                color: AppColors.green,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'SARAN PERBAIKAN',
-            style: TextStyle(
-              color: AppColors.muted,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.7,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            recommendation,
-            style: const TextStyle(
-              color: AppColors.ink,
-              fontSize: 13,
-              height: 1.45,
-            ),
-          ),
+          ],
         ],
       ),
     );

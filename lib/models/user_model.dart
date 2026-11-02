@@ -93,7 +93,12 @@ class UserModel {
     return values
         .map(_roleName)
         .whereType<String>()
-        .map((role) => role.trim().toLowerCase())
+        .expand((role) => role.split(','))
+        .map((role) => switch (role.trim().toLowerCase()) {
+          'sanitarian' || 'staf_backup_kluster4' => 'petugas',
+          'kepala_puskesmas' => 'admin',
+          final normalized => normalized,
+        })
         .where((role) => role.isNotEmpty)
         .toSet()
         .toList(growable: false);

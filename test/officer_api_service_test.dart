@@ -84,29 +84,57 @@ void main() {
           expect(request.url.path, '/api/v1/officer/inspections');
           expect(request.headers['Authorization'], 'Bearer token');
           final body = jsonDecode(request.body) as Map<String, dynamic>;
-          expect(body['jadwal_id'], 8);
-          expect(body['jenis_sarana_air'], 'Sumur Gali');
-          expect(body['jarak_sumber_pencemar'], 12.5);
-          expect(body['p1'], isTrue);
-          expect(body['p5'], isFalse);
+          expect(body['id_jadwal'], 8);
+          expect(body.containsKey('jadwal_id'), isFalse);
+          expect(body['jenis_sarana_air'], 'sumur_terlindung');
+          expect(body['jarak_sumber_pencemar'], 12);
+          expect(body['tanggal_inspeksi'], '2026-11-02');
+          expect(body['p1_dinding_sumur_retak'], isTrue);
+          expect(body.containsKey('total_skor_ya'), isFalse);
+          expect(body['p5_air_keruh_berbau'], isFalse);
           expect(body['intervensi_fisik'], 'Pemberian Kaporit');
-          return http.Response('', 204);
+          return http.Response(jsonEncode({'data': {
+            'id_inspeksi': 10,
+            'status_kunjungan': 'selesai',
+            'total_skor_ya': 1,
+            'kategori_risiko': 'risiko_sedang',
+          }}), 201);
         });
 
         await OfficerApiService(client: client).submitInspection(
           token: 'token',
           scheduleId: 8,
-          waterSource: 'Sumur Gali',
-          pollutantDistance: 12.5,
+          waterSource: 'sumur_terlindung',
+          pollutantDistance: 12,
+          inspectionDate: '2026-11-02',
           riskIndicators: const [true, false, false, false, false],
           intervention: 'Pemberian Kaporit',
           interventionNote: 'Sesuai dosis',
           recommendation: 'Periksa kembali',
-          visitStatus: 'diproses',
           officerNote: 'Temuan lapangan',
         );
         client.close();
       },
     );
+
+    test('does not fall back to saving a visit note when inspection fails', () async {
+      var requests = 0;
+      final client = MockClient((request) async {
+        requests++;
+        return http.Response(jsonEncode({'message': 'Jadwal tidak ditemukan.'}), 404);
+      });
+      await expectLater(
+        OfficerApiService(client: client).submitInspection(
+          token: 'token', scheduleId: 8, waterSource: 'pdam',
+          pollutantDistance: 12, inspectionDate: '2026-11-02',
+          riskIndicators: const [false, false, false, false, false],
+          intervention: 'Tidak Ada', interventionNote: '',
+          recommendation: 'Jaga kebersihan.', officerNote: '',
+        ),
+        throwsA(isA<ApiOfficerException>()),
+      );
+      expect(requests, 1);
+      client.close();
+    });
   });
 }

@@ -854,7 +854,8 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
   }
 }
 
-bool _isFinished(String status) => status.toLowerCase() == 'selesai';
+bool _isFinished(String status) =>
+    const ['selesai', 'batal', 'ditolak'].contains(status.toLowerCase());
 
 bool _isPending(String status) {
   final normalized = status.toLowerCase();

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../constants/app_config.dart';
 import '../models/officer_dashboard_data.dart';
+import '../models/risk_score.dart';
 import '../models/visit_schedule.dart';
 
 /// API petugas untuk dashboard, tugas warga, STBM desa, dan inspeksi IKL.
@@ -33,7 +34,7 @@ class OfficerApiService {
         headers: _authHeaders(token),
       ),
       () => _client.post(
-        _legacyEndpoint('petugas/logout'),
+        _legacyEndpoint('auth/logout'),
         headers: _authHeaders(token),
       ),
     );
@@ -109,35 +110,66 @@ class OfficerApiService {
     _decode(response);
   }
 
-  Future<void> submitInspection({
+  Future<Map<String, dynamic>> submitInspection({
     required String token,
     required int scheduleId,
     required String waterSource,
-    required double pollutantDistance,
+    required int pollutantDistance,
     required List<bool> riskIndicators,
+    required String inspectionDate,
     required String intervention,
     required String interventionNote,
     required String recommendation,
-    required String visitStatus,
     required String officerNote,
+    XFile? photo,
   }) async {
-    final response = await _client.post(
-      _officerEndpoint('inspections'),
-      headers: _authHeaders(token),
-      body: jsonEncode({
-        'jadwal_id': scheduleId,
-        'jenis_sarana_air': waterSource,
-        'jarak_sumber_pencemar': pollutantDistance,
-        for (var index = 0; index < riskIndicators.length && index < 5; index++)
-          'p${index + 1}': riskIndicators[index],
-        'intervensi_fisik': intervention,
-        'catatan_intervensi': interventionNote,
-        'rekomendasi_sanitarian': recommendation,
-        'status_kunjungan': visitStatus,
-        'catatan_petugas': officerNote,
-      }),
-    );
-    _decode(response);
+    RiskScore.total(riskIndicators);
+    final payload = <String, dynamic>{
+      'id_jadwal': scheduleId,
+      'jenis_sarana_air': waterSource,
+      'jarak_sumber_pencemar': pollutantDistance,
+      'tanggal_inspeksi': inspectionDate,
+      for (var index = 0; index < RiskScore.fields.length; index++)
+        RiskScore.fields[index]: riskIndicators[index],
+      'intervensi_fisik': intervention,
+      'catatan_intervensi': interventionNote,
+      'rekomendasi_sanitarian': recommendation,
+      'catatan_petugas': officerNote,
+    };
+    final http.Response response;
+    if (photo == null) {
+      response = await _client.post(
+        _officerEndpoint('inspections'),
+        headers: _authHeaders(token),
+        body: jsonEncode(payload),
+      );
+    } else {
+      final request = http.MultipartRequest('POST', _officerEndpoint('inspections'))
+        ..headers.addAll({
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        })
+        ..fields.addAll({
+          for (final entry in payload.entries)
+            entry.key: entry.value is bool
+                ? (entry.value == true ? '1' : '0')
+                : entry.value.toString(),
+        })
+        ..files.add(http.MultipartFile.fromBytes(
+          'foto_bukti',
+          await photo.readAsBytes(),
+          filename: photo.name,
+        ));
+      response = await http.Response.fromStream(await _client.send(request));
+    }
+    final body = _decode(response);
+    final data = body['data'];
+    if (data is! Map || data['status_kunjungan'] != 'selesai') {
+      throw const ApiOfficerException(
+        'Konfirmasi hasil inspeksi tidak lengkap. Segarkan daftar jadwal sebelum mencoba lagi.',
+      );
+    }
+    return Map<String, dynamic>.from(data);
   }
 
   Future<void> submitVisitResult({
