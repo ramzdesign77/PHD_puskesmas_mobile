@@ -11,6 +11,8 @@ import '../../widgets/ocean_widgets.dart';
 import 'officer_detail_view.dart';
 import 'widgets/visit_card_widget.dart';
 
+const _canvasWhite = AppColors.canvas;
+
 class OfficerDashboardView extends StatefulWidget {
   const OfficerDashboardView({
     super.key,
@@ -120,6 +122,12 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
     return name == null || name.isEmpty ? widget.officerName : name;
   }
 
+  String get _greetingName {
+    var name = _displayName.trim();
+    name = name.replaceFirst(RegExp(r'^Petugas\s+', caseSensitive: false), '');
+    return name.isEmpty ? 'Kesling' : name;
+  }
+
   Future<void> _openDetail(VisitSchedule schedule) async {
     final updated = await Navigator.of(context).push<VisitSchedule>(
       MaterialPageRoute(
@@ -221,7 +229,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
       _buildProfileTab(),
     ];
     return Scaffold(
-      backgroundColor: AppColors.canvas,
+      backgroundColor: _canvasWhite,
       body: SafeArea(
         bottom: false,
         child: IndexedStack(index: _selectedTab, children: pages),
@@ -233,7 +241,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
             selectedIndex: _selectedTab,
             onDestinationSelected: _selectTab,
             backgroundColor: Colors.white.withValues(alpha: 0.86),
-            indicatorColor: AppColors.softRed,
+            indicatorColor: AppColors.softBlue,
             height: 72,
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             destinations: const [
@@ -281,66 +289,90 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                   left: 0,
                   right: 0,
                   height: 306,
-                  child: DynamicWaterHeader(
+                  child: Container(
                     key: const Key('officer_header_background'),
-                    height: 306,
-                    child: SafeArea(
-                      bottom: false,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 14),
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Container(
-                                height: 72,
-                                width: 72,
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(11),
-                                  child: Image.asset(
-                                    'assets/images/logo.jpg',
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (_, _, _) => const Icon(
-                                      Icons.health_and_safety_outlined,
-                                      color: AppColors.primary,
-                                      size: 44,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppColors.primaryDark, AppColors.primary],
+                      ),
+                      borderRadius: BorderRadius.vertical(
+                        bottom: Radius.circular(34),
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.circular(34),
+                      ),
+                      child: SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Container(
+                                  height: 72,
+                                  width: 72,
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(11),
+                                    child: Image.asset(
+                                      'assets/images/logo.jpg',
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, _, _) => const Icon(
+                                        Icons.health_and_safety_outlined,
+                                        color: AppColors.primary,
+                                        size: 44,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 10),
-                              const Text(
-                                'KLINIK SANITASI',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 40,
-                                  letterSpacing: 1.1,
-                                  fontFamily: 'Poppins',
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'KLINIK SANITASI',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 24,
+                                    letterSpacing: 0.8,
+                                    fontFamily: 'Poppins',
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                _dashboard?.profile.healthCenter.isNotEmpty ==
-                                        true
-                                    ? _dashboard!.profile.healthCenter
-                                    : 'PUSKESMAS SUMBERSARI',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.8,
+                                const SizedBox(height: 3),
+                                Text(
+                                  _dashboard?.profile.healthCenter.isNotEmpty ==
+                                          true
+                                      ? _dashboard!.profile.healthCenter
+                                      : 'PUSKESMAS SUMBERSARI',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.8,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -425,7 +457,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
             children: [
               Expanded(
                 child: Text(
-                  'Halo, $_displayName, SKM',
+                  'Halo, Petugas $_greetingName',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -442,7 +474,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryDark,
+                  color: AppColors.primary,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
@@ -481,7 +513,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                       child: _MetricCard(
                         count: _todayInspectionCount,
                         label: 'Jadwal IKL',
-                        color: AppColors.accent,
+                        color: AppColors.orange,
                         icon: Icons.assignment_outlined,
                       ),
                     ),

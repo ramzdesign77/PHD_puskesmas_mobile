@@ -8,6 +8,9 @@ import '../../constants/app_colors.dart';
 import '../../models/visit_schedule.dart';
 import '../../services/officer_api_service.dart';
 
+const _maroonDark = Color(0xFF8B1515);
+const _maroon = Color(0xFFB71C1C);
+
 class OfficerDetailView extends StatefulWidget {
   const OfficerDetailView({
     super.key,
@@ -218,8 +221,8 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
               : schedule.ticketCode,
           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.ink,
+        backgroundColor: _maroonDark,
+        foregroundColor: Colors.white,
         elevation: 0,
       ),
       body: Form(
@@ -251,7 +254,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
                 key: const Key('officer_submit_button'),
                 onPressed: _isSubmitting ? null : _submit,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: _maroonDark,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -379,7 +382,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
                   setState(() => _riskIndicators[index] = value ?? false),
               contentPadding: EdgeInsets.zero,
               dense: true,
-              activeColor: AppColors.primary,
+              activeColor: _maroon,
               controlAffinity: ListTileControlAffinity.leading,
               title: Text(
                 _riskLabels[index],
@@ -452,25 +455,32 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
         children: [
           const _FieldLabel(text: 'Intervensi Fisik'),
           const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            key: const Key('officer_intervention_dropdown'),
-            initialValue: _intervention,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.medical_services_outlined),
-              isDense: true,
-            ),
-            items: _interventions
-                .map(
-                  (intervention) => DropdownMenuItem(
-                    value: intervention,
-                    child: Text(intervention, overflow: TextOverflow.ellipsis),
-                  ),
-                )
+          Wrap(
+            key: const Key('officer_intervention_choices'),
+            spacing: 8,
+            runSpacing: 8,
+            children: _interventions
+                .map((intervention) {
+                  final selected = _intervention == intervention;
+                  return ChoiceChip(
+                    label: Text(intervention),
+                    selected: selected,
+                    selectedColor: const Color(0xFFF8D7DA),
+                    backgroundColor: AppColors.canvas,
+                    side: BorderSide(
+                      color: selected ? _maroon : AppColors.line,
+                    ),
+                    labelStyle: TextStyle(
+                      color: selected ? _maroonDark : AppColors.ink,
+                      fontSize: 11,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                    onSelected: (_) {
+                      setState(() => _intervention = intervention);
+                    },
+                  );
+                })
                 .toList(growable: false),
-            onChanged: (value) {
-              if (value != null) setState(() => _intervention = value);
-            },
           ),
           const SizedBox(height: 14),
           const _FieldLabel(text: 'Catatan Intervensi'),
@@ -547,7 +557,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
                       children: [
                         Icon(
                           Icons.camera_alt_outlined,
-                          color: AppColors.primary,
+                          color: _maroon,
                           size: 28,
                         ),
                         SizedBox(height: 6),

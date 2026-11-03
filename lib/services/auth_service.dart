@@ -28,6 +28,10 @@ class AuthService {
   static const rolesKey = 'auth_roles';
   static const sessionRoleKey = 'auth_role';
   static const userNameKey = 'auth_user_name';
+  static const userPhoneKey = 'auth_user_phone';
+  static const userVillageKey = 'auth_user_village';
+  static const userRtKey = 'auth_user_rt';
+  static const userRwKey = 'auth_user_rw';
 
   final http.Client _client;
   final Future<SharedPreferences> Function() _preferencesProvider;
@@ -38,6 +42,10 @@ class AuthService {
     await preferences.remove(rolesKey);
     await preferences.remove(sessionRoleKey);
     await preferences.remove(userNameKey);
+    await preferences.remove(userPhoneKey);
+    await preferences.remove(userVillageKey);
+    await preferences.remove(userRtKey);
+    await preferences.remove(userRwKey);
   }
 
   Uri get _loginUri => _loginUriFor(versioned: true);
@@ -151,6 +159,10 @@ class AuthService {
       userNameKey,
       user.name ?? '',
     );
+    await preferences.setString(userPhoneKey, user.phone ?? '');
+    await preferences.setString(userVillageKey, user.villageName ?? '');
+    await preferences.setString(userRtKey, user.rt ?? '');
+    await preferences.setString(userRwKey, user.rw ?? '');
     if (!tokenSaved || !rolesSaved || !sessionRoleSaved || !userNameSaved) {
       throw const AuthException(
         'Sesi login tidak dapat disimpan di perangkat.',

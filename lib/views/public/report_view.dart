@@ -25,12 +25,10 @@ class ReportView extends StatefulWidget {
 }
 
 class _ReportViewState extends State<ReportView> {
-  // Set to true to include the device's GPS coordinates in report submissions.
-  static const bool _attachDeviceLocation = false;
-
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _phone = TextEditingController();
+  final _alamatDetail = TextEditingController();
   final _description = TextEditingController();
   final _imagePicker = ImagePicker();
 
@@ -38,29 +36,97 @@ class _ReportViewState extends State<ReportView> {
   Village? _selectedVillage;
   String? _selectedRt;
   String? _selectedRw;
-  String _category = 'air_masalah';
+  String _category = '';
   XFile? _image;
   Uint8List? _imageBytes;
   bool _isSubmitting = false;
+  bool _isLoggedIn = false;
+  bool _sessionLoaded = false;
+  bool _isLoadingLocation = false;
+  Position? _selectedPosition;
+  String? _profileVillageName;
 
   @override
   void initState() {
     super.initState();
     _villages = widget.apiService.getVillages();
+    _loadSession();
+  }
+
+  Future<void> _loadSession() async {
+    final session = await widget.apiService.loadSavedSession();
+    if (!mounted) return;
+    setState(() {
+      _isLoggedIn = session != null;
+      _sessionLoaded = true;
+      if (session != null) {
+        _name.text = session.userName;
+        _profileVillageName = session.villageName;
+        final rt = session.rt?.trim();
+        final rw = session.rw?.trim();
+        _selectedRt = rt == null || rt.isEmpty ? null : rt.padLeft(2, '0');
+        _selectedRw = rw == null || rw.isEmpty ? null : rw.padLeft(2, '0');
+        _phone.text = session.phone ?? '';
+      }
+    });
   }
 
   @override
   void dispose() {
     _name.dispose();
     _phone.dispose();
+    _alamatDetail.dispose();
     _description.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(
+                  Icons.photo_camera_outlined,
+                  color: AppColors.primary,
+                ),
+                title: const Text('Ambil dari Kamera'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.photo_library_outlined,
+                  color: AppColors.primary,
+                ),
+                title: const Text('Pilih dari Galeri'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (source == null) return;
     try {
       final image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         imageQuality: 82,
         maxWidth: 1600,
       );
@@ -105,6 +171,21 @@ class _ReportViewState extends State<ReportView> {
     );
   }
 
+  Future<void> _takeLocation() async {
+    setState(() => _isLoadingLocation = true);
+    try {
+      final position = await _currentPosition();
+      if (!mounted) return;
+      setState(() => _selectedPosition = position);
+    } on ApiException catch (error) {
+      _showError(error.message);
+    } on Exception catch (error) {
+      _showError('Gagal mengambil lokasi GPS. $error');
+    } finally {
+      if (mounted) setState(() => _isLoadingLocation = false);
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _selectedVillage == null) {
       if (_selectedVillage == null) {
@@ -112,10 +193,13 @@ class _ReportViewState extends State<ReportView> {
       }
       return;
     }
+    if (_category.isEmpty) {
+      _showError('Pilih kategori laporan terlebih dahulu.');
+      return;
+    }
 
     setState(() => _isSubmitting = true);
     try {
-      final position = _attachDeviceLocation ? await _currentPosition() : null;
       final reportData = <String, String>{
         'nama_pelapor': _name.text.trim(),
         'no_wa': _phone.text.trim(),
@@ -123,11 +207,13 @@ class _ReportViewState extends State<ReportView> {
         'rt': _selectedRt ?? '',
         'rw': _selectedRw ?? '',
         'kategori_laporan': _category,
+        'alamat_detail': _alamatDetail.text.trim(),
+        'patokan_alamat': _alamatDetail.text.trim(),
         'deskripsi': _description.text.trim(),
       };
-      if (position != null) {
-        reportData['latitude'] = position.latitude.toString();
-        reportData['longitude'] = position.longitude.toString();
+      if (_selectedPosition != null) {
+        reportData['latitude'] = _selectedPosition!.latitude.toString();
+        reportData['longitude'] = _selectedPosition!.longitude.toString();
       }
       final ticketCode = await widget.apiService.submitReport(
         reportData,
@@ -150,14 +236,16 @@ class _ReportViewState extends State<ReportView> {
       _formKey.currentState!.reset();
       _name.clear();
       _phone.clear();
+      _alamatDetail.clear();
       _description.clear();
       setState(() {
         _selectedVillage = null;
         _selectedRt = null;
         _selectedRw = null;
-        _category = 'air_masalah';
+        _category = '';
         _image = null;
         _imageBytes = null;
+        _selectedPosition = null;
       });
     } on ApiException catch (error) {
       _showError(error.message);
@@ -182,6 +270,104 @@ class _ReportViewState extends State<ReportView> {
 
   String? _required(String? value) =>
       value == null || value.trim().isEmpty ? 'Bagian ini wajib diisi.' : null;
+
+  Widget _buildCategoryGrid() {
+    const categories = [
+      (
+        value: 'air_sumur_keruh_berbau',
+        label: 'Air Sumur Keruh / Berbau',
+        icon: Icons.water_drop_rounded,
+      ),
+      (
+        value: 'sarang_nyamuk_dbd',
+        label: 'Sarang Nyamuk / Indikasi DBD',
+        icon: Icons.bug_report_rounded,
+      ),
+      (
+        value: 'jamban_limbah_stbm',
+        label: 'Masalah Jamban & Limbah (STBM)',
+        icon: Icons.wc_rounded,
+      ),
+      (
+        value: 'tumpukan_sampah',
+        label: 'Tumpukan Sampah',
+        icon: Icons.delete_sweep_rounded,
+      ),
+    ];
+
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      childAspectRatio: 1.5,
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      children: categories.map((category) {
+        final selected = _category == category.value;
+        return InkWell(
+          onTap: () => setState(() => _category = category.value),
+          borderRadius: BorderRadius.circular(14),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.softBlue : const Color(0xFFF5F6F8),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected ? AppColors.primary : const Color(0xFFE0E0E0),
+                width: selected ? 2 : 1,
+              ),
+            ),
+            child: Stack(
+              children: [
+                if (selected)
+                  const Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Icon(
+                      Icons.check_circle,
+                      size: 17,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                Center(
+                  child: Row(
+                    children: [
+                      Icon(
+                        category.icon,
+                        size: 22,
+                        color: selected
+                            ? AppColors.primary
+                            : const Color(0xFF6B7280),
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          category.label,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.2,
+                            fontWeight: selected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: selected
+                                ? AppColors.primary
+                                : const Color(0xFF374151),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
 
   InputDecoration _fieldDecoration({
     required String hintText,
@@ -233,7 +419,7 @@ class _ReportViewState extends State<ReportView> {
           width: 32,
           height: 32,
           decoration: const BoxDecoration(
-            color: AppColors.softRed,
+            color: AppColors.softBlue,
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: AppColors.primary, size: 18),
@@ -365,45 +551,48 @@ class _ReportViewState extends State<ReportView> {
                             // ============================================
                             // Section 1: Data Pelapor
                             // ============================================
-                            _buildSectionHeader(
-                              icon: Icons.person_outline,
-                              title: 'Data Pelapor',
-                            ),
-                            const SizedBox(height: 14),
-                            TextFormField(
-                              controller: _name,
-                              validator: _required,
-                              textCapitalization: TextCapitalization.words,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: AppColors.ink,
+                            if (!_sessionLoaded || !_isLoggedIn) ...[
+                              _buildSectionHeader(
+                                icon: Icons.person_outline,
+                                title: 'Data Pelapor',
                               ),
-                              decoration: _fieldDecoration(
-                                hintText: 'Nama lengkap',
-                                prefixIcon: const Icon(
-                                  Icons.person_outline,
-                                  color: AppColors.muted,
-                                  size: 20,
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _name,
+                                validator: _required,
+                                textCapitalization: TextCapitalization.words,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.ink,
+                                ),
+                                decoration: _fieldDecoration(
+                                  hintText: 'Nama Lengkap',
+                                  prefixIcon: const Icon(
+                                    Icons.person_outline,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              controller: _phone,
-                              keyboardType: TextInputType.phone,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: AppColors.ink,
-                              ),
-                              decoration: _fieldDecoration(
-                                hintText: 'Nomor telepon',
-                                prefixIcon: const Icon(
-                                  Icons.phone_outlined,
-                                  color: AppColors.muted,
-                                  size: 20,
+                              const SizedBox(height: 10),
+                              TextFormField(
+                                controller: _phone,
+                                keyboardType: TextInputType.phone,
+                                validator: _required,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.ink,
+                                ),
+                                decoration: _fieldDecoration(
+                                  hintText: 'Nomor WhatsApp Aktif',
+                                  prefixIcon: const Icon(
+                                    Icons.phone_outlined,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
 
                             // ============================================
                             // Section 2: Lokasi Kejadian
@@ -426,6 +615,32 @@ class _ReportViewState extends State<ReportView> {
                                     ),
                                   );
                                 }
+                                final villages = snapshot.data ?? [];
+                                if (_selectedVillage == null &&
+                                    _profileVillageName != null &&
+                                    villages.isNotEmpty) {
+                                  final matches = villages
+                                      .where(
+                                        (village) =>
+                                            village.name.toLowerCase().trim() ==
+                                            _profileVillageName!
+                                                .toLowerCase()
+                                                .trim(),
+                                      )
+                                      .toList();
+                                  if (matches.isNotEmpty) {
+                                    final match = matches.first;
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (mounted &&
+                                              _selectedVillage == null) {
+                                            setState(() {
+                                              _selectedVillage = match;
+                                            });
+                                          }
+                                        });
+                                  }
+                                }
 
                                 return DropdownButtonFormField<Village>(
                                   initialValue: _selectedVillage,
@@ -445,7 +660,7 @@ class _ReportViewState extends State<ReportView> {
                                       size: 20,
                                     ),
                                   ),
-                                  items: (snapshot.data ?? []).map((village) {
+                                  items: villages.map((village) {
                                     return DropdownMenuItem(
                                       value: village,
                                       child: Text(
@@ -579,6 +794,73 @@ class _ReportViewState extends State<ReportView> {
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 10),
+                            TextFormField(
+                              controller: _alamatDetail,
+                              validator: _required,
+                              textCapitalization: TextCapitalization.sentences,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: AppColors.ink,
+                              ),
+                              decoration: _fieldDecoration(
+                                hintText: 'Patokan / Detail Alamat (Contoh: Depan Masjid Al-Ikhlas, rumah pagar hitam)',
+                                prefixIcon: const Icon(
+                                  Icons.place_outlined,
+                                  color: AppColors.primary,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              onPressed: _isLoadingLocation
+                                  ? null
+                                  : _takeLocation,
+                              icon: _isLoadingLocation
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.primary,
+                                      ),
+                                    )
+                                  : const Icon(Icons.my_location_rounded),
+                              label: Text(
+                                _selectedPosition == null
+                                    ? 'Ambil Titik Lokasi (GPS)'
+                                    : 'Perbarui Titik Lokasi (GPS)',
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                backgroundColor: AppColors.softBlue,
+                                side: const BorderSide(
+                                  color: AppColors.primary,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 13,
+                                  horizontal: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                            if (_selectedPosition != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Titik Koordinat Terkunci: '
+                                '${_selectedPosition!.latitude.toStringAsFixed(6)}, '
+                                '${_selectedPosition!.longitude.toStringAsFixed(6)}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF267A58),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
 
                             // ============================================
                             // Section 3: Detail Laporan
@@ -590,38 +872,7 @@ class _ReportViewState extends State<ReportView> {
                             ),
                             const SizedBox(height: 12),
                             _buildFieldLabel('Kategori Laporan'),
-                            DropdownButtonFormField<String>(
-                              initialValue: _category,
-                              icon: const Icon(
-                                Icons.keyboard_arrow_down,
-                                color: AppColors.muted,
-                              ),
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: AppColors.ink,
-                              ),
-                              decoration: _fieldDecoration(
-                                hintText: 'Kategori Laporan',
-                                prefixIcon: const Icon(
-                                  Icons.water_drop,
-                                  color: Color(0xFF374151),
-                                  size: 20,
-                                ),
-                              ),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'air_masalah',
-                                  child: Text('Masalah air'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'sanitasi_lingkungan',
-                                  child: Text('Sanitasi lingkungan'),
-                                ),
-                              ],
-                              onChanged: (val) => setState(
-                                () => _category = val ?? 'air_masalah',
-                              ),
-                            ),
+                            _buildCategoryGrid(),
                             const SizedBox(height: 12),
                             _buildFieldLabel('Deskripsi masalah'),
                             Stack(
@@ -715,7 +966,7 @@ class _ReportViewState extends State<ReportView> {
                                               : 'Foto: ${_image!.name}',
                                           style: TextStyle(
                                             color: _image == null
-                                                ? AppColors.muted
+                                                ? AppColors.primary
                                                 : AppColors.ink,
                                             fontSize: 13,
                                             fontWeight: FontWeight.w500,
@@ -796,7 +1047,7 @@ class _ReportViewState extends State<ReportView> {
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
-                                            'Kirim Laporan',
+                                            'KIRIM LAPORAN PENGADUAN',
                                             style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700,
