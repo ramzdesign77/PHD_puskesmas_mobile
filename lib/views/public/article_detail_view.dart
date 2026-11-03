@@ -80,7 +80,8 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                   widget.article.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                  style: TextStyle(
+                    fontFamily: AppTheme.bodyFontFamily,
                     color: AppColors.ink,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -166,7 +167,8 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                             ),
                             child: Text(
                               widget.article.category.toUpperCase(),
-                              style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                              style: TextStyle(
+                                fontFamily: AppTheme.bodyFontFamily,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 color: AppColors.primary,
@@ -185,7 +187,8 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                       delay: 250,
                       child: Text(
                         widget.article.title,
-                        style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                        style: TextStyle(
+                          fontFamily: AppTheme.bodyFontFamily,
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
                           color: AppColors.ink,
@@ -216,7 +219,8 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                                 children: [
                                   Text(
                                     'Tim Medis Sanitasi',
-                                    style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.bodyFontFamily,
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
                                       color: AppColors.ink,
@@ -232,7 +236,8 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                               ),
                               Text(
                                 'Puskesmas Sumbersari',
-                                style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                style: TextStyle(
+                                  fontFamily: AppTheme.bodyFontFamily,
                                   fontSize: 12,
                                   color: AppColors.muted,
                                 ),
@@ -251,7 +256,8 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                       delay: 650,
                       child: Text(
                         widget.article.content,
-                        style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                        style: TextStyle(
+                          fontFamily: AppTheme.bodyFontFamily,
                           fontSize: 15,
                           color: const Color(0xFF333333),
                           height: 1.8,

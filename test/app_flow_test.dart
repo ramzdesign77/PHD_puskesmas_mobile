@@ -81,7 +81,8 @@ void main() {
     expect(find.text('Status\nLaporan'), findsOneWidget);
     expect(find.text('Edukasi &\nSTBM'), findsOneWidget);
     expect(find.text('PENGUMUMAN'), findsOneWidget);
-    expect(find.text('Lacak'), findsOneWidget);
+    expect(find.text('Riwayat'), findsOneWidget);
+    expect(find.text('Lacak'), findsNothing);
     expect(find.text('Profil'), findsOneWidget);
 
     await tester.tap(find.text('Profil'));
@@ -104,6 +105,14 @@ void main() {
 
     await tester.tap(find.text('Profil'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Keluar'),
+      200,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('profile_settings_scroll')),
+        matching: find.byType(Scrollable),
+      ),
+    );
     expect(find.text('Keluar'), findsOneWidget);
 
     await tester.tap(find.text('Keluar'));
@@ -178,8 +187,9 @@ void main() {
     await enterField(0, 'Siti Aminah');
     await enterField(1, 'siti');
     await enterField(2, 'siti@example.com');
-    await enterField(3, 'password123');
-    await enterField(4, 'different123');
+    await enterField(3, '081234567890');
+    await enterField(4, 'password123');
+    await enterField(5, 'different123');
     tester.testTextInput.hide();
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Daftar'));
@@ -188,7 +198,7 @@ void main() {
 
     expect(find.text('Kata sandi tidak cocok.'), findsOneWidget);
 
-    await enterField(4, 'password123');
+    await enterField(5, 'password123');
     tester.testTextInput.hide();
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Daftar'));
@@ -201,6 +211,16 @@ void main() {
 
     await tester.ensureVisible(find.byType(Checkbox));
     await tester.tap(find.byType(Checkbox));
+    await enterField(3, '');
+    await tester.ensureVisible(find.text('Daftar'));
+    await tester.tap(find.text('Daftar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nomor telepon wajib diisi.'), findsOneWidget);
+
+    await enterField(3, '081234567890');
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Daftar'));
     await tester.tap(find.text('Daftar'));
     await tester.pumpAndSettle();
@@ -235,6 +255,7 @@ class _FakeApiService extends ApiService {
     required String username,
     required String email,
     required String password,
+    required String phone,
   }) async {
     throw const ApiException('Autentikasi belum terhubung ke backend.');
   }

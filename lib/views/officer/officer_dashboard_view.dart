@@ -9,6 +9,7 @@ import '../../services/api_service.dart';
 import '../../services/officer_api_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
+import '../profile/profile_view.dart';
 import 'officer_detail_view.dart';
 import 'widgets/visit_card_widget.dart';
 
@@ -35,6 +36,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
   bool _isLoading = true;
   String? _errorMessage;
   String? _dashboardWarning;
+  String? _localProfileName;
 
   @override
   void initState() {
@@ -117,6 +119,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
       _dashboard?.summary.todayInspectionsCount ?? _todayInspections.length;
 
   String get _displayName {
+    if (_localProfileName != null) return _localProfileName!;
     final name = _dashboard?.profile.name.trim();
     return name == null || name.isEmpty ? widget.officerName : name;
   }
@@ -289,54 +292,59 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                       bottom: false,
                       child: Padding(
                         padding: const EdgeInsets.only(top: 14),
-                        child: Column(
-                          children: [
-                            Container(
-                              height: 72,
-                              width: 72,
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(11),
-                                child: Image.asset(
-                                  'assets/images/logo.jpg',
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, _, _) => const Icon(
-                                    Icons.health_and_safety_outlined,
-                                    color: AppColors.primary,
-                                    size: 44,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                height: 72,
+                                width: 72,
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(11),
+                                  child: Image.asset(
+                                    'assets/images/logo.jpg',
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, _, _) => const Icon(
+                                      Icons.health_and_safety_outlined,
+                                      color: AppColors.primary,
+                                      size: 44,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'KLINIK SANITASI',
-                              style: const TextStyle(
-                                fontFamily: AppTheme.headlineFontFamily,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 20,
-                                letterSpacing: 1.1,
-                              ).asHeading,
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              _dashboard?.profile.healthCenter.isNotEmpty ==
-                                      true
-                                  ? _dashboard!.profile.healthCenter
-                                  : 'PUSKESMAS SUMBERSARI',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.8,
+                              const SizedBox(height: 10),
+                              Text(
+                                'KLINIK SANITASI',
+                                style: const TextStyle(
+                                  fontFamily: AppTheme.headlineFontFamily,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 20,
+                                  letterSpacing: 1.1,
+                                ).asHeading,
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 3),
+                              Text(
+                                _dashboard?.profile.healthCenter.isNotEmpty ==
+                                        true
+                                    ? _dashboard!.profile.healthCenter
+                                    : 'PUSKESMAS SUMBERSARI',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -367,12 +375,12 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                 Expanded(
                   child: Text(
                     'Daftar Tugas & Aduan Terbaru',
-                  style: const TextStyle(
+                    style: const TextStyle(
                       fontFamily: AppTheme.headlineFontFamily,
                       color: AppColors.ink,
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
-                  ).asHeading,
+                    ).asHeading,
                   ),
                 ),
                 TextButton(
@@ -712,105 +720,23 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
 
   Widget _buildProfileTab() {
     final profile = _dashboard?.profile ?? const OfficerProfile();
-    return Column(
-      children: [
-        const _PageHeader(
-          title: 'Profil Petugas',
-          description: 'Informasi akun dan wilayah kerja.',
-        ),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(18),
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: AppColors.line),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.08),
-                      blurRadius: 18,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.18),
-                            blurRadius: 18,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: const CircleAvatar(
-                        radius: 31,
-                        backgroundColor: AppColors.softBlue,
-                        child: Icon(
-                          Icons.person_rounded,
-                          size: 38,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      profile.name.isEmpty ? widget.officerName : profile.name,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.ink,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _ProfileRow(label: 'NIP', value: profile.nip),
-                    _ProfileRow(label: 'Jabatan', value: profile.position),
-                    _ProfileRow(
-                      label: 'Wilayah Kerja',
-                      value: profile.serviceArea,
-                    ),
-                    _ProfileRow(
-                      label: 'Puskesmas',
-                      value: profile.healthCenter.isEmpty
-                          ? 'Puskesmas Sumbersari'
-                          : profile.healthCenter,
-                      isLast: true,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                key: const Key('officer_logout_btn'),
-                onPressed: _logout,
-                icon: const Icon(Icons.logout_rounded),
-                label: const Text('Keluar / Logout'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: const BorderSide(color: AppColors.primary),
-                ),
-              ),
-              const SizedBox(height: 28),
-              const Center(
-                child: Text(
-                  'E-Klinik Sanitasi · Versi 1.0.0',
-                  style: TextStyle(color: AppColors.muted, fontSize: 11),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+    return ProfileView(
+      fallbackName: _displayName,
+      roleLabel: 'Petugas Sanitasi',
+      onBack: () => _selectTab(0),
+      onLogout: _logout,
+      logoutKey: const Key('officer_logout_btn'),
+      onProfileChanged: (updated) {
+        setState(() => _localProfileName = updated.name);
+      },
+      accountDetails: {
+        'NIP': profile.nip,
+        'Jabatan': profile.position,
+        'Wilayah kerja': profile.serviceArea,
+        'Puskesmas': profile.healthCenter.isEmpty
+            ? 'Puskesmas Sumbersari'
+            : profile.healthCenter,
+      },
     );
   }
 
@@ -973,51 +899,6 @@ class _PageHeader extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-class _ProfileRow extends StatelessWidget {
-  const _ProfileRow({
-    required this.label,
-    required this.value,
-    this.isLast = false,
-  });
-
-  final String label;
-  final String value;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 11),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 108,
-                child: Text(
-                  label,
-                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  value.isEmpty ? '-' : value,
-                  style: const TextStyle(
-                    color: AppColors.ink,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (!isLast) const Divider(height: 1, color: AppColors.line),
-      ],
     );
   }
 }

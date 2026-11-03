@@ -12,18 +12,25 @@ import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
 
 class ReportView extends StatefulWidget {
-  const ReportView({super.key, required this.apiService});
+  const ReportView({
+    super.key,
+    required this.apiService,
+    this.onReportSubmitted,
+  });
 
   final ApiService apiService;
+  final ValueChanged<String>? onReportSubmitted;
 
   @override
   State<ReportView> createState() => _ReportViewState();
 }
 
 class _ReportViewState extends State<ReportView> {
+  // Set to true to include the device's GPS coordinates in report submissions.
+  static const bool _attachDeviceLocation = false;
+
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
-  final _nik = TextEditingController();
   final _phone = TextEditingController();
   final _description = TextEditingController();
   final _imagePicker = ImagePicker();
@@ -46,7 +53,6 @@ class _ReportViewState extends State<ReportView> {
   @override
   void dispose() {
     _name.dispose();
-    _nik.dispose();
     _phone.dispose();
     _description.dispose();
     super.dispose();
@@ -110,90 +116,40 @@ class _ReportViewState extends State<ReportView> {
 
     setState(() => _isSubmitting = true);
     try {
-      final position = await _currentPosition();
-      final ticketCode = await widget.apiService.submitReport({
+      final position = _attachDeviceLocation ? await _currentPosition() : null;
+      final reportData = <String, String>{
         'nama_pelapor': _name.text.trim(),
-        'nik_pelapor': _nik.text.trim(),
         'no_wa': _phone.text.trim(),
         'id_desa': _selectedVillage!.id.toString(),
         'rt': _selectedRt ?? '',
         'rw': _selectedRw ?? '',
         'kategori_laporan': _category,
         'deskripsi': _description.text.trim(),
-        'latitude': position.latitude.toString(),
-        'longitude': position.longitude.toString(),
-      }, imageFile: _image);
+      };
+      if (position != null) {
+        reportData['latitude'] = position.latitude.toString();
+        reportData['longitude'] = position.longitude.toString();
+      }
+      final ticketCode = await widget.apiService.submitReport(
+        reportData,
+        imageFile: _image,
+      );
 
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+      final onReportSubmitted = widget.onReportSubmitted;
+      if (onReportSubmitted != null) {
+        onReportSubmitted(ticketCode);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Laporan terkirim. Kode tiket: $ticketCode'),
+            behavior: SnackBarBehavior.floating,
           ),
-          icon: const Icon(
-            Icons.check_circle_outline,
-            color: AppColors.green,
-            size: 48,
-          ),
-          title: Text(
-            'Laporan Terkirim',
-            style: TextStyle(
-              fontFamily: AppTheme.bodyFontFamily,
-              fontWeight: FontWeight.bold,
-              fontSize: 19,
-            ).asHeading,
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Terima kasih telah menyampaikan masalah air atau sanitasi di lingkungan Anda.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontFamily: AppTheme.bodyFontFamily,color: AppColors.muted, fontSize: 14),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Kode tiket: $ticketCode',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Simpan kode ini untuk melacak status laporan.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontFamily: AppTheme.bodyFontFamily,color: AppColors.muted, fontSize: 12),
-              ),
-            ],
-          ),
-          actions: [
-            Center(
-              child: SizedBox(
-                width: 140,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('Selesai'),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
+        );
+      }
 
       _formKey.currentState!.reset();
       _name.clear();
-      _nik.clear();
       _phone.clear();
       _description.clear();
       setState(() {
@@ -208,7 +164,7 @@ class _ReportViewState extends State<ReportView> {
       _showError(error.message);
     } on Exception catch (error) {
       _showError(
-        'Laporan belum dapat dikirim. Periksa koneksi dan izin lokasi. $error',
+        'Laporan belum dapat dikirim. Periksa koneksi internet. $error',
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -236,7 +192,8 @@ class _ReportViewState extends State<ReportView> {
   }) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+      hintStyle: TextStyle(
+        fontFamily: AppTheme.bodyFontFamily,
         color: AppColors.muted,
         fontSize: 14,
         fontWeight: FontWeight.w400,
@@ -302,7 +259,8 @@ class _ReportViewState extends State<ReportView> {
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         label,
-        style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+        style: TextStyle(
+          fontFamily: AppTheme.bodyFontFamily,
           fontSize: 13,
           fontWeight: FontWeight.w600,
           color: const Color(0xFF374151),
@@ -365,7 +323,8 @@ class _ReportViewState extends State<ReportView> {
                         const SizedBox(height: 14),
                         Text(
                           'Buat Laporan',
-                          style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                          style: TextStyle(
+                            fontFamily: AppTheme.bodyFontFamily,
                             fontSize: 26,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
@@ -375,7 +334,8 @@ class _ReportViewState extends State<ReportView> {
                         const SizedBox(height: 6),
                         Text(
                           'Sampaikan masalah air atau sanitasi\ndi lingkungan Anda.',
-                          style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                          style: TextStyle(
+                            fontFamily: AppTheme.bodyFontFamily,
                             fontSize: 14,
                             color: Colors.white.withValues(alpha: 0.88),
                             height: 1.35,
@@ -420,7 +380,8 @@ class _ReportViewState extends State<ReportView> {
                               controller: _name,
                               validator: _required,
                               textCapitalization: TextCapitalization.words,
-                              style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                              style: TextStyle(
+                                fontFamily: AppTheme.bodyFontFamily,
                                 fontSize: 14,
                                 color: AppColors.ink,
                               ),
@@ -435,35 +396,10 @@ class _ReportViewState extends State<ReportView> {
                             ),
                             const SizedBox(height: 10),
                             TextFormField(
-                              controller: _nik,
-                              keyboardType: TextInputType.number,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return null;
-                                }
-                                return RegExp(r'^\d{16}$')
-                                        .hasMatch(value.trim())
-                                    ? null
-                                    : 'NIK harus terdiri dari 16 angka.';
-                              },
-                              style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
-                                fontSize: 14,
-                                color: AppColors.ink,
-                              ),
-                              decoration: _fieldDecoration(
-                                hintText: 'NIK',
-                                prefixIcon: const Icon(
-                                  Icons.badge_outlined,
-                                  color: AppColors.muted,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
                               controller: _phone,
                               keyboardType: TextInputType.phone,
-                              style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                              style: TextStyle(
+                                fontFamily: AppTheme.bodyFontFamily,
                                 fontSize: 14,
                                 color: AppColors.ink,
                               ),
@@ -505,7 +441,8 @@ class _ReportViewState extends State<ReportView> {
                                     Icons.keyboard_arrow_down,
                                     color: AppColors.muted,
                                   ),
-                                  style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.bodyFontFamily,
                                     fontSize: 14,
                                     color: AppColors.ink,
                                   ),
@@ -522,7 +459,8 @@ class _ReportViewState extends State<ReportView> {
                                       value: village,
                                       child: Text(
                                         village.name,
-                                        style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.bodyFontFamily,
                                           fontSize: 14,
                                           color: AppColors.ink,
                                         ),
@@ -537,7 +475,8 @@ class _ReportViewState extends State<ReportView> {
                                       : null,
                                   hint: Text(
                                     'Pilih desa',
-                                    style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.bodyFontFamily,
                                       color: AppColors.muted,
                                       fontSize: 14,
                                     ),
@@ -555,7 +494,8 @@ class _ReportViewState extends State<ReportView> {
                                       Icons.keyboard_arrow_down,
                                       color: AppColors.muted,
                                     ),
-                                    style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.bodyFontFamily,
                                       fontSize: 14,
                                       color: AppColors.ink,
                                     ),
@@ -569,7 +509,8 @@ class _ReportViewState extends State<ReportView> {
                                     ),
                                     hint: Text(
                                       'RT',
-                                      style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                      style: TextStyle(
+                                        fontFamily: AppTheme.bodyFontFamily,
                                         color: AppColors.muted,
                                         fontSize: 14,
                                       ),
@@ -583,7 +524,8 @@ class _ReportViewState extends State<ReportView> {
                                         value: numStr,
                                         child: Text(
                                           'RT $numStr',
-                                          style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.bodyFontFamily,
                                             fontSize: 14,
                                             color: AppColors.ink,
                                           ),
@@ -606,7 +548,8 @@ class _ReportViewState extends State<ReportView> {
                                       Icons.keyboard_arrow_down,
                                       color: AppColors.muted,
                                     ),
-                                    style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.bodyFontFamily,
                                       fontSize: 14,
                                       color: AppColors.ink,
                                     ),
@@ -620,7 +563,8 @@ class _ReportViewState extends State<ReportView> {
                                     ),
                                     hint: Text(
                                       'RW',
-                                      style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                      style: TextStyle(
+                                        fontFamily: AppTheme.bodyFontFamily,
                                         color: AppColors.muted,
                                         fontSize: 14,
                                       ),
@@ -634,7 +578,8 @@ class _ReportViewState extends State<ReportView> {
                                         value: numStr,
                                         child: Text(
                                           'RW $numStr',
-                                          style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.bodyFontFamily,
                                             fontSize: 14,
                                             color: AppColors.ink,
                                           ),
@@ -668,7 +613,8 @@ class _ReportViewState extends State<ReportView> {
                                 Icons.keyboard_arrow_down,
                                 color: AppColors.muted,
                               ),
-                              style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                              style: TextStyle(
+                                fontFamily: AppTheme.bodyFontFamily,
                                 fontSize: 14,
                                 color: AppColors.ink,
                               ),
@@ -710,7 +656,8 @@ class _ReportViewState extends State<ReportView> {
                                     maxLength,
                                   }) => null,
                                   onChanged: (_) => setState(() {}),
-                                  style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.bodyFontFamily,
                                     fontSize: 14,
                                     color: AppColors.ink,
                                   ),
@@ -745,7 +692,8 @@ class _ReportViewState extends State<ReportView> {
                                   bottom: 8,
                                   child: Text(
                                     '${_description.text.length}/2000',
-                                    style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.bodyFontFamily,
                                       color: AppColors.muted,
                                       fontSize: 11,
                                     ),
@@ -785,7 +733,8 @@ class _ReportViewState extends State<ReportView> {
                                           _image == null
                                               ? 'Pilih foto bukti (opsional)'
                                               : 'Foto: ${_image!.name}',
-                                          style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.bodyFontFamily,
                                             color: _image == null
                                                 ? AppColors.muted
                                                 : AppColors.ink,
@@ -869,7 +818,9 @@ class _ReportViewState extends State<ReportView> {
                                           const SizedBox(width: 8),
                                           Text(
                                             'Kirim Laporan',
-                                            style: TextStyle(fontFamily: AppTheme.bodyFontFamily,
+                                            style: TextStyle(
+                                              fontFamily:
+                                                  AppTheme.bodyFontFamily,
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700,
                                               color: Colors.white,
@@ -919,7 +870,10 @@ class _RetryVillage extends StatelessWidget {
           icon: const Icon(Icons.refresh, color: AppColors.primary),
           label: Text(
             'Muat ulang',
-            style: TextStyle(fontFamily: AppTheme.bodyFontFamily,color: AppColors.primary),
+            style: TextStyle(
+              fontFamily: AppTheme.bodyFontFamily,
+              color: AppColors.primary,
+            ),
           ),
         ),
       ),

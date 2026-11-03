@@ -16,7 +16,14 @@ class AuthPageScaffold extends StatelessWidget {
     final baseTheme = Theme.of(context);
 
     return Theme(
-      data: baseTheme,
+      data: baseTheme.copyWith(
+        textTheme: baseTheme.textTheme.apply(
+          fontFamily: AppTheme.bodyFontFamily,
+        ),
+        primaryTextTheme: baseTheme.primaryTextTheme.apply(
+          fontFamily: AppTheme.bodyFontFamily,
+        ),
+      ),
       child: Scaffold(
         backgroundColor: authSoftBackground,
         body: SafeArea(

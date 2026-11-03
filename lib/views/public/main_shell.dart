@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
 import '../../services/api_service.dart';
-import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/ocean_widgets.dart';
+import '../profile/profile_view.dart';
 import 'home_view.dart';
 import 'report_view.dart';
 import 'tracking_view.dart';
@@ -22,7 +22,8 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  int _selectedIndex = 0;
+  int _currentIndex = 0;
+  String? _activeTrackingTicketCode;
   late Future<AuthSession?> _session;
   late final AuthService _authService = widget.authService ?? AuthService();
   bool _isLoggingOut = false;
@@ -33,7 +34,14 @@ class _MainShellState extends State<MainShell> {
     _session = widget.apiService.loadSavedSession();
   }
 
-  void _selectTab(int index) => setState(() => _selectedIndex = index);
+  void _selectTab(int index) => setState(() => _currentIndex = index);
+
+  void _handleReportSubmitted(String ticketCode) {
+    setState(() {
+      _activeTrackingTicketCode = ticketCode;
+      _currentIndex = 2;
+    });
+  }
 
   Future<void> _logout() async {
     final confirmed = await showDialog<bool>(
@@ -95,17 +103,29 @@ class _MainShellState extends State<MainShell> {
           );
         },
       ),
-      ReportView(apiService: widget.apiService),
-      TrackingView(apiService: widget.apiService),
+      ReportView(
+        apiService: widget.apiService,
+        onReportSubmitted: _handleReportSubmitted,
+      ),
+      TrackingView(
+        apiService: widget.apiService,
+        initialTicketCode: _activeTrackingTicketCode,
+      ),
       _ProfileTab(
         session: _session,
         onLogout: _logout,
         isLoggingOut: _isLoggingOut,
+        onBack: () => _selectTab(0),
+        onProfileChanged: () {
+          setState(() {
+            _session = widget.apiService.loadSavedSession();
+          });
+        },
       ),
     ];
 
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: screens),
+      body: IndexedStack(index: _currentIndex, children: screens),
       bottomNavigationBar: ClipRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
@@ -124,7 +144,7 @@ class _MainShellState extends State<MainShell> {
               ),
             ),
             child: NavigationBar(
-              selectedIndex: _selectedIndex,
+              selectedIndex: _currentIndex,
               onDestinationSelected: _selectTab,
               backgroundColor: Colors.white.withValues(alpha: 0.88),
               indicatorColor: AppColors.softRed,
@@ -175,146 +195,43 @@ class _ProfileTab extends StatelessWidget {
     required this.session,
     required this.onLogout,
     required this.isLoggingOut,
+    required this.onBack,
+    required this.onProfileChanged,
   });
 
   final Future<AuthSession?> session;
   final VoidCallback onLogout;
   final bool isLoggingOut;
+  final VoidCallback onBack;
+  final VoidCallback onProfileChanged;
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: FutureBuilder<AuthSession?>(
-        future: session,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text('Profil tidak dapat dimuat: ${snapshot.error}'),
-            );
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: WaterLoadingIndicator());
-          }
-
-          final user = snapshot.data;
-          if (user == null) {
-            return const Center(child: Text('Sesi pengguna tidak ditemukan.'));
-          }
-
-          return ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              DynamicWaterHeader(
-                height: 178,
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 34),
-                child: Align(
-                  alignment: Alignment.bottomLeft,
-                  child: Text(
-                    'Profil',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.18),
-                            blurRadius: 18,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: const CircleAvatar(
-                        radius: 39,
-                        backgroundColor: AppColors.softBlue,
-                        child: Icon(
-                          Icons.person_outline,
-                          color: AppColors.primary,
-                          size: 42,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Nama',
-                              style: TextStyle(color: AppColors.muted),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              user.userName.isEmpty ? 'Warga' : user.userName,
-                              style: const TextStyle(
-                                fontFamily: AppTheme.headlineFontFamily,
-                                color: AppColors.ink,
-                                fontWeight: FontWeight.w600,
-                              ).asHeading,
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Peran akun',
-                              style: TextStyle(color: AppColors.muted),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              user.role,
-                              style: const TextStyle(
-                                color: AppColors.ink,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    OutlinedButton.icon(
-                      onPressed: isLoggingOut ? null : onLogout,
-                      icon: isLoggingOut
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppColors.primary,
-                              ),
-                            )
-                          : const Icon(Icons.logout),
-                      label: Text(isLoggingOut ? 'Memproses...' : 'Keluar'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        minimumSize: const Size.fromHeight(48),
-                        side: const BorderSide(color: AppColors.primary),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    const Text(
-                      'E-Klinik Sanitasi · Versi 1.0.0',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.muted, fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+    return FutureBuilder<AuthSession?>(
+      future: session,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Profil tidak dapat dimuat: ${snapshot.error}'),
           );
-        },
-      ),
+        }
+        if (!snapshot.hasData &&
+            snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: WaterLoadingIndicator());
+        }
+        final user = snapshot.data;
+        if (user == null) {
+          return const Center(child: Text('Sesi pengguna tidak ditemukan.'));
+        }
+        return ProfileView(
+          fallbackName: user.userName.isEmpty ? 'Warga' : user.userName,
+          roleLabel: user.role == 'warga' ? 'Warga' : user.role,
+          onBack: onBack,
+          onLogout: onLogout,
+          isLoggingOut: isLoggingOut,
+          onProfileChanged: (_) => onProfileChanged(),
+        );
+      },
     );
   }
 }
