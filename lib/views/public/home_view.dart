@@ -35,8 +35,10 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
+  static const _articlesPerPage = 3;
   final _articlesSectionKey = GlobalKey();
   late Future<List<EducationArticle>> _articlesFuture;
+  int _currentArticlePage = 0;
 
   @override
   void initState() {
@@ -114,6 +116,7 @@ class _HomeViewState extends State<HomeView> {
                                       'Gagal memuat data: ${snapshot.error}',
                                   onRetry: () async {
                                     setState(() {
+                                      _currentArticlePage = 0;
                                       _articlesFuture = widget.apiService
                                           .getArticles();
                                     });
@@ -125,6 +128,23 @@ class _HomeViewState extends State<HomeView> {
                               if (articles.isEmpty) {
                                 return const _EmptyArticles();
                               }
+
+                              final totalPages =
+                                  (articles.length + _articlesPerPage - 1) ~/
+                                  _articlesPerPage;
+                              final currentPage = _currentArticlePage
+                                  .clamp(0, totalPages - 1)
+                                  .toInt();
+                              final firstArticleIndex =
+                                  currentPage * _articlesPerPage;
+                              final pageArticles = articles
+                                  .skip(firstArticleIndex)
+                                  .take(_articlesPerPage)
+                                  .toList(growable: false);
+                              final reservedArticleSlots =
+                                  articles.length < _articlesPerPage
+                                  ? articles.length
+                                  : _articlesPerPage;
 
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,26 +159,62 @@ class _HomeViewState extends State<HomeView> {
                                     ).asHeading,
                                   ),
                                   const SizedBox(height: 12),
-                                  ...articles.map(
-                                    (article) => Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 12,
-                                      ),
-                                      child: _ArticleTile(
-                                        imageUrl: article.imageUrl,
-                                        category: article.category,
-                                        title: article.title,
-                                        subtitle: article.excerpt,
-                                        onTap: () => Navigator.of(context).push(
-                                          MaterialPageRoute<void>(
-                                            builder: (_) => ArticleDetailView(
-                                              article: article,
-                                            ),
-                                          ),
+                                  AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 220),
+                                    switchInCurve: Curves.easeOut,
+                                    switchOutCurve: Curves.easeIn,
+                                    transitionBuilder: (child, animation) =>
+                                        FadeTransition(
+                                          opacity: animation,
+                                          child: child,
                                         ),
+                                    child: SizedBox(
+                                          key: Key(
+                                            'education_article_page_area_$currentPage',
+                                          ),
+                                      height:
+                                          reservedArticleSlots *
+                                          (_ArticleTile.cardHeight + 12),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          for (final article in pageArticles)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: 12,
+                                              ),
+                                              child: _ArticleTile(
+                                                imageUrl: article.imageUrl,
+                                                category: article.category,
+                                                title: article.title,
+                                                subtitle: article.excerpt,
+                                                onTap: () => Navigator.of(
+                                                  context,
+                                                ).push(
+                                                  MaterialPageRoute<void>(
+                                                    builder: (_) =>
+                                                        ArticleDetailView(
+                                                          article: article,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
                                   ),
+                                  if (totalPages > 1) ...[
+                                    const SizedBox(height: 4),
+                                    _EducationPagination(
+                                      currentPage: currentPage,
+                                      totalPages: totalPages,
+                                      onPageChanged: (page) => setState(
+                                        () => _currentArticlePage = page,
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               );
                             },
@@ -507,6 +563,8 @@ class _HomeViewState extends State<HomeView> {
 // Card Artikel Edukasi
 // ===========================================================
 class _ArticleTile extends StatelessWidget {
+  static const cardHeight = 196.0;
+
   const _ArticleTile({
     required this.imageUrl,
     required this.category,
@@ -553,7 +611,7 @@ class _ArticleTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: SizedBox(
-            height: 196,
+            height: cardHeight,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -681,6 +739,164 @@ class _ArticleTile extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EducationPagination extends StatelessWidget {
+  const _EducationPagination({
+    required this.currentPage,
+    required this.totalPages,
+    required this.onPageChanged,
+  });
+
+  final int currentPage;
+  final int totalPages;
+  final ValueChanged<int> onPageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final visiblePageCount = totalPages < 3 ? totalPages : 3;
+    var firstVisiblePage = currentPage - 1;
+    if (firstVisiblePage < 0) firstVisiblePage = 0;
+    if (firstVisiblePage + visiblePageCount > totalPages) {
+      firstVisiblePage = totalPages - visiblePageCount;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 5,
+        children: [
+          _PaginationArrow(
+            controlKey: const Key('education_previous_page'),
+            icon: Icons.chevron_left_rounded,
+            tooltip: 'Halaman sebelumnya',
+            enabled: currentPage > 0,
+            onPressed: () => onPageChanged(currentPage - 1),
+          ),
+          if (firstVisiblePage > 0) const _PaginationEllipsis(),
+          for (
+            var page = firstVisiblePage;
+            page < firstVisiblePage + visiblePageCount;
+            page++
+          )
+            _PaginationPage(
+              page: page,
+              selected: page == currentPage,
+              onPressed: () => onPageChanged(page),
+            ),
+          if (firstVisiblePage + visiblePageCount < totalPages)
+            const _PaginationEllipsis(),
+          _PaginationArrow(
+            controlKey: const Key('education_next_page'),
+            icon: Icons.chevron_right_rounded,
+            tooltip: 'Halaman berikutnya',
+            enabled: currentPage < totalPages - 1,
+            onPressed: () => onPageChanged(currentPage + 1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaginationArrow extends StatelessWidget {
+  const _PaginationArrow({
+    required this.controlKey,
+    required this.icon,
+    required this.tooltip,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final Key controlKey;
+  final IconData icon;
+  final String tooltip;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      key: controlKey,
+      tooltip: tooltip,
+      onPressed: enabled ? onPressed : null,
+      constraints: const BoxConstraints.tightFor(width: 38, height: 40),
+      padding: EdgeInsets.zero,
+      style: IconButton.styleFrom(
+        backgroundColor: enabled ? const Color(0xFFF1F5F9) : Colors.transparent,
+        foregroundColor: enabled
+            ? const Color(0xFF64748B)
+            : const Color(0xFFCBD5E1),
+        disabledForegroundColor: const Color(0xFFCBD5E1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+      ),
+      icon: Icon(icon, size: 22),
+    );
+  }
+}
+
+class _PaginationPage extends StatelessWidget {
+  const _PaginationPage({
+    required this.page,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final int page;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 38,
+      height: 40,
+      child: TextButton(
+        key: Key('education_page_$page'),
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.zero,
+          backgroundColor: selected
+              ? const Color(0xFF0284C7)
+              : const Color(0xFFF1F5F9),
+          foregroundColor: selected ? Colors.white : const Color(0xFF64748B),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(11),
+          ),
+        ),
+        child: Text(
+          '${page + 1}',
+          style: TextStyle(
+            fontFamily: AppTheme.headlineFontFamily,
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaginationEllipsis extends StatelessWidget {
+  const _PaginationEllipsis();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 16,
+      child: Text(
+        '…',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontFamily: AppTheme.bodyFontFamily,
+          color: Color(0xFF64748B),
+          fontSize: 13,
         ),
       ),
     );
