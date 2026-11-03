@@ -76,11 +76,12 @@ void main() {
 
     expect(find.text('KLINIK SANITASI'), findsOneWidget);
     expect(find.text('Halo, Warga'), findsOneWidget);
-    expect(find.text('Info Kesehatan'), findsOneWidget);
+    expect(find.text('Kampanye Sanitasi'), findsOneWidget);
     expect(find.text('Lapor\nPengaduan'), findsOneWidget);
     expect(find.text('Status\nLaporan'), findsOneWidget);
     expect(find.text('Edukasi &\nSTBM'), findsOneWidget);
-    expect(find.text('PENGUMUMAN'), findsOneWidget);
+    expect(find.text('KAMPANYE SANITASI'), findsOneWidget);
+    expect(find.text('5 Pilar STBM'), findsOneWidget);
     expect(find.text('Riwayat'), findsOneWidget);
     expect(find.text('Lacak'), findsNothing);
     expect(find.text('Profil'), findsOneWidget);
@@ -164,7 +165,7 @@ void main() {
     await _submitLogin(tester);
 
     expect(find.text('KLINIK SANITASI'), findsOneWidget);
-    expect(find.text('Info Kesehatan'), findsOneWidget);
+    expect(find.text('Kampanye Sanitasi'), findsOneWidget);
   });
 
   testWidgets('registration validates confirmation and consent', (

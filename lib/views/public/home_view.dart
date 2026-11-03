@@ -8,6 +8,7 @@ import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
 import 'article_detail_view.dart';
+import 'stbm_campaign_view.dart';
 
 const _oceanBlue = AppColors.primary;
 const _deepOceanBlue = AppColors.primaryDark;
@@ -73,30 +74,24 @@ class _HomeViewState extends State<HomeView> {
                         const SizedBox(height: 14),
                         _buildQuickActions(),
                         const SizedBox(height: 30),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Info Kesehatan',
-                              style: TextStyle(
-                                fontFamily: AppTheme.bodyFontFamily,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w400,
-                                color: AppColors.ink,
-                              ).asHeading,
-                            ),
-                            TextButton(
-                              onPressed: _showAllArticles,
-                              style: TextButton.styleFrom(
-                                foregroundColor: _oceanBlue,
-                              ),
-                              child: const Text('Lihat Semua'),
-                            ),
-                          ],
+                        Text(
+                          'Kampanye Sanitasi',
+                          style: TextStyle(
+                            fontFamily: AppTheme.headlineFontFamily,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.ink,
+                          ),
                         ),
-                        const SizedBox(height: 8),
-                        const _AnnouncementCard(),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 12),
+                        _StbmCampaignBanner(
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const StbmCampaignView(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
                         Container(
                           key: _articlesSectionKey,
                           child: FutureBuilder<List<EducationArticle>>(
@@ -505,72 +500,129 @@ class _HomeViewState extends State<HomeView> {
   }
 }
 
-class _AnnouncementCard extends StatelessWidget {
-  const _AnnouncementCard();
+class _StbmCampaignBanner extends StatelessWidget {
+  const _StbmCampaignBanner({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 176,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [_deepOceanBlue, _oceanBlue, _aquaBlue],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0072FF), Color(0xFF00C6FF)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -14,
+                top: -20,
+                child: Icon(
+                  Icons.water_drop_rounded,
+                  color: Colors.white.withValues(alpha: 0.13),
+                  size: 112,
+                ),
+              ),
+              Positioned(
+                right: 48,
+                bottom: -28,
+                child: Icon(
+                  Icons.eco_rounded,
+                  color: Colors.white.withValues(alpha: 0.1),
+                  size: 88,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.24),
+                        ),
+                      ),
+                      child: Text(
+                        'KAMPANYE SANITASI',
+                        style: TextStyle(
+                          fontFamily: AppTheme.headlineFontFamily,
+                          color: Colors.white.withValues(alpha: 0.96),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      '5 Pilar STBM',
+                      style: const TextStyle(
+                        fontFamily: AppTheme.headlineFontFamily,
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w500,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      'Wujudkan lingkungan sehat dan bebas penyakit melalui 5 standar perilaku sanitasi masyarakat.',
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFontFamily,
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Pelajari selengkapnya',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: AppTheme.headlineFontFamily,
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        const Icon(
+                          Icons.arrow_forward_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: 4,
-            top: 4,
-            child: Icon(
-              Icons.water_drop_outlined,
-              color: Colors.white.withValues(alpha: 0.24),
-              size: 72,
-            ),
-          ),
-          Positioned(
-            left: 0,
-            bottom: 0,
-            child: Icon(
-              Icons.eco_outlined,
-              color: Colors.white.withValues(alpha: 0.22),
-              size: 62,
-            ),
-          ),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'PENGUMUMAN',
-                  style: TextStyle(
-                    fontFamily: AppTheme.bodyFontFamily,
-                    color: Colors.white.withValues(alpha: 0.84),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Lingkungan Sehat,\nBerawal Dari Kita.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: AppTheme.bodyFontFamily,
-                    color: Colors.white,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w400,
-                    height: 1.2,
-                  ).asHeading,
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
