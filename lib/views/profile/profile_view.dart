@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
 import '../../services/profile_service.dart';
+import 'change_password_view.dart';
 import 'edit_profile_view.dart';
 import 'profile_widgets.dart';
 
@@ -16,6 +17,7 @@ class ProfileView extends StatefulWidget {
     this.onProfileChanged,
     this.accountDetails = const {},
     this.logoutKey,
+    this.profileService,
   });
 
   final String fallbackName;
@@ -26,13 +28,14 @@ class ProfileView extends StatefulWidget {
   final ValueChanged<LocalProfile>? onProfileChanged;
   final Map<String, String> accountDetails;
   final Key? logoutKey;
+  final ProfileService? profileService;
 
   @override
   State<ProfileView> createState() => _ProfileViewState();
 }
 
 class _ProfileViewState extends State<ProfileView> {
-  final _profileService = ProfileService();
+  late final _profileService = widget.profileService ?? ProfileService();
   late Future<LocalProfile> _profile;
 
   @override
@@ -65,6 +68,18 @@ class _ProfileViewState extends State<ProfileView> {
     widget.onProfileChanged?.call(updated);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Profil disimpan di perangkat ini.')),
+    );
+  }
+
+  Future<void> _changePassword() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ChangePasswordView(profileService: _profileService),
+      ),
+    );
+    if (changed != true || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Password berhasil diperbarui.')),
     );
   }
 
@@ -222,9 +237,10 @@ class _ProfileViewState extends State<ProfileView> {
                     label: 'Akun',
                     children: [
                       ProfileSettingsRow(
-                        icon: Icons.person_outline_rounded,
-                        label: 'Edit profil',
-                        onTap: () => _edit(profile),
+                        key: const Key('profile_change_password_button'),
+                        icon: Icons.lock_outline_rounded,
+                        label: 'Ganti password',
+                        onTap: _changePassword,
                       ),
                       ProfileSettingsRow(
                         icon: Icons.badge_outlined,
@@ -277,9 +293,10 @@ class _ProfileViewState extends State<ProfileView> {
                                 'indikator, intervensi, dan rekomendasi.',
                           },
                           'Bagaimana mengubah data akun?':
-                              'Edit profil mengubah tampilan di perangkat ini. '
-                              'Untuk mengubah data akun yang terdaftar, hubungi '
-                              'petugas pengelola aplikasi di puskesmas.',
+                              'Pilih Ganti password pada menu Akun untuk '
+                              'mengubah password. Untuk mengubah data akun '
+                              'lainnya, hubungi petugas pengelola aplikasi di '
+                              'puskesmas.',
                         }),
                       ),
                       ProfileSettingsRow(

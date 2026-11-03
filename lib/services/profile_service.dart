@@ -166,6 +166,80 @@ class ProfileService {
     }
   }
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final preferences = await _preferencesProvider();
+    _assertCurrentSession(preferences);
+
+    try {
+      final response = await _client
+          .put(
+            _passwordUri,
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': '******',
+            },
+            body: jsonEncode({
+              'current_password': currentPassword,
+              'password': newPassword,
+              'password_confirmation': newPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      _assertCurrentSession(preferences);
+      if (response.statusCode >= 200 && response.statusCode < 300) return;
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        throw const ProfileException(
+          'Sesi login tidak valid. Silakan masuk kembali.',
+        );
+      }
+
+      String? message;
+      try {
+        final body = jsonDecode(response.body);
+        if (body is Map<String, dynamic>) {
+          final errors = body['errors'];
+          if (errors is Map) {
+            for (final value in errors.values) {
+              if (value is List && value.isNotEmpty && value.first is String) {
+                message = value.first as String;
+                break;
+              }
+            }
+          }
+          final bodyMessage = body['message'];
+          if (message == null && bodyMessage is String) {
+            message = bodyMessage;
+          }
+        }
+      } on FormatException {
+        // The HTTP status still identifies the failed request.
+      }
+      if (response.statusCode == 404 || response.statusCode == 405) {
+        throw const ProfileException(
+          'Server belum menyediakan fitur ganti password.',
+        );
+      }
+      throw ProfileException(
+        message ??
+            'Password gagal diperbarui di server (${response.statusCode}).',
+      );
+    } on ProfileException {
+      rethrow;
+    } on TimeoutException {
+      throw const ProfileException(
+        'Server terlalu lama merespons. Coba kembali.',
+      );
+    } on http.ClientException {
+      throw const ProfileException(
+        'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+      );
+    }
+  }
+
   void _assertCurrentSession(SharedPreferences preferences) {
     if (_loadedToken == null ||
         preferences.getString(_tokenKey) != _loadedToken) {
@@ -247,6 +321,9 @@ class ProfileService {
       fragment: null,
     );
   }
+
+  Uri get _passwordUri =>
+      _profileUri.replace(path: '${_profileUri.path}/password');
 
   /// Replaces all local profile values whenever an account signs in.
   static Future<bool> replaceForSession(

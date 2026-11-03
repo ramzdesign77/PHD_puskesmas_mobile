@@ -140,6 +140,57 @@ void main() {
     },
   );
 
+  test('changes the authenticated password through the API', () async {
+    late http.Request request;
+    final service = ProfileService(
+      client: MockClient((receivedRequest) async {
+        request = receivedRequest;
+        return http.Response('{}', 200);
+      }),
+    );
+    await service.load(fallbackName: 'Warga');
+
+    await service.changePassword(
+      currentPassword: 'password-lama',
+      newPassword: 'password-baru',
+    );
+
+    expect(request.method, 'PUT');
+    expect(request.url.path, '/api/v1/profile/password');
+    expect(request.headers['authorization'], '******');
+    expect(jsonDecode(request.body), {
+      'current_password': 'password-lama',
+      'password': 'password-baru',
+      'password_confirmation': 'password-baru',
+    });
+  });
+
+  test('reports password change errors returned by the API', () async {
+    final service = ProfileService(
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({'message': 'Password lama tidak sesuai.'}),
+          422,
+        ),
+      ),
+    );
+    await service.load(fallbackName: 'Warga');
+
+    await expectLater(
+      service.changePassword(
+        currentPassword: 'salah',
+        newPassword: 'password-baru',
+      ),
+      throwsA(
+        isA<ProfileException>().having(
+          (error) => error.message,
+          'message',
+          'Password lama tidak sesuai.',
+        ),
+      ),
+    );
+  });
+
   test(
     'does not save locally when the API rejects the profile update',
     () async {
