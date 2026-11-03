@@ -86,7 +86,7 @@ class _ProfileViewState extends State<ProfileView> {
                 style: const TextStyle(
                   color: AppColors.ink,
                   fontSize: 20,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
               const SizedBox(height: 20),
@@ -101,7 +101,7 @@ class _ProfileViewState extends State<ProfileView> {
                         style: const TextStyle(
                           color: AppColors.primary,
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                       const SizedBox(height: 5),
@@ -189,7 +189,7 @@ class _ProfileViewState extends State<ProfileView> {
                                     style: const TextStyle(
                                       color: AppColors.ink,
                                       fontSize: 15,
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w400,
                                     ),
                                   ),
                                   const SizedBox(height: 4),

@@ -159,7 +159,7 @@ class _RegisterViewState extends State<RegisterView> {
                 fontFamily: AppTheme.headlineFontFamily,
                 color: AppColors.ink,
                 fontSize: 22,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w400,
               ).asHeading,
             ),
             const SizedBox(height: 5),
@@ -326,7 +326,7 @@ class _RegisterViewState extends State<RegisterView> {
                   ),
                   child: const Text(
                     'Masuk',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
                   ),
                 ),
               ],
@@ -355,7 +355,7 @@ class _LegalLink extends StatelessWidget {
         style: const TextStyle(
           color: AppColors.primary,
           fontSize: 11,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w400,
         ),
       ),
     );

@@ -264,7 +264,7 @@ class _TrackingViewState extends State<TrackingView> {
                     'Lacak laporan',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: Colors.white,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -361,7 +361,7 @@ class _TrackingViewState extends State<TrackingView> {
                   'Status Laporan',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppColors.ink,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ),
@@ -476,7 +476,7 @@ class _HistoryFilter extends StatelessWidget {
               style: TextStyle(
                 color: selected ? Colors.white : AppColors.muted,
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
@@ -547,7 +547,7 @@ class _OrderHistoryCard extends StatelessWidget {
                         style: const TextStyle(
                           color: AppColors.ink,
                           fontSize: 13,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ),
@@ -566,7 +566,7 @@ class _OrderHistoryCard extends StatelessWidget {
                         style: TextStyle(
                           color: status.$2,
                           fontSize: 10,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ),
@@ -580,7 +580,7 @@ class _OrderHistoryCard extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.ink,
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -733,7 +733,7 @@ class _StatusHero extends StatelessWidget {
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.75),
                     fontSize: 10,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w400,
                     letterSpacing: 1,
                   ),
                 ),
@@ -744,7 +744,7 @@ class _StatusHero extends StatelessWidget {
                     color: Colors.white,
                     fontSize: 19,
                     height: 1.18,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -771,7 +771,7 @@ class _StatusHero extends StatelessWidget {
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ),
@@ -871,8 +871,8 @@ class _ProgressCard extends StatelessWidget {
                             fontSize: 10,
                             height: 1.2,
                             fontWeight: index == currentStepIndex
-                                ? FontWeight.w800
-                                : FontWeight.w600,
+                                ? FontWeight.w400
+                                : FontWeight.w400,
                           ),
                         ),
                       ],
@@ -946,7 +946,7 @@ class _ScheduleCard extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.ink,
                         fontSize: 14,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ],
@@ -959,7 +959,7 @@ class _ScheduleCard extends StatelessWidget {
             ticket.code,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontFamily: AppTheme.headlineFontFamily,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w400,
               height: 1.25,
               letterSpacing: -0.16,
             ),
@@ -1135,7 +1135,7 @@ class _TimelineEntry extends StatelessWidget {
                                 ? AppColors.ink
                                 : AppColors.muted,
                             fontSize: 13,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
@@ -1218,7 +1218,7 @@ class _ReportSummaryCard extends StatelessWidget {
                   child: Text(
                     ticket.code,
                     style: const TextStyle(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w400,
                       fontSize: 13,
                       color: AppColors.ink,
                     ),
@@ -1292,7 +1292,7 @@ class _RecommendationCard extends StatelessWidget {
             style: TextStyle(
               color: AppColors.muted,
               fontSize: 10,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w400,
               letterSpacing: 0.7,
             ),
           ),
@@ -1308,7 +1308,7 @@ class _RecommendationCard extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.green,
                 fontSize: 12,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
@@ -1318,7 +1318,7 @@ class _RecommendationCard extends StatelessWidget {
             style: TextStyle(
               color: AppColors.muted,
               fontSize: 10,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w400,
               letterSpacing: 0.7,
             ),
           ),
@@ -1364,7 +1364,7 @@ class _RejectedBanner extends StatelessWidget {
                   'Alasan penolakan',
                   style: TextStyle(
                     color: Color(0xFFB42318),
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1454,9 +1454,10 @@ class _SectionHeading extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
+                  fontFamily: AppTheme.headlineFontFamily,
                   color: AppColors.ink,
                   fontSize: 14,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: 3),
@@ -1503,7 +1504,7 @@ class _InfoRow extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.ink,
               fontSize: 11,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w400,
               height: 1.35,
             ),
           ),
@@ -1541,7 +1542,7 @@ class _DetailRow extends StatelessWidget {
                 color: AppColors.ink,
                 fontSize: 12,
                 height: 1.35,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
@@ -1616,7 +1617,7 @@ class _EmptyTrackingState extends StatelessWidget {
           style: TextStyle(
             color: AppColors.ink,
             fontSize: 15,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w400,
           ),
         ),
         const SizedBox(height: 6),

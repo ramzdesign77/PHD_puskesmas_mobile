@@ -351,8 +351,8 @@ class _ReportViewState extends State<ReportView> {
                             fontSize: 12,
                             height: 1.2,
                             fontWeight: selected
-                                ? FontWeight.w700
-                                : FontWeight.w500,
+                                ? FontWeight.w400
+                                : FontWeight.w400,
                             color: selected
                                 ? AppColors.primary
                                 : const Color(0xFF374151),
@@ -432,7 +432,7 @@ class _ReportViewState extends State<ReportView> {
           style: TextStyle(
             fontFamily: AppTheme.bodyFontFamily,
             fontSize: 16,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w400,
             color: AppColors.primary,
           ).asHeading,
         ),
@@ -448,7 +448,7 @@ class _ReportViewState extends State<ReportView> {
         style: TextStyle(
           fontFamily: AppTheme.bodyFontFamily,
           fontSize: 13,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w400,
           color: const Color(0xFF374151),
         ),
       ),
@@ -512,7 +512,7 @@ class _ReportViewState extends State<ReportView> {
                           style: TextStyle(
                             fontFamily: AppTheme.bodyFontFamily,
                             fontSize: 26,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w400,
                             color: Colors.white,
                             letterSpacing: -0.3,
                           ).asHeading,
@@ -873,7 +873,7 @@ class _ReportViewState extends State<ReportView> {
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Color(0xFF267A58),
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w400,
                                 ),
                               ),
                             ],
@@ -988,7 +988,7 @@ class _ReportViewState extends State<ReportView> {
                                                 ? AppColors.primary
                                                 : AppColors.ink,
                                             fontSize: 13,
-                                            fontWeight: FontWeight.w500,
+                                            fontWeight: FontWeight.w400,
                                           ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
@@ -1071,7 +1071,7 @@ class _ReportViewState extends State<ReportView> {
                                               fontFamily:
                                                   AppTheme.bodyFontFamily,
                                               fontSize: 16,
-                                              fontWeight: FontWeight.w700,
+                                              fontWeight: FontWeight.w400,
                                               color: Colors.white,
                                             ),
                                           ),

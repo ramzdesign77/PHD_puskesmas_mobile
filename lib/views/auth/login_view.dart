@@ -116,7 +116,7 @@ class _LoginViewState extends State<LoginView> {
                 fontFamily: AppTheme.headlineFontFamily,
                 color: AppColors.ink,
                 fontSize: 23,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w400,
               ).asHeading,
             ),
             const SizedBox(height: 5),
@@ -178,7 +178,7 @@ class _LoginViewState extends State<LoginView> {
                   ),
                   child: const Text(
                     'Daftar',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
                   ),
                 ),
               ],

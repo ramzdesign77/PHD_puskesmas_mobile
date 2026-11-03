@@ -138,8 +138,8 @@ class _MainShellState extends State<MainShell> {
                       : AppColors.muted,
                   fontSize: 11,
                   fontWeight: states.contains(WidgetState.selected)
-                      ? FontWeight.w700
-                      : FontWeight.w500,
+                      ? FontWeight.w400
+                      : FontWeight.w400,
                 ),
               ),
             ),

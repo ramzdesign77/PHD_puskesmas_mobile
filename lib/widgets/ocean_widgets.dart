@@ -137,7 +137,7 @@ class WaterEmptyState extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.ink,
               fontSize: 15,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w400,
             ),
           ),
           const SizedBox(height: 5),

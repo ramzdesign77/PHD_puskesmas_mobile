@@ -80,7 +80,7 @@ class VisitCardWidget extends StatelessWidget {
                   style: TextStyle(
                     color: badgeColor,
                     fontSize: 9,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w400,
                     letterSpacing: 0.2,
                   ),
                 ),
@@ -95,7 +95,7 @@ class VisitCardWidget extends StatelessWidget {
                   color: AppColors.ink,
                   fontSize: 14,
                   height: 1.25,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w400,
                 ).asHeading,
               ),
               const SizedBox(height: 7),
@@ -149,7 +149,7 @@ class VisitCardWidget extends StatelessWidget {
                         shape: const StadiumBorder(),
                         textStyle: const TextStyle(
                           fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                       child: Text(actionLabel ?? 'Tindak Lanjut'),

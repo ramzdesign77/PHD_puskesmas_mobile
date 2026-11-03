@@ -84,7 +84,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                     fontFamily: AppTheme.bodyFontFamily,
                     color: AppColors.ink,
                     fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ),
@@ -170,7 +170,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                               style: TextStyle(
                                 fontFamily: AppTheme.bodyFontFamily,
                                 fontSize: 11,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w400,
                                 color: AppColors.primary,
                                 letterSpacing: 0.5,
                               ),
@@ -190,7 +190,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                         style: TextStyle(
                           fontFamily: AppTheme.bodyFontFamily,
                           fontSize: 28,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w400,
                           color: AppColors.ink,
                           height: 1.2,
                           letterSpacing: -0.5,
@@ -222,7 +222,7 @@ class _ArticleDetailViewState extends State<ArticleDetailView> {
                                     style: TextStyle(
                                       fontFamily: AppTheme.bodyFontFamily,
                                       fontSize: 14,
-                                      fontWeight: FontWeight.bold,
+                                      fontWeight: FontWeight.w400,
                                       color: AppColors.ink,
                                     ),
                                   ),

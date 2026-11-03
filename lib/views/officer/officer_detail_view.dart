@@ -222,7 +222,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
               : schedule.ticketCode,
           style: const TextStyle(
             fontFamily: AppTheme.headlineFontFamily,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w400,
             fontSize: 16,
           ).asHeading,
         ),
@@ -277,7 +277,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
                     : const Icon(Icons.save_outlined),
                 label: Text(
                   _isSubmitting ? 'Menyimpan...' : 'Simpan Hasil IKL',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: const TextStyle(fontWeight: FontWeight.w400),
                 ),
               ),
             ),
@@ -434,7 +434,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
                   style: TextStyle(
                     color: _riskColor,
                     fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ],
@@ -445,7 +445,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
             style: TextStyle(
               color: _riskColor,
               fontSize: 23,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w400,
             ),
           ),
         ],
@@ -478,7 +478,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
                     labelStyle: TextStyle(
                       color: selected ? _maroonDark : AppColors.ink,
                       fontSize: 11,
-                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                      fontWeight: selected ? FontWeight.w400 : FontWeight.w400,
                     ),
                     onSelected: (_) {
                       setState(() => _intervention = intervention);
@@ -627,7 +627,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
             fontFamily: AppTheme.headlineFontFamily,
             color: AppColors.ink,
             fontSize: 15,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w400,
           ).asHeading,
         ),
       ],
@@ -686,7 +686,7 @@ class _InfoRow extends StatelessWidget {
                   value,
                   style: const TextStyle(
                     color: AppColors.ink,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w400,
                     fontSize: 12,
                   ),
                 ),
@@ -711,7 +711,7 @@ class _FieldLabel extends StatelessWidget {
       text,
       style: const TextStyle(
         color: AppColors.ink,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w400,
         fontSize: 12,
       ),
     );

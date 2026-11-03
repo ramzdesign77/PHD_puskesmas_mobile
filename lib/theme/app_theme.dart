@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
 abstract final class AppTheme {
-  static const headlineFontFamily = 'Montserrat';
-  static const bodyFontFamily = 'Montserrat';
+  static const headlineFontFamily = 'Poppins';
+  static const bodyFontFamily = 'Poppins';
 
   static TextTheme _appTextTheme() {
     final baseTextTheme = ThemeData().textTheme;
@@ -16,7 +16,7 @@ abstract final class AppTheme {
     );
     TextStyle? heading(TextStyle? style) => style?.copyWith(
       fontFamily: headlineFontFamily,
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w500,
       height: 1.25,
       letterSpacing: -(style.fontSize ?? 14) * 0.01,
     );
@@ -28,7 +28,7 @@ abstract final class AppTheme {
     );
     TextStyle? medium(TextStyle? style) => style?.copyWith(
       fontFamily: bodyFontFamily,
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.w400,
       letterSpacing: (style.fontSize ?? 14) * 0.03,
     );
 
@@ -119,7 +119,7 @@ abstract final class AppTheme {
           const TextStyle(
             fontFamily: bodyFontFamily,
             fontSize: 11,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w400,
             letterSpacing: 0.33,
           ),
         ),
@@ -132,10 +132,10 @@ abstract final class AppTheme {
   }
 }
 
-extension MontserratHeadingTextStyle on TextStyle {
+extension PoppinsHeadingTextStyle on TextStyle {
   TextStyle get asHeading => copyWith(
     fontFamily: AppTheme.headlineFontFamily,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w500,
     height: 1.25,
     letterSpacing: -(fontSize ?? 14) * 0.01,
   );

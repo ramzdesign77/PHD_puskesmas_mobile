@@ -130,7 +130,7 @@ class AuthBrandHeader extends StatelessWidget {
                       fontFamily: AppTheme.headlineFontFamily,
                       color: Colors.white,
                       fontSize: 17,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w400,
                     ).asHeading,
                   ),
                   const SizedBox(height: 3),
@@ -140,7 +140,7 @@ class AuthBrandHeader extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.84),
                       fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ],
@@ -189,7 +189,7 @@ class AuthFormField extends StatelessWidget {
           style: const TextStyle(
             color: AppColors.ink,
             fontSize: 12,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w400,
           ),
         ),
         const SizedBox(height: 6),
@@ -306,7 +306,7 @@ class AuthPrimaryButton extends StatelessWidget {
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 if (icon != null) ...[

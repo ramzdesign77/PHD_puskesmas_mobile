@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
+import '../../theme/app_theme.dart';
 
 class ProfilePageHeader extends StatelessWidget {
   const ProfilePageHeader({
@@ -35,8 +36,9 @@ class ProfilePageHeader extends StatelessWidget {
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
+                fontFamily: AppTheme.headlineFontFamily,
                 fontSize: 18,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
                 color: AppColors.ink,
               ),
             ),
@@ -78,7 +80,7 @@ class ProfileAvatar extends StatelessWidget {
         style: TextStyle(
           color: Colors.white,
           fontSize: size * 0.3,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w400,
         ),
       ),
     );
@@ -227,10 +229,11 @@ class ProfileSettingsGroup extends StatelessWidget {
             child: Text(
               label.toUpperCase(),
               style: const TextStyle(
+                fontFamily: AppTheme.headlineFontFamily,
                 color: AppColors.muted,
                 fontSize: 10,
                 letterSpacing: 1.5,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
