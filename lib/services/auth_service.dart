@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_config.dart';
 import '../models/user_model.dart';
+import 'profile_service.dart';
 
 class AuthException implements Exception {
   const AuthException(this.message);
@@ -46,6 +47,7 @@ class AuthService {
     await preferences.remove(userVillageKey);
     await preferences.remove(userRtKey);
     await preferences.remove(userRwKey);
+    await ProfileService.clearForSession(preferences);
   }
 
   Uri get _loginUri => _loginUriFor(versioned: true);
@@ -155,15 +157,19 @@ class AuthService {
       sessionRoleKey,
       sessionRole,
     );
-    final userNameSaved = await preferences.setString(
-      userNameKey,
-      user.name ?? '',
+    final profileSaved = await ProfileService.replaceForSession(
+      preferences,
+      name: user.name ?? '',
+      email: user.email,
+      phone: user.phone,
+      username: user.username,
     );
     await preferences.setString(userPhoneKey, user.phone ?? '');
     await preferences.setString(userVillageKey, user.villageName ?? '');
     await preferences.setString(userRtKey, user.rt ?? '');
     await preferences.setString(userRwKey, user.rw ?? '');
-    if (!tokenSaved || !rolesSaved || !sessionRoleSaved || !userNameSaved) {
+    if (!tokenSaved || !rolesSaved || !sessionRoleSaved || !profileSaved) {
+      await logout();
       throw const AuthException(
         'Sesi login tidak dapat disimpan di perangkat.',
       );

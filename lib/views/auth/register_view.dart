@@ -18,6 +18,7 @@ class _RegisterViewState extends State<RegisterView> {
   final _nameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmationController = TextEditingController();
   bool _passwordObscured = true;
@@ -32,6 +33,7 @@ class _RegisterViewState extends State<RegisterView> {
     _nameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmationController.dispose();
     super.dispose();
@@ -53,6 +55,15 @@ class _RegisterViewState extends State<RegisterView> {
       return 'Format email tidak valid.';
     }
     return null;
+  }
+
+  String? _validatePhone(String? value) {
+    final phone = value?.trim() ?? '';
+    if (phone.isEmpty) return 'Nomor telepon wajib diisi.';
+    final compact = phone.replaceAll(RegExp(r'[\s()-]'), '');
+    return RegExp(r'^\+?[0-9]{8,15}$').hasMatch(compact)
+        ? null
+        : 'Nomor telepon tidak valid.';
   }
 
   String? _validateConfirmation(String? value) {
@@ -78,6 +89,7 @@ class _RegisterViewState extends State<RegisterView> {
         namaLengkap: _nameController.text,
         username: _usernameController.text,
         email: _emailController.text,
+        phone: _phoneController.text,
         password: _passwordController.text,
       );
       if (!mounted) return;
@@ -187,6 +199,17 @@ class _RegisterViewState extends State<RegisterView> {
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.email],
+            ),
+            const SizedBox(height: 13),
+            AuthFormField(
+              label: 'Nomor Telepon',
+              hint: 'Masukkan nomor telepon',
+              icon: Icons.phone_outlined,
+              controller: _phoneController,
+              validator: _validatePhone,
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.telephoneNumber],
             ),
             const SizedBox(height: 13),
             AuthFormField(

@@ -8,6 +8,7 @@ class UserModel {
     this.villageName,
     this.rt,
     this.rw,
+    this.username,
   });
 
   final String token;
@@ -18,6 +19,7 @@ class UserModel {
   final String? villageName;
   final String? rt;
   final String? rw;
+  final String? username;
 
   factory UserModel.fromLoginJson(Map<String, dynamic> json) {
     final data = _asMap(json['data']) ?? json;
@@ -63,15 +65,27 @@ class UserModel {
       name: _stringOrNull(
         user['name'] ?? user['nama_lengkap'] ?? data['name'] ?? json['name'],
       ),
-      email: _stringOrNull(user['email']),
+      email: _stringOrNull(user['email'] ?? data['email'] ?? json['email']),
       phone: _stringOrNull(
-        user['no_wa'] ?? user['no_hp'] ?? user['phone'] ?? user['telepon'],
+        user['no_wa'] ??
+            user['no_hp'] ??
+            user['phone'] ??
+            user['phone_number'] ??
+            user['telepon'] ??
+            user['nomor_telepon'] ??
+            data['phone'] ??
+            data['no_hp'] ??
+            json['phone'] ??
+            json['no_hp'],
       ),
       villageName: _stringOrNull(
         user['nama_desa'] ?? user['desa'] ?? data['nama_desa'] ?? data['desa'],
       ),
       rt: _stringOrNull(user['rt'] ?? data['rt']),
       rw: _stringOrNull(user['rw'] ?? data['rw']),
+      username: _stringOrNull(
+        user['username'] ?? data['username'] ?? json['username'],
+      ),
     );
   }
 
