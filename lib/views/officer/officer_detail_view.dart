@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../constants/app_colors.dart';
+import '../../models/risk_score.dart';
 import '../../models/visit_schedule.dart';
 import '../../services/officer_api_service.dart';
 import '../../theme/app_theme.dart';
@@ -37,51 +36,41 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
   final _picker = ImagePicker();
   final List<bool> _riskIndicators = List<bool>.filled(5, false);
 
-  String _waterSource = 'Sumur Gali';
+  String _waterSource = 'sumur_terlindung';
   String _intervention = 'Tidak Ada';
-  String _selectedStatus = 'diproses';
+  DateTime _inspectionDate = DateTime.now();
+  Uint8List? _photoBytes;
   XFile? _pickedPhoto;
   bool _isSubmitting = false;
 
-  static const _waterSources = [
-    'Sumur Gali',
-    'Sumur Bor/Pompa',
-    'Perpipaan/PDAM',
-  ];
+  static const _waterSources = {
+    'sumur_terlindung': 'Sumur Terlindung',
+    'sumur_bor': 'Sumur Bor',
+    'pdam': 'Perpipaan / PDAM',
+    'mata_air': 'Mata Air',
+    'lainnya': 'Lainnya',
+  };
   static const _interventions = [
     'Pemberian Kaporit',
     'Pemberian Bubuk Abate',
     'Edukasi & Konseling PAMMRT',
     'Tidak Ada',
   ];
-  static const _riskLabels = [
-    'Air berwarna, keruh, atau memiliki rasa tidak normal',
-    'Air berbau tidak normal',
-    'Terdapat kemungkinan pencemaran di sekitar sumber air',
-    'Konstruksi sumber air tidak terlindungi dengan baik',
-    'Jarak sumber air ke sumber pencemar kurang dari 10 meter',
-  ];
+  static const _riskLabels = RiskScore.questions;
 
-  int get _riskScore => _riskIndicators.where((indicator) => indicator).length;
+  int get _riskScore => RiskScore.total(_riskIndicators);
 
   Color get _riskColor {
-    if (_riskScore <= 1) return AppColors.green;
-    if (_riskScore <= 3) return AppColors.orange;
+    if (_riskScore == 0) return AppColors.green;
+    if (_riskScore <= 2) return AppColors.orange;
     return const Color(0xFFE53935);
   }
 
-  String get _riskTitle {
-    if (_riskScore <= 1) return 'Aman / Risiko Rendah';
-    if (_riskScore <= 3) return 'Risiko Sedang';
-    return 'Risiko Tinggi';
-  }
+  String get _riskTitle => RiskScore.label(RiskScore.category(_riskScore));
 
   @override
   void initState() {
     super.initState();
-    _selectedStatus = widget.schedule.status.toLowerCase() == 'selesai'
-        ? 'selesai'
-        : 'diproses';
     _legacyNoteController.text = widget.schedule.officerNote;
   }
 
@@ -101,7 +90,15 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
         imageQuality: 80,
         maxWidth: 1200,
       );
-      if (photo != null && mounted) setState(() => _pickedPhoto = photo);
+      if (photo != null) {
+        final bytes = await photo.readAsBytes();
+        if (mounted) {
+          setState(() {
+            _pickedPhoto = photo;
+            _photoBytes = bytes;
+          });
+        }
+      }
     } catch (error) {
       if (!mounted) return;
       _showMessage('Gagal membuka kamera: $error', isError: true);
@@ -110,95 +107,52 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
 
   Future<void> _submit() async {
     if (_isSubmitting || !_formKey.currentState!.validate()) return;
+    if (widget.schedule.scheduleId == null) {
+      _showMessage('Laporan ini belum memiliki ID jadwal inspeksi. Hubungi admin.', isError: true);
+      return;
+    }
     setState(() => _isSubmitting = true);
     try {
-      final distance = double.parse(_distanceController.text.trim());
-      await widget.apiService.submitInspection(
+      final result = await widget.apiService.submitInspection(
         token: widget.token,
-        scheduleId: widget.schedule.id,
+        scheduleId: widget.schedule.scheduleId!,
         waterSource: _waterSource,
-        pollutantDistance: distance,
+        pollutantDistance: int.parse(_distanceController.text.trim()),
         riskIndicators: List.unmodifiable(_riskIndicators),
+        inspectionDate: _inspectionDate.toIso8601String().substring(0, 10),
         intervention: _intervention,
         interventionNote: _interventionNoteController.text.trim(),
         recommendation: _recommendationController.text.trim(),
-        visitStatus: _selectedStatus,
         officerNote: _legacyNoteController.text.trim(),
-      );
-
-      if (_pickedPhoto != null) {
-        await widget.apiService.submitVisitResult(
-          token: widget.token,
-          scheduleId: widget.schedule.id,
-          status: _selectedStatus,
-          officerNote: _legacyInspectionNote,
-          photo: _pickedPhoto,
-        );
-      }
-
-      if (!mounted) return;
-      _showMessage('Form inspeksi IKL berhasil disimpan.');
-      Navigator.of(context).pop(
-        widget.schedule.copyWith(
-          status: _selectedStatus,
-          officerNote: _recommendationController.text.trim(),
-        ),
-      );
-    } on ApiOfficerException catch (error) {
-      if (error.statusCode == 404 || error.statusCode == 405) {
-        await _submitLegacyResult();
-      } else if (mounted) {
-        _showMessage(error.message, isError: true);
-      }
-    } catch (error) {
-      if (mounted) {
-        _showMessage('Gagal mengirim form IKL: $error', isError: true);
-      }
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  Future<void> _submitLegacyResult() async {
-    try {
-      await widget.apiService.submitVisitResult(
-        token: widget.token,
-        scheduleId: widget.schedule.id,
-        status: _selectedStatus,
-        officerNote: _legacyInspectionNote,
         photo: _pickedPhoto,
       );
       if (!mounted) return;
-      _showMessage(
-        'Endpoint IKL belum tersedia. Catatan kunjungan tersimpan melalui layanan lama.',
-      );
+      final riskLabel = RiskScore.label(result['kategori_risiko'] as String?);
+      _showMessage('Hasil IKL tersimpan. Risiko: $riskLabel.');
       Navigator.of(context).pop(
         widget.schedule.copyWith(
-          status: _selectedStatus,
-          officerNote: _legacyNoteController.text.trim(),
+          status: result['status_kunjungan'] as String,
+          officerNote: result['rekomendasi_sanitarian'] as String? ?? '',
         ),
       );
     } on ApiOfficerException catch (error) {
       if (mounted) _showMessage(error.message, isError: true);
     } catch (error) {
-      if (mounted) {
-        _showMessage('Gagal menyimpan kunjungan: $error', isError: true);
-      }
+      if (mounted) _showMessage('Gagal mengirim form IKL: $error', isError: true);
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  String get _legacyInspectionNote => [
-    if (_legacyNoteController.text.trim().isNotEmpty)
-      _legacyNoteController.text.trim(),
-    'Sarana air: $_waterSource',
-    'Jarak sumber pencemar: ${_distanceController.text.trim()} meter',
-    'Indikator risiko: ${_riskIndicators.map((active) => active ? 1 : 0).join(',')}',
-    'Skor risiko: $_riskScore/5 ($_riskTitle)',
-    'Intervensi: $_intervention',
-    if (_interventionNoteController.text.trim().isNotEmpty)
-      'Catatan intervensi: ${_interventionNoteController.text.trim()}',
-    'Rekomendasi: ${_recommendationController.text.trim()}',
-  ].join('\n');
+  Future<void> _pickInspectionDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _inspectionDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (date != null && mounted) setState(() => _inspectionDate = date);
+  }
 
   void _showMessage(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -257,7 +211,9 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
               height: 52,
               child: FilledButton.icon(
                 key: const Key('officer_submit_button'),
-                onPressed: _isSubmitting ? null : _submit,
+                onPressed: _isSubmitting ||
+                    const ['selesai', 'batal'].contains(widget.schedule.status.toLowerCase())
+                    ? null : _submit,
                 style: FilledButton.styleFrom(
                   backgroundColor: _maroonDark,
                   foregroundColor: Colors.white,
@@ -330,10 +286,10 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
               prefixIcon: Icon(Icons.water_drop_outlined),
               isDense: true,
             ),
-            items: _waterSources
+            items: _waterSources.entries
                 .map(
                   (source) =>
-                      DropdownMenuItem(value: source, child: Text(source)),
+                      DropdownMenuItem(value: source.key, child: Text(source.value)),
                 )
                 .toList(growable: false),
             onChanged: (value) {
@@ -346,18 +302,19 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
           TextFormField(
             key: const Key('officer_pollutant_distance_field'),
             controller: _distanceController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: TextInputType.number,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+              FilteringTextInputFormatter.digitsOnly,
             ],
             validator: (value) {
-              final distance = double.tryParse(value?.trim() ?? '');
-              if (distance == null) return 'Masukkan jarak dalam meter.';
-              if (distance < 0) return 'Jarak tidak boleh kurang dari nol.';
+              final distance = int.tryParse(value?.trim() ?? '');
+              if (distance == null || distance < 0 || distance > 99999) {
+                return 'Masukkan jarak bulat 0–99999 meter.';
+              }
               return null;
             },
             decoration: const InputDecoration(
-              hintText: 'Contoh: 10',
+              hintText: 'Contoh: 10 (meter bulat)',
               suffixText: 'meter',
               prefixIcon: Icon(Icons.straighten_rounded),
             ),
@@ -425,7 +382,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Skor Risiko Real-time',
+                  'Perkiraan Skor Risiko',
                   style: TextStyle(color: AppColors.muted, fontSize: 11),
                 ),
                 const SizedBox(height: 3),
@@ -493,6 +450,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
           TextFormField(
             key: const Key('officer_intervention_note_field'),
             controller: _interventionNoteController,
+            maxLength: 2000,
             maxLines: 3,
             decoration: const InputDecoration(
               hintText: 'Dosis Kaporit/Abate, jumlah, dan tindakan...',
@@ -506,8 +464,9 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
             key: const Key('officer_recommendation_field'),
             controller: _recommendationController,
             maxLines: 3,
-            validator: (value) => value == null || value.trim().isEmpty
-                ? 'Rekomendasi sanitarian perlu diisi.'
+            maxLength: 2000,
+            validator: (value) => (value?.trim().length ?? 0) < 5
+                ? 'Rekomendasi minimal 5 karakter.'
                 : null,
             decoration: const InputDecoration(
               hintText: 'Tulis tindak lanjut dan edukasi yang disarankan...',
@@ -524,22 +483,17 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _FieldLabel(text: 'Status Kunjungan'),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            key: const Key('officer_status_dropdown'),
-            initialValue: _selectedStatus,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.flag_outlined),
-              isDense: true,
-            ),
-            items: const [
-              DropdownMenuItem(value: 'diproses', child: Text('Diproses')),
-              DropdownMenuItem(value: 'selesai', child: Text('Selesai')),
-            ],
-            onChanged: (value) {
-              if (value != null) setState(() => _selectedStatus = value);
-            },
+          const _FieldLabel(text: 'Tanggal Inspeksi'),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.calendar_today_outlined),
+            title: Text(_inspectionDate.toIso8601String().substring(0, 10)),
+            trailing: const Icon(Icons.edit_calendar_outlined),
+            onTap: _isSubmitting ? null : _pickInspectionDate,
+          ),
+          const Text(
+            'Menyimpan hasil IKL akan menyelesaikan jadwal dan laporan terkait.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12),
           ),
           const SizedBox(height: 14),
           const _FieldLabel(text: 'Foto Bukti Kunjungan (opsional)'),
@@ -577,8 +531,8 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
                     )
                   : ClipRRect(
                       borderRadius: BorderRadius.circular(11),
-                      child: Image.file(
-                        File(_pickedPhoto!.path),
+                      child: Image.memory(
+                        _photoBytes!,
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -588,7 +542,10 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: () => setState(() => _pickedPhoto = null),
+                onPressed: () => setState(() {
+                  _pickedPhoto = null;
+                  _photoBytes = null;
+                }),
                 child: const Text('Hapus foto'),
               ),
             ),
@@ -598,6 +555,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
           TextFormField(
             key: const Key('officer_note_field'),
             controller: _legacyNoteController,
+            maxLength: 2000,
             maxLines: 3,
             decoration: const InputDecoration(
               hintText: 'Catatan tambahan kunjungan lapangan...',

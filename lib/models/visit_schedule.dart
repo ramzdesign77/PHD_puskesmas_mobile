@@ -3,6 +3,7 @@
 class VisitSchedule {
   const VisitSchedule({
     required this.id,
+    this.scheduleId,
     required this.reporterName,
     required this.address,
     required this.village,
@@ -19,6 +20,7 @@ class VisitSchedule {
   });
 
   final int id;
+  final int? scheduleId;
   final String reporterName;
   final String address;
   final String village;
@@ -53,7 +55,11 @@ class VisitSchedule {
                 '')
             .toString()
             .toLowerCase();
+    final scheduleId = json['id_jadwal'] ?? json['jadwal_id'] ??
+        schedule?['id_jadwal'] ?? schedule?['id'] ??
+        (type.contains('ikl') || type.contains('inspeksi') ? id : null);
     return VisitSchedule(
+      scheduleId: scheduleId is int ? scheduleId : int.tryParse(scheduleId?.toString() ?? ''),
       id: id is int ? id : int.tryParse(id?.toString() ?? '') ?? 0,
       reporterName: _stringValue(json['nama_pelapor'] ?? json['reporter_name']),
       address: _stringValue(json['alamat'] ?? json['address']),
@@ -66,6 +72,7 @@ class VisitSchedule {
             json['visit_date'],
       ),
       status: _stringValue(
+        json['status_kunjungan'] ?? schedule?['status_kunjungan'] ??
         json['status_laporan'] ?? json['status'] ?? schedule?['status'],
         fallback: 'pending',
       ),
@@ -92,6 +99,7 @@ class VisitSchedule {
   VisitSchedule copyWith({String? status, String? officerNote}) {
     return VisitSchedule(
       id: id,
+      scheduleId: scheduleId,
       reporterName: reporterName,
       address: address,
       village: village,

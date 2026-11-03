@@ -110,6 +110,7 @@ class _MainShellState extends State<MainShell> {
       TrackingView(
         apiService: widget.apiService,
         initialTicketCode: _activeTrackingTicketCode,
+        isActive: _currentIndex == 2,
       ),
       _ProfileTab(
         session: _session,

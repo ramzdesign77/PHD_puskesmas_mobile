@@ -54,6 +54,22 @@ class _OfflineTrackingApiService extends _FakeTrackingApiService {
       );
 }
 
+class _InspectionTrackingApiService extends ApiService {
+  bool inspected = false;
+
+  @override
+  Future<TicketStatus> getTicket(String code) async => TicketStatus.fromJson({
+    'kode_tiket': code,
+    'status_laporan': inspected ? 'selesai' : 'dijadwalkan',
+    'hasil_inspeksi': inspected ? {
+      'total_skor_ya': 3,
+      'kategori_risiko': 'risiko_tinggi',
+      'tanggal_inspeksi': '2026-11-02',
+      'rekomendasi_sanitarian': 'Perbaiki penutup sumur.',
+    } : null,
+  });
+}
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -108,7 +124,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Riwayat & Status Laporan'), findsOneWidget);
+      expect(find.text('Lacak laporan'), findsOneWidget);
       expect(find.text('TK-20261030-0001'), findsOneWidget);
       expect(
         find.textContaining('Sebagian status belum dapat diperbarui'),
@@ -121,4 +137,26 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('refresh displays the official inspection result to the citizen', (tester) async {
+    final api = _InspectionTrackingApiService();
+    Widget screen(bool active) => MaterialApp(home: TrackingView(
+      apiService: api, initialTicketCode: 'IKL-1', isActive: active,
+    ));
+    await tester.pumpWidget(screen(true));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('citizen_inspection_result')));
+    expect(find.text('Menunggu hasil inspeksi petugas.'), findsOneWidget);
+    expect(find.text('Aman'), findsNothing);
+
+    await tester.pumpWidget(screen(false));
+    api.inspected = true;
+    await tester.pumpWidget(screen(true));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('citizen_inspection_result')));
+    expect(find.text('Tinggi'), findsOneWidget);
+    expect(find.text('Skor: 3 dari 5'), findsOneWidget);
+    expect(find.text('Perbaiki penutup sumur.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
 }

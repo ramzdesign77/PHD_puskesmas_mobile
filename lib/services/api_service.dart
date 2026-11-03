@@ -205,8 +205,9 @@ class ApiService {
   }
 
   static bool isOfficerRole(String? role) {
-    final normalizedRole = role?.trim().toLowerCase();
-    return normalizedRole == 'petugas' || normalizedRole == 'admin';
+    return (role ?? '').split(',').any((value) => const {
+      'petugas', 'sanitarian', 'staf_backup_kluster4', 'admin', 'kepala_puskesmas',
+    }.contains(value.trim().toLowerCase()));
   }
 
   Map<String, dynamic> _userFromResponse(Map<String, dynamic> response) {

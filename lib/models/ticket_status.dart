@@ -1,3 +1,5 @@
+import 'risk_score.dart';
+
 class TicketStatus {
   const TicketStatus({
     required this.code,
@@ -14,6 +16,8 @@ class TicketStatus {
     this.visitStatus,
     this.intervention,
     this.riskCategory,
+    this.riskScore,
+    this.inspectionDate,
     this.recommendation,
     this.rejectionReason,
   });
@@ -32,8 +36,16 @@ class TicketStatus {
   final String? visitStatus;
   final String? intervention;
   final String? riskCategory;
+  final int? riskScore;
+  final String? inspectionDate;
   final String? recommendation;
   final String? rejectionReason;
+
+  bool get hasInspectionResult =>
+      (riskCategory?.trim().isNotEmpty ?? false) ||
+      riskScore != null || inspectionDate != null;
+
+  String get riskLabel => RiskScore.label(riskCategory);
 
   int? get currentStepIndex => switch (status.trim().toLowerCase()) {
     'dikirim' => 0,
@@ -65,6 +77,9 @@ class TicketStatus {
     'status_kunjungan': visitStatus,
     'intervensi_fisik': intervention,
     'kategori_risiko_air': riskCategory,
+    'kategori_risiko': riskCategory,
+    'total_skor_ya': riskScore,
+    'tanggal_inspeksi': inspectionDate,
     'rekomendasi_sanitarian': recommendation,
     'alasan_penolakan': rejectionReason,
   };
@@ -72,8 +87,8 @@ class TicketStatus {
   factory TicketStatus.fromJson(Map<String, dynamic> json) {
     final schedule = json['jadwal'] as Map<String, dynamic>?;
     final inspection =
-        json['hasil_ikl'] as Map<String, dynamic>? ??
-        json['hasil_inspeksi'] as Map<String, dynamic>?;
+        json['hasil_inspeksi'] as Map<String, dynamic>? ??
+        json['hasil_ikl'] as Map<String, dynamic>?;
 
     return TicketStatus(
       code: json['kode_tiket'] as String? ?? '',
@@ -98,10 +113,15 @@ class TicketStatus {
           json['intervensi_fisik'] as String? ??
           json['jenis_intervensi'] as String?,
       riskCategory:
+          inspection?['kategori_risiko'] as String? ??
           inspection?['kategori_risiko_air'] as String? ??
           inspection?['risiko_air'] as String? ??
+          json['kategori_risiko'] as String? ??
           json['kategori_risiko_air'] as String? ??
           json['risiko_air'] as String?,
+      riskScore: _parseRiskScore(inspection?['total_skor_ya'] ?? json['total_skor_ya']),
+      inspectionDate: inspection?['tanggal_inspeksi'] as String? ??
+          json['tanggal_inspeksi'] as String?,
       recommendation:
           inspection?['rekomendasi_sanitarian'] as String? ??
           json['rekomendasi_sanitarian'] as String?,
@@ -110,4 +130,9 @@ class TicketStatus {
           json['catatan_penolakan'] as String?,
     );
   }
+}
+
+int? _parseRiskScore(Object? value) {
+  final score = value is int ? value : int.tryParse(value?.toString() ?? '');
+  return score != null && score >= 0 && score <= 5 ? score : null;
 }
