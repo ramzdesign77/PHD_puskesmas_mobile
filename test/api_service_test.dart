@@ -14,6 +14,51 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  test('registers with the phone field expected by the API', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(request.url.path, '/api/auth/register');
+      expect(jsonDecode(request.body), {
+        'nama_lengkap': 'Warga Contoh',
+        'username': 'warga-contoh',
+        'email': 'warga@example.test',
+        'password': 'secret123',
+        'password_confirmation': 'secret123',
+        'no_telepon': '081234567890',
+      });
+
+      return http.Response(
+        jsonEncode({
+          'message': 'Registrasi berhasil.',
+          'token': 'mobile-token',
+          'user': {
+            'nama_lengkap': 'Warga Contoh',
+            'username': 'warga-contoh',
+            'email': 'warga@example.test',
+            'no_telepon': '081234567890',
+            'role': 'warga',
+          },
+        }),
+        201,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final apiService = ApiService(client: client);
+
+    await apiService.register(
+      namaLengkap: 'Warga Contoh',
+      username: 'warga-contoh',
+      email: 'warga@example.test',
+      password: 'secret123',
+      phone: '081234567890',
+    );
+
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getString('auth_user_phone'), '081234567890');
+    expect(preferences.getString('auth_user_email'), 'warga@example.test');
+    client.close();
+  });
+
   group('ApiService.submitReport', () {
     // Tes baru: memastikan kontrak POST /api/laporan dan kode tiket.
     test('posts multipart report data and returns the ticket code', () async {

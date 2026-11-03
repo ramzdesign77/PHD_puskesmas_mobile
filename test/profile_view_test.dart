@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:klinik_sanitasi_mobile/services/profile_service.dart';
 import 'package:klinik_sanitasi_mobile/theme/app_theme.dart';
+import 'package:klinik_sanitasi_mobile/views/profile/change_password_view.dart';
 import 'package:klinik_sanitasi_mobile/views/profile/edit_profile_view.dart';
 import 'package:klinik_sanitasi_mobile/views/profile/profile_view.dart';
 
@@ -114,6 +117,38 @@ void main() {
     final reloaded = await ProfileService().load(fallbackName: 'Warga');
     expect(reloaded.email, 'rina.baru@example.com');
   });
+
+  testWidgets('account settings open the change password form', (tester) async {
+    await _openProfile(tester);
+
+    expect(find.text('Ganti password'), findsOneWidget);
+    final changePasswordButton = find.byKey(
+      const Key('profile_change_password_button'),
+    );
+    await tester.ensureVisible(changePasswordButton);
+    await tester.tap(changePasswordButton);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChangePasswordView), findsOneWidget);
+    expect(find.text('Password lama'), findsOneWidget);
+    expect(find.text('Password baru'), findsOneWidget);
+    expect(find.text('Konfirmasi password baru'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('profile_change_password_save_button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .state<FormFieldState<String>>(
+            find.byKey(const Key('profile_current_password_field')),
+          )
+          .hasError,
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Finder _field(String name) => find.byKey(Key('profile_${name}_field'));
@@ -138,6 +173,9 @@ Future<void> _openProfile(
           onBack: () {},
           onLogout: () {},
           onProfileChanged: onProfileChanged,
+          profileService: ProfileService(
+            client: MockClient((_) async => http.Response('{}', 200)),
+          ),
         ),
         bottomNavigationBar: const SizedBox(height: 80),
       ),

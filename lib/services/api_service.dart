@@ -73,7 +73,7 @@ class ApiService {
       'email': email.trim(),
       'password': password,
       'password_confirmation': password,
-      'no_hp': phone.trim(),
+      'no_telepon': phone.trim(),
     };
     final response = await _client.post(
       _endpoint('auth/register'),
@@ -133,7 +133,8 @@ class ApiService {
     final roleSaved = await preferences.setString(_roleKey, role);
     await preferences.setString(
       _userPhoneKey,
-      user['no_wa'] as String? ??
+      user['no_telepon'] as String? ??
+          user['no_wa'] as String? ??
           user['no_hp'] as String? ??
           user['phone'] as String? ??
           '',
@@ -150,6 +151,7 @@ class ApiService {
       email: _firstNonEmptyString([user['email']]) ?? fallbackEmail?.trim(),
       phone:
           _firstNonEmptyString([
+            user['no_telepon'],
             user['phone'],
             user['phone_number'],
             user['no_hp'],
