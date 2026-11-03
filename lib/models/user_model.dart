@@ -5,6 +5,9 @@ class UserModel {
     this.name,
     this.email,
     this.phone,
+    this.villageName,
+    this.rt,
+    this.rw,
     this.username,
   });
 
@@ -13,6 +16,9 @@ class UserModel {
   final String? name;
   final String? email;
   final String? phone;
+  final String? villageName;
+  final String? rt;
+  final String? rw;
   final String? username;
 
   factory UserModel.fromLoginJson(Map<String, dynamic> json) {
@@ -61,15 +67,22 @@ class UserModel {
       ),
       email: _stringOrNull(user['email'] ?? data['email'] ?? json['email']),
       phone: _stringOrNull(
-        user['phone'] ??
-            user['phone_number'] ??
+        user['no_wa'] ??
             user['no_hp'] ??
+            user['phone'] ??
+            user['phone_number'] ??
+            user['telepon'] ??
             user['nomor_telepon'] ??
             data['phone'] ??
             data['no_hp'] ??
             json['phone'] ??
             json['no_hp'],
       ),
+      villageName: _stringOrNull(
+        user['nama_desa'] ?? user['desa'] ?? data['nama_desa'] ?? data['desa'],
+      ),
+      rt: _stringOrNull(user['rt'] ?? data['rt']),
+      rw: _stringOrNull(user['rw'] ?? data['rw']),
       username: _stringOrNull(
         user['username'] ?? data['username'] ?? json['username'],
       ),

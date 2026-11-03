@@ -27,6 +27,10 @@ class ApiService {
   static const _tokenKey = 'auth_token';
   static const _roleKey = 'auth_role';
   static const _userNameKey = 'auth_user_name';
+  static const _userPhoneKey = 'auth_user_phone';
+  static const _userVillageKey = 'auth_user_village';
+  static const _userRtKey = 'auth_user_rt';
+  static const _userRwKey = 'auth_user_rw';
   static const _rolesKey = 'auth_roles';
   static const _savedCitizenTicketsKey = 'saved_citizen_tickets';
   static const _ticketCachePrefix = 'citizen_ticket_cache_';
@@ -127,11 +131,23 @@ class ApiService {
     final preferences = await SharedPreferences.getInstance();
     final tokenSaved = await preferences.setString(_tokenKey, token);
     final roleSaved = await preferences.setString(_roleKey, role);
+    await preferences.setString(
+      _userPhoneKey,
+      user['no_wa'] as String? ??
+          user['no_hp'] as String? ??
+          user['phone'] as String? ??
+          '',
+    );
+    await preferences.setString(
+      _userVillageKey,
+      user['nama_desa'] as String? ?? user['desa'] as String? ?? '',
+    );
+    await preferences.setString(_userRtKey, user['rt']?.toString() ?? '');
+    await preferences.setString(_userRwKey, user['rw']?.toString() ?? '');
     final profileSaved = await ProfileService.replaceForSession(
       preferences,
       name: userName,
-      email:
-          _firstNonEmptyString([user['email']]) ?? fallbackEmail?.trim(),
+      email: _firstNonEmptyString([user['email']]) ?? fallbackEmail?.trim(),
       phone:
           _firstNonEmptyString([
             user['phone'],
@@ -141,8 +157,7 @@ class ApiService {
           ]) ??
           fallbackPhone?.trim(),
       username:
-          _firstNonEmptyString([user['username']]) ??
-          fallbackUsername?.trim(),
+          _firstNonEmptyString([user['username']]) ?? fallbackUsername?.trim(),
     );
     if (!tokenSaved || !roleSaved || !profileSaved) {
       await clearSavedSession();
@@ -170,6 +185,10 @@ class ApiService {
       token: token,
       role: preferences.getString(_roleKey) ?? 'warga',
       userName: preferences.getString(_userNameKey) ?? '',
+      phone: preferences.getString(_userPhoneKey),
+      villageName: preferences.getString(_userVillageKey),
+      rt: preferences.getString(_userRtKey),
+      rw: preferences.getString(_userRwKey),
     );
   }
 
@@ -179,6 +198,10 @@ class ApiService {
     await preferences.remove(_roleKey);
     await ProfileService.clearForSession(preferences);
     await preferences.remove(_rolesKey);
+    await preferences.remove(_userPhoneKey);
+    await preferences.remove(_userVillageKey);
+    await preferences.remove(_userRtKey);
+    await preferences.remove(_userRwKey);
   }
 
   static bool isOfficerRole(String? role) {
@@ -255,6 +278,8 @@ class ApiService {
     Map<String, dynamic> reportData, {
     XFile? imageFile,
   }) async {
+    final preferences = await SharedPreferences.getInstance();
+    final token = preferences.getString(_tokenKey)?.trim();
     final request = http.MultipartRequest('POST', _endpoint('laporan'))
       ..headers['Accept'] = 'application/json'
       ..fields.addAll({
@@ -262,6 +287,10 @@ class ApiService {
           if (entry.key != 'nik' && entry.key != 'nik_pelapor')
             entry.key: entry.value?.toString() ?? '',
       });
+
+    if (token != null && token.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
 
     if (imageFile != null) {
       request.files.add(
@@ -421,9 +450,17 @@ class AuthSession {
     required this.token,
     required this.role,
     required this.userName,
+    this.phone,
+    this.villageName,
+    this.rt,
+    this.rw,
   });
 
   final String token;
   final String role;
   final String userName;
+  final String? phone;
+  final String? villageName;
+  final String? rt;
+  final String? rw;
 }
