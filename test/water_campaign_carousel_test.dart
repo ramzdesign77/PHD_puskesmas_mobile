@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wave/wave.dart';
 
 import 'package:klinik_sanitasi_mobile/models/education_article.dart';
 import 'package:klinik_sanitasi_mobile/services/api_service.dart';
@@ -7,6 +8,46 @@ import 'package:klinik_sanitasi_mobile/theme/app_theme.dart';
 import 'package:klinik_sanitasi_mobile/views/public/home_view.dart';
 
 void main() {
+  testWidgets('home hero has clipped, continuously animated cyan waves', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeView(
+          apiService: _CampaignApiService(),
+          greetingName: 'Warga',
+          onOpenReports: () {},
+          onOpenTracking: () {},
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final wave = tester.widget<WaveWidget>(find.byType(WaveWidget));
+    final config = wave.config as CustomConfig;
+    expect(config.colors, const [
+      Color(0x3306B6D4),
+      Color(0x4D06B6D4),
+      Color(0x6606B6D4),
+    ]);
+    expect(config.durations, const [12000, 9000, 7000]);
+    expect(config.heightPercentages, const [0.42, 0.54, 0.66]);
+    expect(wave.waveAmplitude, 24);
+    expect(wave.isLoop, isTrue);
+    expect(
+      tester
+          .widget<ClipRRect>(find.byKey(const Key('home_hero_wave_clip')))
+          .borderRadius,
+      BorderRadius.circular(28),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('campaign carousel swipes and changes pages in place', (
     WidgetTester tester,
   ) async {
@@ -32,7 +73,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     final pageView = find.byKey(const Key('campaign_carousel_page_view'));
     await tester.ensureVisible(pageView);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 450));
     navigatorObserver.reset();
 
     expect(find.text('Kampanye Sanitasi'), findsOneWidget);
@@ -56,7 +97,6 @@ void main() {
     await tester.drag(pageView, const Offset(-240, 0));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.pumpAndSettle();
 
     expect(find.text('Cuci Tangan Pakai Sabun'), findsOneWidget);
     expect(_indicatorWidth(tester, 1), 22);
@@ -64,10 +104,15 @@ void main() {
     expect(navigatorObserver.pushCount, 0);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.byKey(const Key('campaign_page_indicator_4')));
+    final lastPageIndicator = find.byKey(
+      const Key('campaign_page_indicator_4'),
+    );
+    await tester.ensureVisible(lastPageIndicator);
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.tap(lastPageIndicator);
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.pumpAndSettle();
 
     expect(find.text('Pengamanan Limbah Cair Rumah Tangga'), findsOneWidget);
     expect(_indicatorWidth(tester, 4), 22);

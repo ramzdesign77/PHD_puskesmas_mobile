@@ -72,7 +72,7 @@ void main() {
     tester
         .state<NavigatorState>(find.byType(Navigator).first)
         .pushNamed('/home');
-    await tester.pumpAndSettle();
+    await _pumpUntilVisible(tester, find.text('KLINIK SANITASI'));
 
     expect(find.text('KLINIK SANITASI'), findsOneWidget);
     expect(find.text('Halo, Warga'), findsOneWidget);
@@ -87,7 +87,7 @@ void main() {
     expect(find.text('Profil'), findsOneWidget);
 
     await tester.tap(find.text('Profil'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 600));
     expect(find.text('Sesi pengguna tidak ditemukan.'), findsOneWidget);
   });
 
@@ -102,10 +102,10 @@ void main() {
     });
     await tester.pumpWidget(MyApp(apiService: _FakeApiService()));
     await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
+    await _pumpUntilVisible(tester, find.text('KLINIK SANITASI'));
 
     await tester.tap(find.text('Profil'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 600));
     await tester.scrollUntilVisible(
       find.text('Keluar'),
       200,
@@ -117,11 +117,11 @@ void main() {
     expect(find.text('Keluar'), findsOneWidget);
 
     await tester.tap(find.text('Keluar'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Anda yakin ingin keluar dari akun ini?'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(TextButton, 'Keluar'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 600));
 
     expect(find.text('Masuk ke Akun'), findsOneWidget);
     final preferences = await SharedPreferences.getInstance();
@@ -246,7 +246,15 @@ Future<void> _submitLogin(WidgetTester tester) async {
   await tester.enterText(find.byType(TextFormField).at(0), 'warga@example.com');
   await tester.enterText(find.byType(TextFormField).at(1), 'password123');
   await tester.tap(find.text('Login'));
-  await tester.pumpAndSettle();
+  await _pumpUntilVisible(tester, find.text('KLINIK SANITASI'));
+}
+
+Future<void> _pumpUntilVisible(WidgetTester tester, Finder finder) async {
+  for (var frame = 0; frame < 20 && finder.evaluate().isEmpty; frame++) {
+    await tester.pump(const Duration(milliseconds: 250));
+  }
+  expect(finder, findsOneWidget);
+  await tester.pump(const Duration(milliseconds: 600));
 }
 
 class _FakeApiService extends ApiService {

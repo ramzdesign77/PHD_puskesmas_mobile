@@ -1,11 +1,11 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/fluid_bottom_nav.dart';
 import '../../widgets/ocean_widgets.dart';
+import '../main_layout_screen.dart';
 import '../profile/profile_view.dart';
 import 'home_view.dart';
 import 'report_view.dart';
@@ -125,68 +125,33 @@ class _MainShellState extends State<MainShell> {
       ),
     ];
 
-    return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: screens),
-      bottomNavigationBar: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: NavigationBarTheme(
-            data: NavigationBarThemeData(
-              labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>(
-                (states) => TextStyle(
-                  color: states.contains(WidgetState.selected)
-                      ? AppColors.primary
-                      : AppColors.muted,
-                  fontSize: 11,
-                  fontWeight: states.contains(WidgetState.selected)
-                      ? FontWeight.w400
-                      : FontWeight.w400,
-                ),
-              ),
-            ),
-            child: NavigationBar(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: _selectTab,
-              backgroundColor: Colors.white.withValues(alpha: 0.88),
-              indicatorColor: AppColors.softRed,
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.home_outlined, color: AppColors.muted),
-                  selectedIcon: Icon(Icons.home, color: AppColors.primary),
-                  label: 'Beranda',
-                ),
-                NavigationDestination(
-                  icon: CircleAvatar(
-                    radius: 13,
-                    backgroundColor: AppColors.muted,
-                    child: Icon(Icons.add, color: Colors.white, size: 18),
-                  ),
-                  selectedIcon: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: AppColors.primary,
-                    child: Icon(Icons.add, color: Colors.white, size: 18),
-                  ),
-                  label: 'Lapor',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.access_time, color: AppColors.muted),
-                  selectedIcon: Icon(
-                    Icons.access_time_filled,
-                    color: AppColors.primary,
-                  ),
-                  label: 'Lacak',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.person_outline, color: AppColors.muted),
-                  selectedIcon: Icon(Icons.person, color: AppColors.primary),
-                  label: 'Profil',
-                ),
-              ],
-            ),
-          ),
+    return MainLayoutScreen(
+      bodySafeArea: false,
+      pages: screens,
+      selectedIndex: _currentIndex,
+      onDestinationSelected: _selectTab,
+      destinations: const [
+        FluidNavDestination(
+          icon: Icons.home_outlined,
+          selectedIcon: Icons.home_rounded,
+          label: 'Beranda',
         ),
-      ),
+        FluidNavDestination(
+          icon: Icons.add_rounded,
+          selectedIcon: Icons.add_rounded,
+          label: 'Lapor',
+        ),
+        FluidNavDestination(
+          icon: Icons.access_time_outlined,
+          selectedIcon: Icons.access_time_filled_rounded,
+          label: 'Lacak',
+        ),
+        FluidNavDestination(
+          icon: Icons.person_outline_rounded,
+          selectedIcon: Icons.person_rounded,
+          label: 'Profil',
+        ),
+      ],
     );
   }
 }

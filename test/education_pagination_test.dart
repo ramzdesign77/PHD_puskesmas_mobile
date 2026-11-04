@@ -30,7 +30,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
 
     await tester.ensureVisible(find.text('Artikel Edukasi'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 450));
 
     expect(find.text('Artikel 01'), findsOneWidget);
     expect(find.text('Artikel 02'), findsOneWidget);
@@ -52,7 +52,6 @@ void main() {
     await tester.tap(find.byKey(const Key('education_page_2')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
-    await tester.pumpAndSettle();
 
     expect(find.text('Artikel 01'), findsNothing);
     expect(find.text('Artikel 07'), findsOneWidget);
@@ -86,7 +85,6 @@ void main() {
       await tester.tap(nextPage);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
-      await tester.pumpAndSettle();
     }
 
     expect(find.text('Artikel 13'), findsOneWidget);

@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:wave/wave.dart';
 
 import '../../constants/app_colors.dart';
 import '../../models/education_article.dart';
@@ -10,6 +11,7 @@ import '../../widgets/ocean_widgets.dart';
 import '../../widgets/water_campaign_carousel.dart';
 import 'article_detail_view.dart';
 
+const _heroHeaderRadius = 28.0;
 const _oceanBlue = AppColors.primary;
 const _deepOceanBlue = AppColors.primaryDark;
 const _paleBlue = AppColors.softBlue;
@@ -224,7 +226,7 @@ class _HomeViewState extends State<HomeView> {
     return Container(
       height: 374,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(_heroHeaderRadius),
         boxShadow: [
           BoxShadow(
             color: _deepOceanBlue.withValues(alpha: 0.2),
@@ -234,7 +236,7 @@ class _HomeViewState extends State<HomeView> {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(_heroHeaderRadius),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -248,6 +250,26 @@ class _HomeViewState extends State<HomeView> {
                     Color(0xFF0277BD),
                     Color(0xFF06B6D4),
                   ],
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: ClipRRect(
+                key: const Key('home_hero_wave_clip'),
+                borderRadius: BorderRadius.circular(_heroHeaderRadius),
+                child: WaveWidget(
+                  config: CustomConfig(
+                    colors: const [
+                      Color(0x3306B6D4),
+                      Color(0x4D06B6D4),
+                      Color(0x6606B6D4),
+                    ],
+                    durations: const [12000, 9000, 7000],
+                    heightPercentages: const [0.42, 0.54, 0.66],
+                  ),
+                  size: Size.infinite,
+                  waveAmplitude: 24,
+                  waveFrequency: 1.4,
                 ),
               ),
             ),
