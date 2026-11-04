@@ -43,6 +43,20 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  void _handleOpenTicketHistory(String ticketCode) {
+    setState(() {
+      _activeTrackingTicketCode = ticketCode;
+      _currentIndex = 2;
+    });
+  }
+
+  void _handleOpenAllHistory() {
+    setState(() {
+      _activeTrackingTicketCode = null;
+      _currentIndex = 2;
+    });
+  }
+
   Future<void> _logout() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -106,6 +120,8 @@ class _MainShellState extends State<MainShell> {
       ReportView(
         apiService: widget.apiService,
         onReportSubmitted: _handleReportSubmitted,
+        onOpenTicketHistory: _handleOpenTicketHistory,
+        onOpenAllHistory: _handleOpenAllHistory,
       ),
       TrackingView(
         apiService: widget.apiService,

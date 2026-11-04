@@ -1,12 +1,14 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../constants/app_colors.dart';
 import '../../models/village.dart';
+import '../../models/ticket_status.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
@@ -16,10 +18,14 @@ class ReportView extends StatefulWidget {
     super.key,
     required this.apiService,
     this.onReportSubmitted,
+    this.onOpenTicketHistory,
+    this.onOpenAllHistory,
   });
 
   final ApiService apiService;
   final ValueChanged<String>? onReportSubmitted;
+  final ValueChanged<String>? onOpenTicketHistory;
+  final VoidCallback? onOpenAllHistory;
 
   @override
   State<ReportView> createState() => _ReportViewState();
@@ -46,12 +52,48 @@ class _ReportViewState extends State<ReportView> {
   bool _isLoadingLocation = false;
   Position? _selectedPosition;
   String? _profileVillageName;
+  List<TicketStatus> _recentTickets = [];
 
   @override
   void initState() {
     super.initState();
     _villages = widget.apiService.getVillages();
     _loadSession();
+    unawaited(_loadHistory());
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      await widget.apiService.syncCitizenTicketsHistory();
+      final tickets = await widget.apiService.getCachedCitizenTicketStatuses();
+      if (!mounted) return;
+      setState(() {
+        _recentTickets = tickets.take(3).toList();
+      });
+
+      final codes = await widget.apiService.getSavedCitizenTickets();
+      for (final code in codes.take(3)) {
+        try {
+          final ticket = await widget.apiService.getTicket(code);
+          if (!mounted) return;
+          setState(() {
+            final updated = [
+              ticket,
+              ..._recentTickets.where((item) => item.code != ticket.code),
+            ];
+            _recentTickets = updated.take(3).toList();
+          });
+        } on ApiException {
+          continue;
+        } on Exception {
+          continue;
+        }
+      }
+    } on Exception {
+      if (!mounted) return;
+      final cached = await widget.apiService.getCachedCitizenTicketStatuses();
+      if (mounted) setState(() => _recentTickets = cached.take(3).toList());
+    }
   }
 
   Future<void> _loadSession() async {
@@ -220,6 +262,7 @@ class _ReportViewState extends State<ReportView> {
         reportData,
         imageFile: _image,
       );
+      await _loadHistory();
 
       if (!mounted) return;
       final onReportSubmitted = widget.onReportSubmitted;
@@ -367,6 +410,193 @@ class _ReportViewState extends State<ReportView> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  String _categoryLabel(String category) {
+    switch (category.trim()) {
+      case 'air_sumur_keruh_berbau':
+        return 'Air Sumur Keruh / Berbau';
+      case 'sarang_nyamuk_dbd':
+        return 'Sarang Nyamuk / Indikasi DBD';
+      case 'jamban_limbah_stbm':
+        return 'Masalah Jamban & Limbah';
+      case 'tumpukan_sampah':
+        return 'Tumpukan Sampah';
+      default:
+        if (category.trim().isEmpty) return 'Kategori tidak tersedia';
+        return category.replaceAll('_', ' ');
+    }
+  }
+
+  String _statusLabel(String status) {
+    switch (status.trim().toLowerCase()) {
+      case 'dikirim':
+        return 'Dikirim';
+      case 'menunggu':
+      case 'pending':
+      case 'diproses':
+        return 'Diproses';
+      case 'dijadwalkan':
+        return 'Dijadwalkan';
+      case 'ditindaklanjuti':
+        return 'Ditindaklanjuti';
+      case 'selesai':
+        return 'Selesai';
+      case 'ditolak':
+        return 'Ditolak';
+      default:
+        return status.trim().isEmpty ? 'Dikirim' : status;
+    }
+  }
+
+  String _formatDate(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      return 'Tanggal tidak tersedia';
+    }
+    final date = DateTime.tryParse(raw.trim());
+    if (date == null) return raw.trim();
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  Widget _buildReportHistory() {
+    if (_recentTickets.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7F7),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.history_rounded, color: AppColors.primary),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Riwayat Laporan Terakhir Anda',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: widget.onOpenAllHistory,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 32),
+                ),
+                child: const Text('Lihat Semua', textAlign: TextAlign.right),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (final ticket in _recentTickets.take(3)) ...[
+            Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () {
+                  final callback =
+                      widget.onOpenTicketHistory ?? widget.onReportSubmitted;
+                  callback?.call(ticket.code);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              ticket.code,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.ink,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Salin kode tiket',
+                            onPressed: () async {
+                              await Clipboard.setData(
+                                ClipboardData(text: ticket.code),
+                              );
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Kode tiket disalin.'),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(
+                              Icons.copy_rounded,
+                              size: 18,
+                              color: AppColors.primary,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.softRed,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              _statusLabel(ticket.status),
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        _categoryLabel(ticket.category),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.ink,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _formatDate(ticket.createdAt),
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ],
+      ),
     );
   }
 
@@ -554,6 +784,7 @@ class _ReportViewState extends State<ReportView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            _buildReportHistory(),
                             // ============================================
                             // Section 1: Data Pelapor
                             // ============================================

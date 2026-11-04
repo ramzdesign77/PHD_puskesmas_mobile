@@ -75,6 +75,7 @@ class _TrackingViewState extends State<TrackingView> {
     });
 
     try {
+      await widget.apiService.syncCitizenTicketsHistory();
       final savedCodes = await widget.apiService.getSavedCitizenTicketCodes();
       if (preferredCode != null && !savedCodes.contains(preferredCode)) {
         await widget.apiService.saveCitizenTicketCode(preferredCode);
