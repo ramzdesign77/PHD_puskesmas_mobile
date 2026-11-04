@@ -8,9 +8,6 @@ import '../../models/visit_schedule.dart';
 import '../../services/officer_api_service.dart';
 import '../../theme/app_theme.dart';
 
-const _maroonDark = Color(0xFF8B1515);
-const _maroon = Color(0xFFB71C1C);
-
 class OfficerDetailView extends StatefulWidget {
   const OfficerDetailView({
     super.key,
@@ -108,7 +105,10 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
   Future<void> _submit() async {
     if (_isSubmitting || !_formKey.currentState!.validate()) return;
     if (widget.schedule.scheduleId == null) {
-      _showMessage('Laporan ini belum memiliki ID jadwal inspeksi. Hubungi admin.', isError: true);
+      _showMessage(
+        'Laporan ini belum memiliki ID jadwal inspeksi. Hubungi admin.',
+        isError: true,
+      );
       return;
     }
     setState(() => _isSubmitting = true);
@@ -136,9 +136,13 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
         ),
       );
     } on ApiOfficerException catch (error) {
-      if (mounted) _showMessage(error.message, isError: true);
+      if (mounted) {
+        _showMessage(error.message, isError: true);
+      }
     } catch (error) {
-      if (mounted) _showMessage('Gagal mengirim form IKL: $error', isError: true);
+      if (mounted) {
+        _showMessage('Gagal mengirim form IKL: $error', isError: true);
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -176,13 +180,22 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
               : schedule.ticketCode,
           style: const TextStyle(
             fontFamily: AppTheme.headlineFontFamily,
-            fontWeight: FontWeight.w400,
+            fontWeight: FontWeight.w500,
             fontSize: 16,
           ).asHeading,
         ),
-        backgroundColor: _maroonDark,
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.primary, AppColors.primaryLight],
+            ),
+          ),
+        ),
       ),
       body: Form(
         key: _formKey,
@@ -207,33 +220,51 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
             const SizedBox(height: 14),
             _buildLegacyVisitFields(),
             const SizedBox(height: 22),
-            SizedBox(
-              height: 52,
-              child: FilledButton.icon(
-                key: const Key('officer_submit_button'),
-                onPressed: _isSubmitting ||
-                    const ['selesai', 'batal'].contains(widget.schedule.status.toLowerCase())
-                    ? null : _submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _maroonDark,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+            AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: _canSubmit ? 1 : 0.55,
+              child: Container(
+                height: 54,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [AppColors.primary, AppColors.primaryLight],
                   ),
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.28),
+                      blurRadius: 18,
+                      offset: const Offset(0, 7),
+                    ),
+                  ],
                 ),
-                icon: _isSubmitting
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.save_outlined),
-                label: Text(
-                  _isSubmitting ? 'Menyimpan...' : 'Simpan Hasil IKL',
-                  style: const TextStyle(fontWeight: FontWeight.w400),
+                child: FilledButton.icon(
+                  key: const Key('officer_submit_button'),
+                  onPressed: _canSubmit ? _submit : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    disabledBackgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    disabledForegroundColor: Colors.white,
+                    shadowColor: Colors.transparent,
+                    shape: const StadiumBorder(),
+                  ),
+                  icon: _isSubmitting
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.save_outlined),
+                  label: Text(
+                    _isSubmitting ? 'Menyimpan...' : 'Simpan Hasil IKL',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
                 ),
               ),
             ),
@@ -243,13 +274,27 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
     );
   }
 
+  bool get _canSubmit =>
+      !_isSubmitting &&
+      !const [
+        'selesai',
+        'batal',
+      ].contains(widget.schedule.status.toLowerCase());
+
   Widget _buildScheduleCard(VisitSchedule schedule) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.line),
-        borderRadius: BorderRadius.circular(15),
+        color: Colors.white.withValues(alpha: 0.96),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 7),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -288,8 +333,10 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
             ),
             items: _waterSources.entries
                 .map(
-                  (source) =>
-                      DropdownMenuItem(value: source.key, child: Text(source.value)),
+                  (source) => DropdownMenuItem(
+                    value: source.key,
+                    child: Text(source.value),
+                  ),
                 )
                 .toList(growable: false),
             onChanged: (value) {
@@ -303,9 +350,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
             key: const Key('officer_pollutant_distance_field'),
             controller: _distanceController,
             keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-            ],
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             validator: (value) {
               final distance = int.tryParse(value?.trim() ?? '');
               if (distance == null || distance < 0 || distance > 99999) {
@@ -343,12 +388,23 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
               onChanged: (value) =>
                   setState(() => _riskIndicators[index] = value ?? false),
               contentPadding: EdgeInsets.zero,
-              dense: true,
-              activeColor: _maroon,
+              dense: false,
+              activeColor: AppColors.primary,
+              selected: _riskIndicators[index],
               controlAffinity: ListTileControlAffinity.leading,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              tileColor: Colors.white,
+              selectedTileColor: AppColors.softBlue.withValues(alpha: 0.8),
+              visualDensity: const VisualDensity(vertical: -1),
               title: Text(
                 _riskLabels[index],
-                style: const TextStyle(fontSize: 12, color: AppColors.ink),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.ink,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
             ),
         ],
@@ -363,7 +419,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
       decoration: BoxDecoration(
         color: _riskColor.withValues(alpha: 0.1),
         border: Border.all(color: _riskColor.withValues(alpha: 0.4)),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
@@ -391,7 +447,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
                   style: TextStyle(
                     color: _riskColor,
                     fontSize: 14,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -402,7 +458,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
             style: TextStyle(
               color: _riskColor,
               fontSize: 23,
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -427,15 +483,15 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
                   return ChoiceChip(
                     label: Text(intervention),
                     selected: selected,
-                    selectedColor: const Color(0xFFF8D7DA),
+                    selectedColor: AppColors.softBlue,
                     backgroundColor: AppColors.canvas,
                     side: BorderSide(
-                      color: selected ? _maroon : AppColors.line,
+                      color: selected ? AppColors.primary : AppColors.line,
                     ),
                     labelStyle: TextStyle(
-                      color: selected ? _maroonDark : AppColors.ink,
+                      color: selected ? AppColors.primary : AppColors.ink,
                       fontSize: 11,
-                      fontWeight: selected ? FontWeight.w400 : FontWeight.w400,
+                      fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
                     ),
                     onSelected: (_) {
                       setState(() => _intervention = intervention);
@@ -500,7 +556,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
           const SizedBox(height: 8),
           InkWell(
             key: const Key('officer_photo_picker'),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(20),
             onTap: _pickPhoto,
             child: Container(
               height: 120,
@@ -508,7 +564,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
               decoration: BoxDecoration(
                 color: AppColors.canvas,
                 border: Border.all(color: AppColors.line),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(20),
               ),
               child: _pickedPhoto == null
                   ? const Column(
@@ -516,7 +572,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
                       children: [
                         Icon(
                           Icons.camera_alt_outlined,
-                          color: _maroon,
+                          color: AppColors.primary,
                           size: 28,
                         ),
                         SizedBox(height: 6),
@@ -530,11 +586,8 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
                       ],
                     )
                   : ClipRRect(
-                      borderRadius: BorderRadius.circular(11),
-                      child: Image.memory(
-                        _photoBytes!,
-                        fit: BoxFit.cover,
-                      ),
+                      borderRadius: BorderRadius.circular(19),
+                      child: Image.memory(_photoBytes!, fit: BoxFit.cover),
                     ),
             ),
           ),
@@ -585,7 +638,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
             fontFamily: AppTheme.headlineFontFamily,
             color: AppColors.ink,
             fontSize: 15,
-            fontWeight: FontWeight.w400,
+            fontWeight: FontWeight.w500,
           ).asHeading,
         ),
       ],
@@ -604,8 +657,15 @@ class _FormCard extends StatelessWidget {
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: AppColors.line),
-        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 7),
+          ),
+        ],
       ),
       child: child,
     );
@@ -644,7 +704,7 @@ class _InfoRow extends StatelessWidget {
                   value,
                   style: const TextStyle(
                     color: AppColors.ink,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w500,
                     fontSize: 12,
                   ),
                 ),

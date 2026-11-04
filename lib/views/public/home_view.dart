@@ -12,9 +12,9 @@ import 'article_detail_view.dart';
 
 const _oceanBlue = AppColors.primary;
 const _deepOceanBlue = AppColors.primaryDark;
-const _aquaBlue = AppColors.primaryLight;
 const _paleBlue = AppColors.softBlue;
-const _offWhiteBlue = Color(0xFFF4F9F9);
+const _offWhiteBlue = Color(0xFFF8FAFC);
+const _homeBodyFontFamily = 'Montserrat';
 
 class HomeView extends StatefulWidget {
   const HomeView({
@@ -37,6 +37,7 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   static const _articlesPerPage = 3;
   final _articlesSectionKey = GlobalKey();
+  final _campaignSectionKey = GlobalKey();
   late Future<List<EducationArticle>> _articlesFuture;
   int _currentArticlePage = 0;
 
@@ -48,192 +49,169 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _offWhiteBlue,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildHeaderAndGreeting(),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Layanan',
-                          style: TextStyle(
-                            fontFamily: AppTheme.bodyFontFamily,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.ink,
-                          ).asHeading,
-                        ),
-                        const SizedBox(height: 14),
-                        _buildQuickActions(),
-                        const SizedBox(height: 30),
-                        Text(
-                          'Kampanye Sanitasi',
-                          style: TextStyle(
-                            fontFamily: AppTheme.headlineFontFamily,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF0F172A),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          '5 Pilar STBM',
-                          style: TextStyle(
-                            fontFamily: AppTheme.bodyFontFamily,
-                            color: AppColors.muted,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const WaterCampaignCarousel(),
-                        const SizedBox(height: 24),
-                        Container(
-                          key: _articlesSectionKey,
-                          child: FutureBuilder<List<EducationArticle>>(
-                            future: _articlesFuture,
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 40),
-                                  child: Center(child: WaterLoadingIndicator()),
-                                );
-                              }
-
-                              if (snapshot.hasError) {
-                                return _LoadError(
-                                  message:
-                                      'Gagal memuat data: ${snapshot.error}',
-                                  onRetry: () async {
-                                    setState(() {
-                                      _currentArticlePage = 0;
-                                      _articlesFuture = widget.apiService
-                                          .getArticles();
-                                    });
-                                  },
-                                );
-                              }
-
-                              final articles = snapshot.data ?? [];
-                              if (articles.isEmpty) {
-                                return const _EmptyArticles();
-                              }
-
-                              final totalPages =
-                                  (articles.length + _articlesPerPage - 1) ~/
-                                  _articlesPerPage;
-                              final currentPage = _currentArticlePage
-                                  .clamp(0, totalPages - 1)
-                                  .toInt();
-                              final firstArticleIndex =
-                                  currentPage * _articlesPerPage;
-                              final pageArticles = articles
-                                  .skip(firstArticleIndex)
-                                  .take(_articlesPerPage)
-                                  .toList(growable: false);
-                              final reservedArticleSlots =
-                                  articles.length < _articlesPerPage
-                                  ? articles.length
-                                  : _articlesPerPage;
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Artikel Edukasi',
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.bodyFontFamily,
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w400,
-                                      color: AppColors.ink,
-                                    ).asHeading,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 220),
-                                    switchInCurve: Curves.easeOut,
-                                    switchOutCurve: Curves.easeIn,
-                                    transitionBuilder: (child, animation) =>
-                                        FadeTransition(
-                                          opacity: animation,
-                                          child: child,
-                                        ),
-                                    child: SizedBox(
-                                          key: Key(
-                                            'education_article_page_area_$currentPage',
-                                          ),
-                                      height:
-                                          reservedArticleSlots *
-                                          (_ArticleTile.cardHeight + 12),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          for (final article in pageArticles)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                bottom: 12,
-                                              ),
-                                              child: _ArticleTile(
-                                                imageUrl: article.imageUrl,
-                                                category: article.category,
-                                                title: article.title,
-                                                subtitle: article.excerpt,
-                                                onTap: () => Navigator.of(
-                                                  context,
-                                                ).push(
-                                                  MaterialPageRoute<void>(
-                                                    builder: (_) =>
-                                                        ArticleDetailView(
-                                                          article: article,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  if (totalPages > 1) ...[
-                                    const SizedBox(height: 4),
-                                    _EducationPagination(
-                                      currentPage: currentPage,
-                                      totalPages: totalPages,
-                                      onPageChanged: (page) => setState(
-                                        () => _currentArticlePage = page,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const Center(
-                          child: Text(
-                            'Klinik Sanitasi - Puskesmas Sumbersari',
-                            style: TextStyle(
-                              color: AppColors.muted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
+    final inheritedTheme = Theme.of(context);
+    return Theme(
+      data: inheritedTheme.copyWith(
+        textTheme: inheritedTheme.textTheme.apply(
+          fontFamily: _homeBodyFontFamily,
+        ),
+        primaryTextTheme: inheritedTheme.primaryTextTheme.apply(
+          fontFamily: _homeBodyFontFamily,
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: _offWhiteBlue,
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildHeaderAndGreeting(),
+                    const SizedBox(height: 18),
+                    _buildHighlights(),
+                    const SizedBox(height: 28),
+                    _buildSectionHeading(
+                      'Layanan',
+                      subtitle: 'Akses cepat untuk kebutuhan sanitasi Anda',
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    _buildQuickActions(),
+                    const SizedBox(height: 22),
+                    Container(
+                      key: _campaignSectionKey,
+                      child: const WaterCampaignCarousel(),
+                    ),
+                    const SizedBox(height: 18),
+                    _buildFeaturedCampaignCard(),
+                    const SizedBox(height: 28),
+                    Container(
+                      key: _articlesSectionKey,
+                      child: FutureBuilder<List<EducationArticle>>(
+                        future: _articlesFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 40),
+                              child: Center(child: WaterLoadingIndicator()),
+                            );
+                          }
+
+                          if (snapshot.hasError) {
+                            return _LoadError(
+                              message: 'Gagal memuat data: ${snapshot.error}',
+                              onRetry: () async {
+                                setState(() {
+                                  _currentArticlePage = 0;
+                                  _articlesFuture = widget.apiService
+                                      .getArticles();
+                                });
+                              },
+                            );
+                          }
+
+                          final articles = snapshot.data ?? [];
+                          if (articles.isEmpty) {
+                            return const _EmptyArticles();
+                          }
+
+                          final totalPages =
+                              (articles.length + _articlesPerPage - 1) ~/
+                              _articlesPerPage;
+                          final currentPage = _currentArticlePage
+                              .clamp(0, totalPages - 1)
+                              .toInt();
+                          final firstArticleIndex =
+                              currentPage * _articlesPerPage;
+                          final pageArticles = articles
+                              .skip(firstArticleIndex)
+                              .take(_articlesPerPage)
+                              .toList(growable: false);
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildSectionHeading(
+                                'Artikel Edukasi',
+                                subtitle:
+                                    'Wawasan praktis untuk hidup lebih sehat',
+                              ),
+                              const SizedBox(height: 12),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 220),
+                                switchInCurve: Curves.easeOut,
+                                switchOutCurve: Curves.easeIn,
+                                transitionBuilder: (child, animation) =>
+                                    FadeTransition(
+                                      opacity: animation,
+                                      child: child,
+                                    ),
+                                child: SizedBox(
+                                  key: Key(
+                                    'education_article_page_area_$currentPage',
+                                  ),
+                                  height: _ArticleTile.cardHeight,
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: [
+                                        for (final article in pageArticles)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              right: 12,
+                                            ),
+                                            child: _ArticleTile(
+                                              imageUrl: article.imageUrl,
+                                              category: article.category,
+                                              title: article.title,
+                                              subtitle: article.excerpt,
+                                              onTap: () => Navigator.of(context)
+                                                  .push(
+                                                    MaterialPageRoute<void>(
+                                                      builder: (_) =>
+                                                          ArticleDetailView(
+                                                            article: article,
+                                                          ),
+                                                    ),
+                                                  ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (totalPages > 1) ...[
+                                const SizedBox(height: 4),
+                                _EducationPagination(
+                                  currentPage: currentPage,
+                                  totalPages: totalPages,
+                                  onPageChanged: (page) => setState(
+                                    () => _currentArticlePage = page,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    const Center(
+                      child: Text(
+                        'Klinik Sanitasi - Puskesmas Sumbersari',
+                        style: TextStyle(
+                          fontFamily: _homeBodyFontFamily,
+                          color: AppColors.muted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -243,222 +221,352 @@ class _HomeViewState extends State<HomeView> {
   }
 
   Widget _buildHeaderAndGreeting() {
-    return SizedBox(
-      height: 430,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: DynamicWaterHeader(
-              height: 356,
-              child: const SizedBox.expand(),
-            ),
+    return Container(
+      height: 374,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: _deepOceanBlue.withValues(alpha: 0.2),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
           ),
-          Positioned(
-            top: 32,
-            left: 24,
-            right: 24,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF003B67),
+                    Color(0xFF0277BD),
+                    Color(0xFF06B6D4),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              top: -34,
+              right: -22,
+              child: Icon(
+                Icons.water_drop_rounded,
+                size: 220,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            const Positioned(top: 44, right: 36, child: _HeroBubble(size: 66)),
+            const Positioned(
+              top: 118,
+              right: 112,
+              child: _HeroBubble(size: 24),
+            ),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [Color(0xAA002B4A), Color(0x00002B4A)],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.16),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.32),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.health_and_safety_outlined,
+                          size: 20,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'KLINIK SANITASI',
+                              style: TextStyle(
+                                fontFamily: _homeBodyFontFamily,
+                                color: Colors.white.withValues(alpha: 0.82),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.1,
+                              ),
+                            ),
+                            Text(
+                              'Halo, ${widget.greetingName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: _homeBodyFontFamily,
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Lacak laporan',
+                        onPressed: widget.onOpenTracking,
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.white.withValues(alpha: 0.14),
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.track_changes_rounded, size: 19),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  const Text(
+                    'Sanitasi sehat,\nkeluarga kuat.',
+                    style: TextStyle(
+                      fontFamily: AppTheme.headlineFontFamily,
+                      color: Colors.white,
+                      fontSize: 29,
+                      height: 1.12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Bersama wujudkan lingkungan bersih dan bebas penyakit.',
+                    style: TextStyle(
+                      fontFamily: _homeBodyFontFamily,
+                      color: Colors.white.withValues(alpha: 0.88),
+                      fontSize: 12,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: widget.onOpenReports,
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Buat laporan'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: _deepOceanBlue,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 12,
+                            ),
+                            textStyle: const TextStyle(
+                              fontFamily: _homeBodyFontFamily,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            shape: const StadiumBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: widget.onOpenTracking,
+                          icon: const Icon(Icons.search_rounded, size: 17),
+                          label: const Text('Lacak laporan'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.68),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 12,
+                            ),
+                            textStyle: const TextStyle(
+                              fontFamily: _homeBodyFontFamily,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            shape: const StadiumBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHighlights() {
+    return Row(
+      children: [
+        Expanded(
+          child: _HighlightCard(
+            icon: Icons.water_drop_outlined,
+            value: '05',
+            label: 'Pilar STBM',
+            tint: const Color(0xFFE0F2FE),
+            iconColor: const Color(0xFF0284C7),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _HighlightCard(
+            icon: Icons.grid_view_rounded,
+            value: '03',
+            label: 'Akses layanan',
+            tint: const Color(0xFFDCFCE7),
+            iconColor: const Color(0xFF15803D),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeading(String title, {required String subtitle}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontFamily: AppTheme.headlineFontFamily,
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          subtitle,
+          style: const TextStyle(
+            fontFamily: _homeBodyFontFamily,
+            color: AppColors.muted,
+            fontSize: 11,
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFeaturedCampaignCard() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _showCampaign,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 142),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [Color(0xFF0277BD), Color(0xFF06B6D4)],
+              ),
+            ),
+            child: Stack(
               children: [
-                Text(
-                  'Selamat Datang,',
-                  style: TextStyle(
-                    fontFamily: AppTheme.bodyFontFamily,
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 0.45,
+                Positioned(
+                  right: -14,
+                  top: -25,
+                  child: Icon(
+                    Icons.water_drop_rounded,
+                    size: 166,
+                    color: Colors.white.withValues(alpha: 0.13),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  widget.greetingName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: AppTheme.bodyFontFamily,
-                    color: Colors.white,
-                    fontSize: 29,
-                    fontWeight: FontWeight.w400,
-                    height: 1.15,
-                  ).asHeading,
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'KLINIK SANITASI',
-                  style: TextStyle(
-                    fontFamily: AppTheme.bodyFontFamily,
-                    color: Colors.white.withValues(alpha: 0.84),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 0.7,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 17, 18, 17),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'MULAI DARI RUMAH',
+                              style: TextStyle(
+                                fontFamily: _homeBodyFontFamily,
+                                color: Color(0xFFD7F5FF),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            const Text(
+                              'Kenali 5 Pilar STBM',
+                              maxLines: 2,
+                              style: TextStyle(
+                                fontFamily: AppTheme.headlineFontFamily,
+                                color: Colors.white,
+                                fontSize: 17,
+                                height: 1.2,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 11),
+                            FilledButton(
+                              onPressed: _showCampaign,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: _deepOceanBlue,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                textStyle: const TextStyle(
+                                  fontFamily: _homeBodyFontFamily,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                shape: const StadiumBorder(),
+                              ),
+                              child: const Text('Jelajahi pilar'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        flex: 2,
+                        child: _FeaturedWaterIllustration(),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          Positioned(
-            top: 126,
-            left: 20,
-            right: 20,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Material(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  child: InkWell(
-                    onTap: widget.onOpenTracking,
-                    splashColor: Colors.white.withValues(alpha: 0.18),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.48),
-                        ),
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.88),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.receipt_long_rounded,
-                              color: _oceanBlue,
-                              size: 18,
-                            ),
-                          ),
-                          const SizedBox(width: 11),
-                          Expanded(
-                            child: Text(
-                              'Pantau status laporan sanitasi Anda',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: AppTheme.bodyFontFamily,
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.chevron_right_rounded,
-                            color: Colors.white,
-                            size: 21,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 196,
-            left: 20,
-            right: 20,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: _oceanBlue.withValues(alpha: 0.17),
-                    blurRadius: 28,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(28),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.92),
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                    ),
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          right: -8,
-                          top: 8,
-                          child: Icon(
-                            Icons.water_drop_rounded,
-                            color: _aquaBlue.withValues(alpha: 0.1),
-                            size: 76,
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Buat Laporan Sanitasi Baru',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: AppTheme.bodyFontFamily,
-                                color: AppColors.ink,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w400,
-                                height: 1.2,
-                              ).asHeading,
-                            ),
-                            const SizedBox(height: 7),
-                            Text(
-                              'Sampaikan masalah sanitasi di lingkungan Anda.',
-                              style: TextStyle(
-                                fontFamily: AppTheme.bodyFontFamily,
-                                color: AppColors.muted,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: FilledButton.icon(
-                                onPressed: widget.onOpenReports,
-                                icon: const Icon(Icons.add_rounded, size: 19),
-                                label: const Text('Buat Laporan'),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: _deepOceanBlue,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 18,
-                                    vertical: 12,
-                                  ),
-                                  shape: const StadiumBorder(),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -468,83 +576,102 @@ class _HomeViewState extends State<HomeView> {
       (
         icon: Icons.add_location_alt_outlined,
         label: 'Lapor Pengaduan',
+        description: 'Sampaikan masalah sanitasi di lingkungan Anda.',
         onTap: widget.onOpenReports,
       ),
       (
         icon: Icons.assignment_outlined,
         label: 'Laporan Saya',
+        description: 'Pantau perkembangan laporan yang sudah dikirim.',
         onTap: widget.onOpenTracking,
       ),
       (
         icon: Icons.menu_book_outlined,
         label: 'Artikel STBM',
+        description: 'Baca panduan praktis sanitasi dan kesehatan.',
         onTap: _showAllArticles,
       ),
     ];
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
       children: [
         for (final item in items)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: Material(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: item.onTap,
-                  borderRadius: BorderRadius.circular(16),
-                  splashColor: _aquaBlue.withValues(alpha: 0.18),
-                  highlightColor: _aquaBlue.withValues(alpha: 0.08),
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 116),
-                    padding: const EdgeInsets.fromLTRB(10, 14, 10, 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _oceanBlue.withValues(alpha: 0.08),
-                          blurRadius: 16,
-                          offset: const Offset(0, 5),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 9),
+            child: Material(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(19),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: item.onTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: _paleBlue,
+                          borderRadius: BorderRadius.circular(15),
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: _paleBlue,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(item.icon, color: _oceanBlue, size: 22),
+                        child: Icon(item.icon, color: _oceanBlue, size: 22),
+                      ),
+                      const SizedBox(width: 13),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.label,
+                              style: const TextStyle(
+                                fontFamily: AppTheme.headlineFontFamily,
+                                color: AppColors.ink,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              item.description,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: _homeBodyFontFamily,
+                                color: AppColors.muted,
+                                fontSize: 10,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          item.label,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: AppTheme.bodyFontFamily,
-                            color: AppColors.ink,
-                            fontSize: 12,
-                            height: 1.2,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 15,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
       ],
+    );
+  }
+
+  void _showCampaign() {
+    final sectionContext = _campaignSectionKey.currentContext;
+    if (sectionContext == null) return;
+    Scrollable.ensureVisible(
+      sectionContext,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
     );
   }
 
@@ -559,11 +686,149 @@ class _HomeViewState extends State<HomeView> {
   }
 }
 
+class _HeroBubble extends StatelessWidget {
+  const _HeroBubble({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: 0.1),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+      ),
+    );
+  }
+}
+
+class _HighlightCard extends StatelessWidget {
+  const _HighlightCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.tint,
+    required this.iconColor,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color tint;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.045),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
+            child: Icon(icon, size: 19, color: iconColor),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontFamily: AppTheme.headlineFontFamily,
+                    color: Color(0xFF0F172A),
+                    fontSize: 17,
+                    height: 1.15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: _homeBodyFontFamily,
+                    color: AppColors.muted,
+                    fontSize: 9,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeaturedWaterIllustration extends StatelessWidget {
+  const _FeaturedWaterIllustration();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 105,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 92,
+            height: 92,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+            ),
+          ),
+          Icon(
+            Icons.water_drop_rounded,
+            size: 62,
+            color: Colors.white.withValues(alpha: 0.94),
+          ),
+          Positioned(
+            right: 7,
+            top: 4,
+            child: Container(
+              width: 24,
+              height: 24,
+              decoration: const BoxDecoration(
+                color: Color(0xFFBAF3FF),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_rounded,
+                size: 16,
+                color: Color(0xFF0277BD),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ===========================================================
 // Card Artikel Edukasi
 // ===========================================================
 class _ArticleTile extends StatelessWidget {
-  static const cardHeight = 196.0;
+  static const cardHeight = 258.0;
 
   const _ArticleTile({
     required this.imageUrl,
@@ -611,6 +876,7 @@ class _ArticleTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: SizedBox(
+            width: 224,
             height: cardHeight,
             child: Stack(
               fit: StackFit.expand,
@@ -660,26 +926,36 @@ class _ArticleTile extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  top: 14,
-                  left: 14,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _paleBlue.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      category,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppTheme.bodyFontFamily,
-                        color: _deepOceanBlue,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w400,
+                  top: 12,
+                  right: 12,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 150),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 11,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.6),
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          category,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: _homeBodyFontFamily,
+                            color: _deepOceanBlue,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -695,22 +971,34 @@ class _ArticleTile extends StatelessWidget {
                         title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: AppTheme.bodyFontFamily,
+                        style: const TextStyle(
+                          fontFamily: AppTheme.headlineFontFamily,
                           color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w400,
-                          height: 1.15,
-                          shadows: const [
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                          shadows: [
                             Shadow(
                               color: Color(0x55000000),
                               blurRadius: 8,
                               offset: Offset(0, 2),
                             ),
                           ],
-                        ).asHeading,
+                        ),
                       ),
                       const SizedBox(height: 7),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: _homeBodyFontFamily,
+                          fontSize: 10,
+                          height: 1.35,
+                          color: Color(0xFFEAF8FF),
+                        ),
+                      ),
+                      const SizedBox(height: 9),
                       Row(
                         children: [
                           const Icon(
@@ -721,15 +1009,21 @@ class _ArticleTile extends StatelessWidget {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              subtitle,
+                              category,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: AppTheme.bodyFontFamily,
-                                fontSize: 11,
-                                color: const Color(0xFFEAF8FF),
+                              style: const TextStyle(
+                                fontFamily: _homeBodyFontFamily,
+                                fontSize: 9,
+                                color: Color(0xFFEAF8FF),
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
+                          ),
+                          const Icon(
+                            Icons.arrow_outward_rounded,
+                            size: 15,
+                            color: Color(0xFFEAF8FF),
                           ),
                         ],
                       ),
@@ -894,7 +1188,7 @@ class _PaginationEllipsis extends StatelessWidget {
         '…',
         textAlign: TextAlign.center,
         style: TextStyle(
-          fontFamily: AppTheme.bodyFontFamily,
+          fontFamily: _homeBodyFontFamily,
           color: Color(0xFF64748B),
           fontSize: 13,
         ),

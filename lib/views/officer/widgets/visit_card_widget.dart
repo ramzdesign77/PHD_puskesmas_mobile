@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../constants/app_colors.dart';
+import '../../../models/risk_score.dart';
 import '../../../models/visit_schedule.dart';
 import '../../../theme/app_theme.dart';
 
@@ -24,15 +25,26 @@ class VisitCardWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final pending = _isPending(schedule.status);
     final normalizedStatus = schedule.status.toLowerCase();
-    final badgeColor = isInspection
+    final riskLabel = RiskScore.label(schedule.riskCategory);
+    final hasRisk = riskLabel != 'Belum tersedia';
+    final badgeColor = hasRisk
+        ? switch (riskLabel) {
+            'Aman' => AppColors.green,
+            'Sedang' => AppColors.amber,
+            'Tinggi' => const Color(0xFFDC2626),
+            _ => AppColors.accent,
+          }
+        : isInspection
         ? AppColors.accent
         : pending
         ? AppColors.amber
         : normalizedStatus == 'selesai'
         ? AppColors.green
         : AppColors.primary;
-    final badgeLabel = isInspection
-        ? 'JADWAL IKL HARI INI'
+    final badgeLabel = hasRisk
+        ? 'RISIKO $riskLabel'
+        : isInspection
+        ? 'JADWAL IKL'
         : pending
         ? 'BELUM DIVERIFIKASI'
         : schedule.status.toUpperCase();
@@ -50,9 +62,9 @@ class VisitCardWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+            color: AppColors.primary.withValues(alpha: 0.12),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -80,7 +92,7 @@ class VisitCardWidget extends StatelessWidget {
                   style: TextStyle(
                     color: badgeColor,
                     fontSize: 9,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w500,
                     letterSpacing: 0.2,
                   ),
                 ),
@@ -95,7 +107,7 @@ class VisitCardWidget extends StatelessWidget {
                   color: AppColors.ink,
                   fontSize: 14,
                   height: 1.25,
-                  fontWeight: FontWeight.w400,
+                  fontWeight: FontWeight.w700,
                 ).asHeading,
               ),
               const SizedBox(height: 7),
@@ -121,7 +133,7 @@ class VisitCardWidget extends StatelessWidget {
                   ),
                 ],
               ),
-              const Spacer(),
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
@@ -138,18 +150,32 @@ class VisitCardWidget extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  SizedBox(
-                    height: 32,
+                  Container(
+                    height: 34,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.primary, AppColors.primaryLight],
+                      ),
+                      borderRadius: BorderRadius.circular(30),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.24),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
                     child: FilledButton(
                       onPressed: onAction ?? onTap,
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: Colors.transparent,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 13),
                         shape: const StadiumBorder(),
+                        shadowColor: Colors.transparent,
                         textStyle: const TextStyle(
                           fontSize: 10,
-                          fontWeight: FontWeight.w400,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       child: Text(actionLabel ?? 'Tindak Lanjut'),

@@ -4,7 +4,7 @@ import '../constants/app_colors.dart';
 
 abstract final class AppTheme {
   static const headlineFontFamily = 'Poppins';
-  static const bodyFontFamily = 'Poppins';
+  static const bodyFontFamily = 'Montserrat';
 
   static TextTheme _appTextTheme() {
     final baseTextTheme = ThemeData().textTheme;
@@ -78,7 +78,7 @@ abstract final class AppTheme {
         elevation: 1,
         margin: EdgeInsets.zero,
         shadowColor: AppColors.primary.withValues(alpha: 0.08),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -96,15 +96,15 @@ abstract final class AppTheme {
           vertical: 15,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           borderSide: const BorderSide(color: AppColors.line),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           borderSide: const BorderSide(color: AppColors.line),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
       ),

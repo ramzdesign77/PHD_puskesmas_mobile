@@ -17,6 +17,7 @@ class VisitSchedule {
     this.officerNote = '',
     this.photoUrl,
     this.isInspection = false,
+    this.riskCategory,
   });
 
   final int id;
@@ -36,6 +37,7 @@ class VisitSchedule {
   final String officerNote;
   final String? photoUrl;
   final bool isInspection;
+  final String? riskCategory;
 
   /// Parsing dari respons JSON API Laravel
   factory VisitSchedule.fromJson(Map<String, dynamic> json) {
@@ -45,6 +47,11 @@ class VisitSchedule {
         : null;
     final location = json['lokasi'] is Map
         ? Map<String, dynamic>.from(json['lokasi'] as Map)
+        : const <String, dynamic>{};
+    final inspectionValue =
+        json['hasil_inspeksi'] ?? json['inspection'] ?? schedule?['hasil_inspeksi'];
+    final inspection = inspectionValue is Map
+        ? Map<String, dynamic>.from(inspectionValue)
         : const <String, dynamic>{};
     final id = json['id'] ?? json['id_laporan'] ?? json['id_jadwal'];
     final type =
@@ -92,6 +99,12 @@ class VisitSchedule {
           ? schedule!['foto_bukti'] as String
           : null,
       isInspection: type.contains('ikl') || type.contains('inspeksi'),
+      riskCategory: _optionalString(
+        inspection['kategori_risiko'] ??
+            inspection['kategori_risiko_air'] ??
+            json['kategori_risiko'] ??
+            json['kategori_risiko_air'],
+      ),
     );
   }
 
@@ -113,12 +126,16 @@ class VisitSchedule {
       officerNote: officerNote ?? this.officerNote,
       photoUrl: photoUrl,
       isInspection: isInspection,
+      riskCategory: riskCategory,
     );
   }
 }
 
 String _stringValue(Object? value, {String fallback = '-'}) =>
     value is String && value.trim().isNotEmpty ? value.trim() : fallback;
+
+String? _optionalString(Object? value) =>
+    value is String && value.trim().isNotEmpty ? value.trim() : null;
 
 /// Data dummy untuk preview UI sebelum API dihubungkan.
 final List<VisitSchedule> dummyVisitSchedules = [

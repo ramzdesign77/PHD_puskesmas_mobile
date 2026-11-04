@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 const _campaignPrimary = Color(0xFF0284C7);
 const _campaignSecondary = Color(0xFF06B6D4);
 const _campaignAccent = Color(0xFF38BDF8);
+const _campaignBodyFontFamily = 'Montserrat';
 const _campaignPillars = [
   (
     title: 'Stop Buang Air Besar Sembarangan',
@@ -71,6 +72,63 @@ class _WaterCampaignCarouselState extends State<WaterCampaignCarousel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Kampanye Sanitasi',
+                    style: TextStyle(
+                      fontFamily: AppTheme.headlineFontFamily,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    '5 Pilar STBM',
+                    style: TextStyle(
+                      fontFamily: _campaignBodyFontFamily,
+                      color: Color(0xFF64748B),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Pilar sebelumnya',
+              onPressed: _currentPage == 0
+                  ? null
+                  : () => _goToPage(_currentPage - 1),
+              icon: const Icon(Icons.chevron_left_rounded),
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFFF1F5F9),
+                foregroundColor: const Color(0xFF0284C7),
+                disabledForegroundColor: const Color(0xFFCBD5E1),
+                fixedSize: const Size(36, 36),
+              ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Pilar berikutnya',
+              onPressed: _currentPage == _campaignPillars.length - 1
+                  ? null
+                  : () => _goToPage(_currentPage + 1),
+              icon: const Icon(Icons.chevron_right_rounded),
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFFF1F5F9),
+                foregroundColor: const Color(0xFF0284C7),
+                disabledForegroundColor: const Color(0xFFCBD5E1),
+                fixedSize: const Size(36, 36),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         SizedBox(
           height: 256,
           child: PageView.builder(
@@ -237,7 +295,7 @@ class _WaterCampaignCard extends StatelessWidget {
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontFamily: AppTheme.bodyFontFamily,
+                        fontFamily: _campaignBodyFontFamily,
                         color: Colors.white.withValues(alpha: 0.92),
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
