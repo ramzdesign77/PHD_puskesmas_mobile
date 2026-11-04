@@ -14,6 +14,7 @@ class ProfileView extends StatefulWidget {
     required this.onBack,
     required this.onLogout,
     this.isLoggingOut = false,
+    this.isActive = true,
     this.onProfileChanged,
     this.accountDetails = const {},
     this.logoutKey,
@@ -25,6 +26,7 @@ class ProfileView extends StatefulWidget {
   final VoidCallback onBack;
   final VoidCallback onLogout;
   final bool isLoggingOut;
+  final bool isActive;
   final ValueChanged<LocalProfile>? onProfileChanged;
   final Map<String, String> accountDetails;
   final Key? logoutKey;
@@ -36,22 +38,25 @@ class ProfileView extends StatefulWidget {
 
 class _ProfileViewState extends State<ProfileView> {
   late final _profileService = widget.profileService ?? ProfileService();
-  late Future<LocalProfile> _profile;
+  Future<LocalProfile>? _profile;
 
   @override
   void initState() {
     super.initState();
-    _reload();
+    if (widget.isActive) _reload();
   }
 
   void _reload() {
-    _profile = _profileService.load(fallbackName: widget.fallbackName);
+    _profile = _profileService.loadRemote(fallbackName: widget.fallbackName);
   }
 
   @override
   void didUpdateWidget(covariant ProfileView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.fallbackName != widget.fallbackName) _reload();
+    if (widget.isActive &&
+        (!oldWidget.isActive || oldWidget.fallbackName != widget.fallbackName)) {
+      _reload();
+    }
   }
 
   Future<void> _edit(LocalProfile profile) async {
@@ -67,7 +72,7 @@ class _ProfileViewState extends State<ProfileView> {
     });
     widget.onProfileChanged?.call(updated);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profil disimpan di perangkat ini.')),
+      const SnackBar(content: Text('Profil berhasil disimpan di server.')),
     );
   }
 
@@ -143,27 +148,33 @@ class _ProfileViewState extends State<ProfileView> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.isActive) return const SizedBox.shrink();
     return SafeArea(
       bottom: false,
       child: FutureBuilder<LocalProfile>(
         future: _profile,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('Profil belum dapat dimuat.'),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: () => setState(_reload),
-                      child: const Text('Coba lagi'),
-                    ),
-                  ],
+            return ListView(
+              key: const Key('profile_settings_scroll'),
+              padding: const EdgeInsets.all(24),
+              children: [
+                ProfilePageHeader(title: 'Pengaturan', onBack: widget.onBack),
+                const SizedBox(height: 24),
+                Text(snapshot.error is ProfileException
+                    ? (snapshot.error as ProfileException).message
+                    : 'Profil belum dapat dimuat.'),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => setState(_reload),
+                  child: const Text('Coba lagi'),
                 ),
-              ),
+                OutlinedButton(
+                  key: widget.logoutKey,
+                  onPressed: widget.isLoggingOut ? null : widget.onLogout,
+                  child: Text(widget.isLoggingOut ? 'Memproses...' : 'Keluar'),
+                ),
+              ],
             );
           }
           final profile = snapshot.data;
@@ -178,6 +189,14 @@ class _ProfileViewState extends State<ProfileView> {
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
                 children: [
                   ProfilePageHeader(title: 'Pengaturan', onBack: widget.onBack),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () => setState(_reload),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Muat ulang profil'),
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   ProfileCard(
                     child: InkWell(
@@ -190,6 +209,7 @@ class _ProfileViewState extends State<ProfileView> {
                             ProfileAvatar(
                               name: profile.name,
                               bytes: profile.avatarBytes,
+                              url: profile.avatarUrl,
                               size: 58,
                             ),
                             const SizedBox(width: 14),
@@ -247,7 +267,7 @@ class _ProfileViewState extends State<ProfileView> {
                         label: 'Informasi akun',
                         onTap: () => _showDetails('Informasi akun', {
                           'Peran akun': widget.roleLabel,
-                          'Nama profil di perangkat': profile.name,
+                          'Nama lengkap': profile.name,
                           'Email': profile.email,
                           'Nomor telepon': profile.phone,
                           ...widget.accountDetails,
@@ -293,10 +313,8 @@ class _ProfileViewState extends State<ProfileView> {
                                 'indikator, intervensi, dan rekomendasi.',
                           },
                           'Bagaimana mengubah data akun?':
-                              'Pilih Ganti password pada menu Akun untuk '
-                              'mengubah password. Untuk mengubah data akun '
-                              'lainnya, hubungi petugas pengelola aplikasi di '
-                              'puskesmas.',
+                              'Ketuk nama atau foto di bagian atas untuk mengedit profil. '
+                              'Pilih Ganti password untuk mengganti password akun.',
                         }),
                       ),
                       ProfileSettingsRow(

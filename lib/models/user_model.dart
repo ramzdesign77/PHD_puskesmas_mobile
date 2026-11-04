@@ -9,6 +9,7 @@ class UserModel {
     this.rt,
     this.rw,
     this.username,
+    this.avatarUrl,
   });
 
   final String token;
@@ -20,6 +21,7 @@ class UserModel {
   final String? rt;
   final String? rw;
   final String? username;
+  final String? avatarUrl;
 
   factory UserModel.fromLoginJson(Map<String, dynamic> json) {
     final data = _asMap(json['data']) ?? json;
@@ -63,11 +65,12 @@ class UserModel {
       token: token,
       roles: roles,
       name: _stringOrNull(
-        user['name'] ?? user['nama_lengkap'] ?? data['name'] ?? json['name'],
+        user['nama_lengkap'] ?? user['name'] ?? data['name'] ?? json['name'],
       ),
       email: _stringOrNull(user['email'] ?? data['email'] ?? json['email']),
       phone: _stringOrNull(
-        user['no_wa'] ??
+        user['no_telepon'] ??
+            user['no_wa'] ??
             user['no_hp'] ??
             user['phone'] ??
             user['phone_number'] ??
@@ -83,6 +86,7 @@ class UserModel {
       ),
       rt: _stringOrNull(user['rt'] ?? data['rt']),
       rw: _stringOrNull(user['rw'] ?? data['rw']),
+      avatarUrl: _stringOrNull(user['foto_url']),
       username: _stringOrNull(
         user['username'] ?? data['username'] ?? json['username'],
       ),

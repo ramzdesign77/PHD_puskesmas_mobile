@@ -55,11 +55,13 @@ class ProfileAvatar extends StatelessWidget {
     super.key,
     required this.name,
     this.bytes,
+    this.url,
     this.size = 56,
   });
 
   final String name;
   final Uint8List? bytes;
+  final String? url;
   final double size;
 
   String get _initials {
@@ -103,7 +105,16 @@ class ProfileAvatar extends StatelessWidget {
             ),
           ),
           child: bytes == null
-              ? initials
+              ? (url == null || url!.isEmpty
+                    ? initials
+                    : Image.network(
+                        url!,
+                        webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+                        width: size,
+                        height: size,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => initials,
+                      ))
               : Image.memory(
                   bytes!,
                   width: size,

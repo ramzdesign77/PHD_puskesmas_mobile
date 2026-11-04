@@ -148,6 +148,7 @@ class ApiService {
     final profileSaved = await ProfileService.replaceForSession(
       preferences,
       name: userName,
+      avatarUrl: _firstNonEmptyString([user['foto_url']]),
       email: _firstNonEmptyString([user['email']]) ?? fallbackEmail?.trim(),
       phone:
           _firstNonEmptyString([

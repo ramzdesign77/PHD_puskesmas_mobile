@@ -10,8 +10,6 @@ import '../../services/api_service.dart';
 import '../../services/officer_api_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
-import '../../widgets/fluid_bottom_nav.dart';
-import '../main_layout_screen.dart';
 import '../profile/profile_view.dart';
 import 'officer_detail_view.dart';
 import 'widgets/visit_card_widget.dart';
@@ -269,33 +267,58 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
       _buildInspectionTab(),
       _buildProfileTab(),
     ];
-    return MainLayoutScreen(
+    return Scaffold(
       backgroundColor: _canvasWhite,
-      pages: pages,
-      selectedIndex: _selectedTab,
-      onDestinationSelected: _selectTab,
-      destinations: const [
-        FluidNavDestination(
-          icon: Icons.home_outlined,
-          selectedIcon: Icons.home_rounded,
-          label: 'Beranda',
+      body: SafeArea(
+        bottom: false,
+        child: IndexedStack(
+          index: _selectedTab,
+          children: [
+            for (var index = 0; index < pages.length; index++)
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeInOut,
+                opacity: index == _selectedTab ? 1 : 0,
+                child: pages[index],
+              ),
+          ],
         ),
-        FluidNavDestination(
-          icon: Icons.fact_check_outlined,
-          selectedIcon: Icons.fact_check_rounded,
-          label: 'Tugas Aduan',
+      ),
+      bottomNavigationBar: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: NavigationBar(
+            selectedIndex: _selectedTab,
+            onDestinationSelected: _selectTab,
+            backgroundColor: Colors.white.withValues(alpha: 0.86),
+            indicatorColor: AppColors.softBlue,
+            height: 72,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home_rounded),
+                label: 'Beranda',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.fact_check_outlined),
+                selectedIcon: Icon(Icons.fact_check_rounded),
+                label: 'Tugas Aduan',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.note_add_outlined),
+                selectedIcon: Icon(Icons.note_add_rounded),
+                label: 'Input IKL',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline_rounded),
+                selectedIcon: Icon(Icons.person_rounded),
+                label: 'Profil',
+              ),
+            ],
+          ),
         ),
-        FluidNavDestination(
-          icon: Icons.note_add_outlined,
-          selectedIcon: Icons.note_add_rounded,
-          label: 'Input IKL',
-        ),
-        FluidNavDestination(
-          icon: Icons.person_outline_rounded,
-          selectedIcon: Icons.person_rounded,
-          label: 'Profil',
-        ),
-      ],
+      ),
     );
   }
 
@@ -791,6 +814,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
   Widget _buildProfileTab() {
     final profile = _dashboard?.profile ?? const OfficerProfile();
     return ProfileView(
+      isActive: _selectedTab == 3,
       fallbackName: _displayName,
       roleLabel: 'Petugas Sanitasi',
       onBack: () => _selectTab(0),

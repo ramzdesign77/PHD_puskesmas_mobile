@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
@@ -82,7 +84,7 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
                   const SizedBox(height: 18),
                   const Text(
                     'Masukkan password lama, lalu buat password baru minimal '
-                    '8 karakter.',
+                    '8 karakter. Setelah berhasil, sesi mobile lainnya akan keluar.',
                     style: TextStyle(
                       color: AppColors.muted,
                       fontSize: 13,
@@ -129,6 +131,12 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
                                 }
                                 if (value.length < 8) {
                                   return 'Password minimal 8 karakter.';
+                                }
+                                if (utf8.encode(value).length > 72) {
+                                  return 'Password terlalu panjang (maksimal 72 byte).';
+                                }
+                                if (value == _currentPassword.text) {
+                                  return 'Password baru harus berbeda dari password lama.';
                                 }
                                 return null;
                               },
