@@ -28,7 +28,16 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 350));
 
-    final wave = tester.widget<WaveWidget>(find.byType(WaveWidget));
+    expect(
+      find.text('Lingkungan Bersih, Sumber Air Sehat, Keluarga Kuat'),
+      findsOneWidget,
+    );
+    expect(find.text('Kenali 5 Pilar STBM'), findsNothing);
+    final heroWave = find.descendant(
+      of: find.byKey(const Key('home_hero_wave_clip')),
+      matching: find.byType(WaveWidget),
+    );
+    final wave = tester.widget<WaveWidget>(heroWave);
     final config = wave.config as CustomConfig;
     expect(config.colors, const [
       Color(0x3306B6D4),
@@ -117,6 +126,36 @@ void main() {
     expect(find.text('Pengamanan Limbah Cair Rumah Tangga'), findsOneWidget);
     expect(_indicatorWidth(tester, 4), 22);
     expect(navigatorObserver.pushCount, 0);
+
+    const expectedColors = [
+      [Color(0xFF0284C7), Color(0xFF06B6D4)],
+      [Color(0xFF0D9488), Color(0xFF14B8A6)],
+      [Color(0xFF0369A1), Color(0xFF0284C7)],
+      [Color(0xFF0891B2), Color(0xFF22D3EE)],
+      [Color(0xFF1E3A8A), Color(0xFF0284C7)],
+    ];
+    for (var index = 0; index < expectedColors.length; index++) {
+      final indicator = find.byKey(Key('campaign_page_indicator_$index'));
+      await tester.ensureVisible(indicator);
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.tap(indicator);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      final background = tester.widget<DecoratedBox>(
+        find.byKey(Key('campaign_card_gradient_$index')),
+      );
+      final gradient =
+          (background.decoration as BoxDecoration).gradient! as LinearGradient;
+      expect(gradient.colors, expectedColors[index]);
+      expect(
+        tester.widget<CustomPaint>(
+          find.byKey(Key('campaign_card_ornament_$index')),
+        ),
+        isNotNull,
+      );
+    }
+
     expect(tester.takeException(), isNull);
   });
 }

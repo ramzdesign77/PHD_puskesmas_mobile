@@ -7,6 +7,7 @@ import '../../constants/app_colors.dart';
 import '../../models/education_article.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/educational_slogan_card.dart';
 import '../../widgets/ocean_widgets.dart';
 import '../../widgets/water_campaign_carousel.dart';
 import 'article_detail_view.dart';
@@ -39,7 +40,6 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   static const _articlesPerPage = 3;
   final _articlesSectionKey = GlobalKey();
-  final _campaignSectionKey = GlobalKey();
   late Future<List<EducationArticle>> _articlesFuture;
   int _currentArticlePage = 0;
 
@@ -83,12 +83,9 @@ class _HomeViewState extends State<HomeView> {
                     const SizedBox(height: 12),
                     _buildQuickActions(),
                     const SizedBox(height: 22),
-                    Container(
-                      key: _campaignSectionKey,
-                      child: const WaterCampaignCarousel(),
-                    ),
+                    const WaterCampaignCarousel(),
                     const SizedBox(height: 18),
-                    _buildFeaturedCampaignCard(),
+                    const EducationalSloganCard(),
                     const SizedBox(height: 28),
                     Container(
                       key: _articlesSectionKey,
@@ -494,105 +491,6 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget _buildFeaturedCampaignCard() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _showCampaign,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 142),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [Color(0xFF0277BD), Color(0xFF06B6D4)],
-              ),
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  right: -14,
-                  top: -25,
-                  child: Icon(
-                    Icons.water_drop_rounded,
-                    size: 166,
-                    color: Colors.white.withValues(alpha: 0.13),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 17, 18, 17),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              'MULAI DARI RUMAH',
-                              style: TextStyle(
-                                fontFamily: _homeBodyFontFamily,
-                                color: Color(0xFFD7F5FF),
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            const Text(
-                              'Kenali 5 Pilar STBM',
-                              maxLines: 2,
-                              style: TextStyle(
-                                fontFamily: AppTheme.headlineFontFamily,
-                                color: Colors.white,
-                                fontSize: 17,
-                                height: 1.2,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 11),
-                            FilledButton(
-                              onPressed: _showCampaign,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: _deepOceanBlue,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 8,
-                                ),
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                textStyle: const TextStyle(
-                                  fontFamily: _homeBodyFontFamily,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                shape: const StadiumBorder(),
-                              ),
-                              child: const Text('Jelajahi pilar'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        flex: 2,
-                        child: _FeaturedWaterIllustration(),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildQuickActions() {
     final items = [
       (
@@ -684,16 +582,6 @@ class _HomeViewState extends State<HomeView> {
             ),
           ),
       ],
-    );
-  }
-
-  void _showCampaign() {
-    final sectionContext = _campaignSectionKey.currentContext;
-    if (sectionContext == null) return;
-    Scrollable.ensureVisible(
-      sectionContext,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
     );
   }
 
@@ -791,53 +679,6 @@ class _HighlightCard extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FeaturedWaterIllustration extends StatelessWidget {
-  const _FeaturedWaterIllustration();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 105,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: 92,
-            height: 92,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
-            ),
-          ),
-          Icon(
-            Icons.water_drop_rounded,
-            size: 62,
-            color: Colors.white.withValues(alpha: 0.94),
-          ),
-          Positioned(
-            right: 7,
-            top: 4,
-            child: Container(
-              width: 24,
-              height: 24,
-              decoration: const BoxDecoration(
-                color: Color(0xFFBAF3FF),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_rounded,
-                size: 16,
-                color: Color(0xFF0277BD),
-              ),
             ),
           ),
         ],
