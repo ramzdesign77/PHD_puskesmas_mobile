@@ -57,8 +57,11 @@ Dashboard petugas menggunakan endpoint `/api/v1/officer/dashboard`,
 terautentikasi menerima token sesi pada header `Authorization: Bearer <token>`.
 Jika endpoint dashboard, tugas, verifikasi, atau data STBM mengembalikan 404
 atau 405, aplikasi mencoba endpoint lama yang sesuai. Form IKL menyimpan seluruh hasil melalui endpoint inspeksi. Jika permintaan
-gagal, aplikasi menampilkan pesan server; tidak membuat hasil resmi dari catatan
-kunjungan lama.
+gagal, aplikasi menampilkan pesan yang sesuai; detail kesalahan SQL tidak
+ditampilkan ke petugas. Error skema seperti kolom jadwal yang tidak ditemukan
+tetap harus diperbaiki pada backend dengan menyelaraskan query dan migrasi tabel;
+aplikasi tidak dapat memperbaiki skema server. Aplikasi juga tidak membuat hasil
+resmi dari catatan kunjungan lama.
 
 Respons dashboard dapat membungkus data di dalam `data` dan menyediakan
 `summary`, `officer`, serta daftar tugas. Ringkasan mendukung field

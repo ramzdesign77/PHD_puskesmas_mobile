@@ -21,6 +21,7 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
   final _newPassword = TextEditingController();
   final _confirmation = TextEditingController();
   bool _isSaving = false;
+  bool _hasAttemptedSubmit = false;
   bool _obscureCurrentPassword = true;
   bool _obscureNewPassword = true;
   bool _obscureConfirmation = true;
@@ -34,7 +35,9 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
   }
 
   Future<void> _save() async {
-    if (_isSaving || !_formKey.currentState!.validate()) return;
+    if (_isSaving) return;
+    setState(() => _hasAttemptedSubmit = true);
+    if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
     setState(() => _isSaving = true);
     try {
@@ -94,6 +97,9 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
                   const SizedBox(height: 18),
                   Form(
                     key: _formKey,
+                    autovalidateMode: _hasAttemptedSubmit
+                        ? AutovalidateMode.onUserInteraction
+                        : AutovalidateMode.disabled,
                     child: ProfileCard(
                       child: Padding(
                         padding: const EdgeInsets.all(16),

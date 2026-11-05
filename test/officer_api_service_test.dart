@@ -76,6 +76,36 @@ void main() {
       },
     );
 
+    test('hides database details when the schedule query fails', () async {
+      final client = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'message':
+                "SQLSTATE[42S22]: Column not found: 1054 Unknown column 'id_paket' in 'field list'",
+          }),
+          500,
+        );
+      });
+
+      await expectLater(
+        OfficerApiService(client: client).getTasks('token'),
+        throwsA(
+          isA<ApiOfficerException>()
+              .having(
+                (error) => error.message,
+                'message',
+                'Data jadwal belum dapat dimuat. Hubungi admin untuk memeriksa konfigurasi server.',
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                isNot(contains('SQLSTATE')),
+              ),
+        ),
+      );
+      client.close();
+    });
+
     test(
       'submits the five IKL risk indicators to the inspections endpoint',
       () async {
