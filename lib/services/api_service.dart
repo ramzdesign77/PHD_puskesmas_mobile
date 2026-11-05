@@ -316,7 +316,9 @@ class ApiService {
       );
     }
 
-    final streamedResponse = await _client.send(request);
+    final streamedResponse = await _client
+        .send(request)
+        .timeout(const Duration(seconds: 30));
     final response = await http.Response.fromStream(streamedResponse);
     final body = _decode(response);
     final ticketCode = body['kode_tiket'];

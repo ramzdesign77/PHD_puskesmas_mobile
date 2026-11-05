@@ -180,7 +180,7 @@ class ProfileService {
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
-              'Authorization': '******',
+              'Authorization': 'Bearer $_loadedToken',
             },
             body: jsonEncode({
               'current_password': currentPassword,
