@@ -4,19 +4,99 @@ import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/ocean_widgets.dart';
 
 class ProfilePageHeader extends StatelessWidget {
   const ProfilePageHeader({
     super.key,
     required this.title,
     required this.onBack,
+    this.waterStyle = false,
+    this.description,
+    this.onRefresh,
+    this.centeredAvatar,
   });
 
   final String title;
   final VoidCallback? onBack;
+  final bool waterStyle;
+  final String? description;
+  final VoidCallback? onRefresh;
+  final Widget? centeredAvatar;
 
   @override
   Widget build(BuildContext context) {
+    if (waterStyle) {
+      return SizedBox(
+        height: centeredAvatar == null ? 165 : 190,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            DynamicWaterHeader(
+              key: const Key('profile_water_header'),
+              height: 165,
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 30),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Kembali',
+                      onPressed: onBack,
+                      style: IconButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: Colors.white.withValues(alpha: 0.14),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
+                    const Spacer(),
+                    if (onRefresh != null)
+                      IconButton(
+                        key: const Key('profile_reload_button'),
+                        tooltip: 'Muat ulang profil',
+                        onPressed: onRefresh,
+                        icon: const Icon(
+                          Icons.refresh_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            if (centeredAvatar != null)
+              Positioned(
+                top: 98,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    width: 96,
+                    height: 96,
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.ink.withValues(alpha: 0.12),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: centeredAvatar,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(

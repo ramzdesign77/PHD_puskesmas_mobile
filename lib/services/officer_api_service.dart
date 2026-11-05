@@ -283,14 +283,26 @@ class OfficerApiService {
                 .firstOrNull
           : null;
       final message = body['message'];
+      final serverMessage = firstError ?? (message is String ? message : null);
       throw ApiOfficerException(
-        firstError ??
-            (message is String ? message : 'Permintaan gagal. Coba lagi.'),
+        _userFacingErrorMessage(serverMessage),
         statusCode: response.statusCode,
       );
     }
 
     return body;
+  }
+
+  String _userFacingErrorMessage(String? message) {
+    if (message == null || message.trim().isEmpty) {
+      return 'Permintaan gagal. Coba lagi.';
+    }
+    final normalized = message.toLowerCase();
+    if (normalized.contains('sqlstate[') ||
+        normalized.contains('unknown column')) {
+      return 'Data jadwal belum dapat dimuat. Hubungi admin untuk memeriksa konfigurasi server.';
+    }
+    return message;
   }
 }
 

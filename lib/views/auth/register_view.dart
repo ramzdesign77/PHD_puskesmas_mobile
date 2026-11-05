@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'dart:convert';
+
 import '../../constants/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
@@ -27,6 +29,7 @@ class _RegisterViewState extends State<RegisterView> {
   bool _termsAccepted = false;
   bool _showTermsError = false;
   bool _isSubmitting = false;
+  bool _hasAttemptedSubmit = false;
   late final ApiService _apiService = widget.apiService ?? ApiService();
 
   @override
@@ -58,6 +61,16 @@ class _RegisterViewState extends State<RegisterView> {
     return null;
   }
 
+  String? _validatePassword(String? value) {
+    final requiredError = _requiredValue(value);
+    if (requiredError != null) return requiredError;
+    if (value!.length < 8) return 'Kata sandi minimal 8 karakter.';
+    if (utf8.encode(value).length > 72) {
+      return 'Kata sandi terlalu panjang (maksimal 72 byte).';
+    }
+    return null;
+  }
+
   String? _validatePhone(String? value) {
     final phone = value?.trim() ?? '';
     if (phone.isEmpty) return 'Nomor telepon wajib diisi.';
@@ -79,7 +92,9 @@ class _RegisterViewState extends State<RegisterView> {
   }
 
   Future<void> _submit() async {
-    if (_isSubmitting || !_formKey.currentState!.validate()) return;
+    if (_isSubmitting) return;
+    setState(() => _hasAttemptedSubmit = true);
+    if (!_formKey.currentState!.validate()) return;
     if (!_termsAccepted) {
       setState(() => _showTermsError = true);
       return;
@@ -150,6 +165,9 @@ class _RegisterViewState extends State<RegisterView> {
     return AuthPageScaffold(
       content: Form(
         key: _formKey,
+        autovalidateMode: _hasAttemptedSubmit
+            ? AutovalidateMode.onUserInteraction
+            : AutovalidateMode.disabled,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -215,11 +233,12 @@ class _RegisterViewState extends State<RegisterView> {
             ),
             const SizedBox(height: 13),
             AuthFormField(
+              fieldKey: const Key('register_password_field'),
               label: 'Kata Sandi',
               hint: 'Masukkan kata sandi',
               icon: Icons.lock_outline,
               controller: _passwordController,
-              validator: _requiredValue,
+              validator: _validatePassword,
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.newPassword],
               obscureText: _passwordObscured,
@@ -228,6 +247,7 @@ class _RegisterViewState extends State<RegisterView> {
             ),
             const SizedBox(height: 13),
             AuthFormField(
+              fieldKey: const Key('register_confirmation_field'),
               label: 'Konfirmasi Kata Sandi',
               hint: 'Masukkan kembali kata sandi',
               icon: Icons.shield_outlined,

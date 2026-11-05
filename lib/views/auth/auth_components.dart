@@ -156,6 +156,7 @@ class AuthBrandHeader extends StatelessWidget {
 class AuthFormField extends StatelessWidget {
   const AuthFormField({
     super.key,
+    this.fieldKey,
     required this.label,
     required this.hint,
     required this.icon,
@@ -168,6 +169,7 @@ class AuthFormField extends StatelessWidget {
     this.onToggleVisibility,
   });
 
+  final Key? fieldKey;
   final String label;
   final String hint;
   final IconData icon;
@@ -194,6 +196,7 @@ class AuthFormField extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         TextFormField(
+          key: fieldKey,
           controller: controller,
           validator: validator,
           keyboardType: keyboardType,

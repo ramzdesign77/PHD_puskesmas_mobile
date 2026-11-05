@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -9,6 +11,7 @@ import 'package:klinik_sanitasi_mobile/theme/app_theme.dart';
 import 'package:klinik_sanitasi_mobile/views/profile/change_password_view.dart';
 import 'package:klinik_sanitasi_mobile/views/profile/edit_profile_view.dart';
 import 'package:klinik_sanitasi_mobile/views/profile/profile_view.dart';
+import 'package:klinik_sanitasi_mobile/views/profile/profile_widgets.dart';
 
 void main() {
   setUp(() {
@@ -149,6 +152,75 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('password fields stay editable after validation fails', (
+    tester,
+  ) async {
+    await _openProfile(tester);
+    final changePasswordButton = find.byKey(
+      const Key('profile_change_password_button'),
+    );
+    await tester.ensureVisible(changePasswordButton);
+    await tester.tap(changePasswordButton);
+    await tester.pumpAndSettle();
+
+    final currentPassword = find.byKey(
+      const Key('profile_current_password_field'),
+    );
+    final newPassword = find.byKey(const Key('profile_new_password_field'));
+    final confirmation = find.byKey(
+      const Key('profile_password_confirmation_field'),
+    );
+    await tester.enterText(currentPassword, 'password-lama');
+    await tester.enterText(newPassword, 'dani12');
+    await tester.enterText(confirmation, 'dani12');
+    final saveButton = find.byKey(
+      const Key('profile_change_password_save_button'),
+    );
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Password minimal 8 karakter.'), findsOneWidget);
+    expect(tester.widget<TextFormField>(newPassword).enabled, isTrue);
+
+    await tester.enterText(newPassword, '');
+    expect(tester.widget<TextFormField>(newPassword).controller!.text, isEmpty);
+    await tester.enterText(newPassword, 'password-baru');
+    expect(
+      tester.widget<TextFormField>(newPassword).controller!.text,
+      'password-baru',
+    );
+    expect(find.text('Password minimal 8 karakter.'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('settings page uses the water header with profile reload', (
+    tester,
+  ) async {
+    await _openProfile(tester);
+
+    expect(find.byKey(const Key('profile_water_header')), findsOneWidget);
+    expect(find.byKey(const Key('profile_reload_button')), findsOneWidget);
+    expect(find.text('Pengaturan'), findsNothing);
+    expect(find.text('Kelola akun dan preferensi aplikasi.'), findsNothing);
+    expect(find.text('Muat ulang profil'), findsNothing);
+    expect(find.byType(ProfileAvatar), findsOneWidget);
+    final avatarCenter = tester.getCenter(find.byType(ProfileAvatar));
+    final waterHeaderRect = tester.getRect(
+      find.byKey(const Key('profile_water_header')),
+    );
+    expect(
+      avatarCenter.dx,
+      closeTo(
+        tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
+        1,
+      ),
+    );
+    expect(avatarCenter.dy, greaterThan(waterHeaderRect.top + 100));
+    expect(avatarCenter.dy, lessThan(waterHeaderRect.bottom));
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Finder _field(String name) => find.byKey(Key('profile_${name}_field'));
@@ -174,7 +246,25 @@ Future<void> _openProfile(
           onLogout: () {},
           onProfileChanged: onProfileChanged,
           profileService: ProfileService(
-            client: MockClient((_) async => http.Response('{}', 200)),
+            client: MockClient((request) async {
+              final values = request.method == 'PUT'
+                  ? jsonDecode(request.body) as Map<String, dynamic>
+                  : const <String, dynamic>{};
+              return http.Response(
+                jsonEncode({
+                  'success': true,
+                  'data': {
+                    'user': {
+                      'nama_lengkap': values['nama_lengkap'] ?? 'Rina Puspita',
+                      'username': values['username'] ?? 'rina',
+                      'email': values['email'] ?? 'rina@example.com',
+                      'no_telepon': values['no_telepon'] ?? '081234567890',
+                    },
+                  },
+                }),
+                200,
+              );
+            }),
           ),
         ),
         bottomNavigationBar: const SizedBox(height: 80),

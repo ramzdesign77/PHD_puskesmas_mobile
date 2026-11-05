@@ -54,7 +54,8 @@ class _ProfileViewState extends State<ProfileView> {
   void didUpdateWidget(covariant ProfileView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isActive &&
-        (!oldWidget.isActive || oldWidget.fallbackName != widget.fallbackName)) {
+        (!oldWidget.isActive ||
+            oldWidget.fallbackName != widget.fallbackName)) {
       _reload();
     }
   }
@@ -157,22 +158,38 @@ class _ProfileViewState extends State<ProfileView> {
           if (snapshot.hasError) {
             return ListView(
               key: const Key('profile_settings_scroll'),
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.zero,
               children: [
-                ProfilePageHeader(title: 'Pengaturan', onBack: widget.onBack),
-                const SizedBox(height: 24),
-                Text(snapshot.error is ProfileException
-                    ? (snapshot.error as ProfileException).message
-                    : 'Profil belum dapat dimuat.'),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: () => setState(_reload),
-                  child: const Text('Coba lagi'),
+                ProfilePageHeader(
+                  title: 'Pengaturan',
+                  onBack: widget.onBack,
+                  waterStyle: true,
+                  onRefresh: () => setState(_reload),
                 ),
-                OutlinedButton(
-                  key: widget.logoutKey,
-                  onPressed: widget.isLoggingOut ? null : widget.onLogout,
-                  child: Text(widget.isLoggingOut ? 'Memproses...' : 'Keluar'),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        snapshot.error is ProfileException
+                            ? (snapshot.error as ProfileException).message
+                            : 'Profil belum dapat dimuat.',
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: () => setState(_reload),
+                        child: const Text('Coba lagi'),
+                      ),
+                      OutlinedButton(
+                        key: widget.logoutKey,
+                        onPressed: widget.isLoggingOut ? null : widget.onLogout,
+                        child: Text(
+                          widget.isLoggingOut ? 'Memproses...' : 'Keluar',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             );
@@ -181,189 +198,202 @@ class _ProfileViewState extends State<ProfileView> {
           if (profile == null) {
             return const Center(child: CircularProgressIndicator());
           }
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: ListView(
-                key: const Key('profile_settings_scroll'),
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-                children: [
-                  ProfilePageHeader(title: 'Pengaturan', onBack: widget.onBack),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () => setState(_reload),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Muat ulang profil'),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  ProfileCard(
-                    child: InkWell(
-                      key: const Key('profile_edit_button'),
-                      onTap: () => _edit(profile),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            ProfileAvatar(
-                              name: profile.name,
-                              bytes: profile.avatarBytes,
-                              url: profile.avatarUrl,
-                              size: 58,
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+          return ListView(
+            key: const Key('profile_settings_scroll'),
+            padding: EdgeInsets.zero,
+            children: [
+              ProfilePageHeader(
+                title: 'Pengaturan',
+                onBack: widget.onBack,
+                waterStyle: true,
+                onRefresh: () => setState(_reload),
+                centeredAvatar: ProfileAvatar(
+                  name: profile.name,
+                  bytes: profile.avatarBytes,
+                  url: profile.avatarUrl,
+                  size: 90,
+                ),
+              ),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 10, 22, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ProfileCard(
+                          child: InkWell(
+                            key: const Key('profile_edit_button'),
+                            onTap: () => _edit(profile),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              child: Stack(
+                                alignment: Alignment.center,
                                 children: [
-                                  Text(
-                                    profile.name,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.ink,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w400,
-                                    ),
+                                  Column(
+                                    children: [
+                                      Text(
+                                        profile.name,
+                                        textAlign: TextAlign.center,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: AppColors.ink,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        profile.username.isEmpty
+                                            ? widget.roleLabel
+                                            : '@${profile.username}',
+                                        textAlign: TextAlign.center,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: AppColors.muted,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    profile.username.isEmpty
-                                        ? widget.roleLabel
-                                        : '@${profile.username}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.muted,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w400,
+                                  const Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: AppColors.primary,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: AppColors.primary,
+                          ),
+                        ),
+                        ProfileSettingsGroup(
+                          label: 'Akun',
+                          children: [
+                            ProfileSettingsRow(
+                              key: const Key('profile_change_password_button'),
+                              icon: Icons.lock_outline_rounded,
+                              label: 'Ganti password',
+                              onTap: _changePassword,
+                            ),
+                            ProfileSettingsRow(
+                              icon: Icons.badge_outlined,
+                              label: 'Informasi akun',
+                              onTap: () => _showDetails('Informasi akun', {
+                                'Peran akun': widget.roleLabel,
+                                'Nama lengkap': profile.name,
+                                'Email': profile.email,
+                                'Nomor telepon': profile.phone,
+                                ...widget.accountDetails,
+                              }),
                             ),
                           ],
                         ),
-                      ),
+                        const ProfileSettingsGroup(
+                          label: 'Preferensi',
+                          children: [
+                            ProfileSettingsRow(
+                              icon: Icons.palette_outlined,
+                              label: 'Tampilan',
+                              value: 'Biru laut',
+                            ),
+                            ProfileSettingsRow(
+                              icon: Icons.translate_rounded,
+                              label: 'Bahasa',
+                              value: 'Indonesia',
+                            ),
+                          ],
+                        ),
+                        ProfileSettingsGroup(
+                          label: 'Bantuan & informasi',
+                          children: [
+                            ProfileSettingsRow(
+                              icon: Icons.help_outline_rounded,
+                              label: 'Pusat bantuan',
+                              onTap: () => _showDetails('Pusat bantuan', {
+                                if (widget.accountDetails.isEmpty) ...{
+                                  'Bagaimana membuat laporan?':
+                                      'Buka menu Lapor, lengkapi identitas dan lokasi, '
+                                      'lalu ceritakan masalah sanitasi yang ditemukan.',
+                                  'Bagaimana melihat perkembangan laporan?':
+                                      'Buka menu Lacak dan masukkan kode tiket. '
+                                      'Saran petugas akan muncul setelah laporan selesai.',
+                                } else ...{
+                                  'Di mana melihat tugas?':
+                                      'Buka Tugas Aduan untuk melihat dan memverifikasi '
+                                      'laporan yang masuk.',
+                                  'Bagaimana mengisi inspeksi?':
+                                      'Buka Input IKL, pilih kunjungan, lalu isi '
+                                      'indikator, intervensi, dan rekomendasi.',
+                                },
+                                'Bagaimana mengubah data akun?':
+                                    'Ketuk nama atau foto di bagian atas untuk mengedit profil. '
+                                    'Pilih Ganti password untuk mengganti password akun.',
+                              }),
+                            ),
+                            ProfileSettingsRow(
+                              icon: Icons.info_outline_rounded,
+                              label: 'Tentang aplikasi',
+                              onTap: () =>
+                                  _showDetails('E-Klinik Sanitasi', const {
+                                    'Layanan sanitasi dalam genggaman':
+                                        'Aplikasi pelaporan masalah sanitasi, pelacakan '
+                                        'tindak lanjut, dan inspeksi lapangan oleh petugas.',
+                                    'Versi aplikasi': '1.0.0',
+                                  }),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 30),
+                        OutlinedButton.icon(
+                          key: widget.logoutKey,
+                          onPressed: widget.isLoggingOut
+                              ? null
+                              : widget.onLogout,
+                          icon: widget.isLoggingOut
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.logout_rounded, size: 19),
+                          label: Text(
+                            widget.isLoggingOut ? 'Memproses...' : 'Keluar',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            backgroundColor: Colors.white,
+                            side: const BorderSide(color: AppColors.line),
+                            minimumSize: const Size.fromHeight(50),
+                            shape: const StadiumBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        const Text(
+                          'E-Klinik Sanitasi · Versi 1.0.0',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  ProfileSettingsGroup(
-                    label: 'Akun',
-                    children: [
-                      ProfileSettingsRow(
-                        key: const Key('profile_change_password_button'),
-                        icon: Icons.lock_outline_rounded,
-                        label: 'Ganti password',
-                        onTap: _changePassword,
-                      ),
-                      ProfileSettingsRow(
-                        icon: Icons.badge_outlined,
-                        label: 'Informasi akun',
-                        onTap: () => _showDetails('Informasi akun', {
-                          'Peran akun': widget.roleLabel,
-                          'Nama lengkap': profile.name,
-                          'Email': profile.email,
-                          'Nomor telepon': profile.phone,
-                          ...widget.accountDetails,
-                        }),
-                      ),
-                    ],
-                  ),
-                  const ProfileSettingsGroup(
-                    label: 'Preferensi',
-                    children: [
-                      ProfileSettingsRow(
-                        icon: Icons.palette_outlined,
-                        label: 'Tampilan',
-                        value: 'Biru laut',
-                      ),
-                      ProfileSettingsRow(
-                        icon: Icons.translate_rounded,
-                        label: 'Bahasa',
-                        value: 'Indonesia',
-                      ),
-                    ],
-                  ),
-                  ProfileSettingsGroup(
-                    label: 'Bantuan & informasi',
-                    children: [
-                      ProfileSettingsRow(
-                        icon: Icons.help_outline_rounded,
-                        label: 'Pusat bantuan',
-                        onTap: () => _showDetails('Pusat bantuan', {
-                          if (widget.accountDetails.isEmpty) ...{
-                            'Bagaimana membuat laporan?':
-                                'Buka menu Lapor, lengkapi identitas dan lokasi, '
-                                'lalu ceritakan masalah sanitasi yang ditemukan.',
-                            'Bagaimana melihat perkembangan laporan?':
-                                'Buka menu Lacak dan masukkan kode tiket. '
-                                'Saran petugas akan muncul setelah laporan selesai.',
-                          } else ...{
-                            'Di mana melihat tugas?':
-                                'Buka Tugas Aduan untuk melihat dan memverifikasi '
-                                'laporan yang masuk.',
-                            'Bagaimana mengisi inspeksi?':
-                                'Buka Input IKL, pilih kunjungan, lalu isi '
-                                'indikator, intervensi, dan rekomendasi.',
-                          },
-                          'Bagaimana mengubah data akun?':
-                              'Ketuk nama atau foto di bagian atas untuk mengedit profil. '
-                              'Pilih Ganti password untuk mengganti password akun.',
-                        }),
-                      ),
-                      ProfileSettingsRow(
-                        icon: Icons.info_outline_rounded,
-                        label: 'Tentang aplikasi',
-                        onTap: () => _showDetails('E-Klinik Sanitasi', const {
-                          'Layanan sanitasi dalam genggaman':
-                              'Aplikasi pelaporan masalah sanitasi, pelacakan '
-                              'tindak lanjut, dan inspeksi lapangan oleh petugas.',
-                          'Versi aplikasi': '1.0.0',
-                        }),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 30),
-                  OutlinedButton.icon(
-                    key: widget.logoutKey,
-                    onPressed: widget.isLoggingOut ? null : widget.onLogout,
-                    icon: widget.isLoggingOut
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.logout_rounded, size: 19),
-                    label: Text(
-                      widget.isLoggingOut ? 'Memproses...' : 'Keluar',
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(color: AppColors.line),
-                      minimumSize: const Size.fromHeight(50),
-                      shape: const StadiumBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'E-Klinik Sanitasi · Versi 1.0.0',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           );
         },
       ),
