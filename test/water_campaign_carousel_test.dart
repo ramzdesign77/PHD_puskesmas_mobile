@@ -108,24 +108,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.text('Cuci Tangan Pakai Sabun'), findsOneWidget);
-    expect(_indicatorWidth(tester, 1), 22);
-    expect(_indicatorWidth(tester, 0), 7);
+    expect(find.byKey(const Key('campaign_page_indicator_0')), findsNothing);
     expect(navigatorObserver.pushCount, 0);
     expect(tester.takeException(), isNull);
-
-    final lastPageIndicator = find.byKey(
-      const Key('campaign_page_indicator_4'),
-    );
-    await tester.ensureVisible(lastPageIndicator);
-    await tester.pump(const Duration(milliseconds: 450));
-    await tester.tap(lastPageIndicator);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 600));
-    await tester.pump(const Duration(milliseconds: 350));
-
-    expect(find.text('Pengamanan Limbah Cair Rumah Tangga'), findsOneWidget);
-    expect(_indicatorWidth(tester, 4), 22);
-    expect(navigatorObserver.pushCount, 0);
 
     const expectedColors = [
       [Color(0xFF0284C7), Color(0xFF06B6D4)],
@@ -134,14 +119,14 @@ void main() {
       [Color(0xFF0891B2), Color(0xFF22D3EE)],
       [Color(0xFF1E3A8A), Color(0xFF0284C7)],
     ];
-    for (var index = 0; index < expectedColors.length; index++) {
-      final indicator = find.byKey(Key('campaign_page_indicator_$index'));
-      await tester.ensureVisible(indicator);
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.tap(indicator);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
+    final previousButton = find.byTooltip('Pilar sebelumnya');
+    await tester.ensureVisible(previousButton);
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.tap(previousButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
 
+    for (var index = 0; index < expectedColors.length; index++) {
       final background = tester.widget<DecoratedBox>(
         find.byKey(Key('campaign_card_gradient_$index')),
       );
@@ -154,18 +139,20 @@ void main() {
         ),
         isNotNull,
       );
+      if (index < expectedColors.length - 1) {
+        final nextButton = find.byTooltip('Pilar berikutnya');
+        await tester.ensureVisible(nextButton);
+        await tester.pump(const Duration(milliseconds: 450));
+        await tester.tap(nextButton);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+      }
     }
 
+    expect(find.text('Pengamanan Limbah Cair Rumah Tangga'), findsOneWidget);
+    expect(navigatorObserver.pushCount, 0);
     expect(tester.takeException(), isNull);
   });
-}
-
-double _indicatorWidth(WidgetTester tester, int index) {
-  final finder = find.descendant(
-    of: find.byKey(Key('campaign_page_indicator_$index')),
-    matching: find.byType(AnimatedContainer),
-  );
-  return tester.getSize(finder).width;
 }
 
 class _CampaignApiService extends ApiService {

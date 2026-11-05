@@ -346,15 +346,6 @@ class _HomeViewState extends State<HomeView> {
                           ],
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Lacak laporan',
-                        onPressed: widget.onOpenTracking,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.14),
-                          foregroundColor: Colors.white,
-                        ),
-                        icon: const Icon(Icons.track_changes_rounded, size: 19),
-                      ),
                     ],
                   ),
                   const Spacer(),

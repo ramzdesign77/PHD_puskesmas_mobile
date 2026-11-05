@@ -13,6 +13,7 @@ import '../../widgets/ocean_widgets.dart';
 import '../profile/profile_view.dart';
 import 'officer_detail_view.dart';
 import 'widgets/visit_card_widget.dart';
+import '../../widgets/fluid_bottom_nav.dart';
 
 const _canvasWhite = Color(0xFFF8FAFC);
 
@@ -144,14 +145,13 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
   }
 
   List<VisitSchedule> get _recentReports {
-    final reports = _schedules
-        .where((schedule) => !schedule.isInspection)
-        .toList()
-      ..sort((first, second) {
-        final firstPending = _isPending(first.status) ? 0 : 1;
-        final secondPending = _isPending(second.status) ? 0 : 1;
-        return firstPending.compareTo(secondPending);
-      });
+    final reports =
+        _schedules.where((schedule) => !schedule.isInspection).toList()
+          ..sort((first, second) {
+            final firstPending = _isPending(first.status) ? 0 : 1;
+            final secondPending = _isPending(second.status) ? 0 : 1;
+            return firstPending.compareTo(secondPending);
+          });
     return reports.take(5).toList(growable: false);
   }
 
@@ -268,6 +268,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
       _buildProfileTab(),
     ];
     return Scaffold(
+      extendBody: true,
       backgroundColor: _canvasWhite,
       body: SafeArea(
         bottom: false,
@@ -284,39 +285,39 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
           ],
         ),
       ),
-      bottomNavigationBar: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: NavigationBar(
-            selectedIndex: _selectedTab,
-            onDestinationSelected: _selectTab,
-            backgroundColor: Colors.white.withValues(alpha: 0.86),
-            indicatorColor: AppColors.softBlue,
-            height: 72,
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home_rounded),
-                label: 'Beranda',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.fact_check_outlined),
-                selectedIcon: Icon(Icons.fact_check_rounded),
-                label: 'Tugas Aduan',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.note_add_outlined),
-                selectedIcon: Icon(Icons.note_add_rounded),
-                label: 'Input IKL',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.person_outline_rounded),
-                selectedIcon: Icon(Icons.person_rounded),
-                label: 'Profil',
-              ),
-            ],
-          ),
+      bottomNavigationBar: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          10 + MediaQuery.viewPaddingOf(context).bottom,
+        ),
+        child: FluidBottomNav(
+          selectedIndex: _selectedTab,
+          onDestinationSelected: _selectTab,
+          showLabels: true,
+          destinations: const [
+            FluidNavDestination(
+              label: 'Beranda',
+              icon: Icons.home_outlined,
+              selectedIcon: Icons.home_rounded,
+            ),
+            FluidNavDestination(
+              label: 'Tugas Aduan',
+              icon: Icons.fact_check_outlined,
+              selectedIcon: Icons.fact_check_rounded,
+            ),
+            FluidNavDestination(
+              label: 'Input IKL',
+              icon: Icons.note_add_outlined,
+              selectedIcon: Icons.note_add_rounded,
+            ),
+            FluidNavDestination(
+              label: 'Profil',
+              icon: Icons.person_outline_rounded,
+              selectedIcon: Icons.person_rounded,
+            ),
+          ],
         ),
       ),
     );

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-const _campaignPrimary = Color(0xFF0284C7);
 const _campaignBodyFontFamily = 'Montserrat';
 const _pilarThemes = <_PilarTheme>[
   (
@@ -190,41 +189,6 @@ class _WaterCampaignCarouselState extends State<WaterCampaignCarousel> {
               );
             },
           ),
-        ),
-        const SizedBox(height: 14),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var index = 0; index < _campaignPillars.length; index++)
-              Semantics(
-                button: true,
-                selected: index == _currentPage,
-                label: 'Pilar ${index + 1} dari ${_campaignPillars.length}',
-                child: InkWell(
-                  key: Key('campaign_page_indicator_$index'),
-                  onTap: () => _goToPage(index),
-                  customBorder: const StadiumBorder(),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 6,
-                    ),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                      width: index == _currentPage ? 22 : 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: index == _currentPage
-                            ? _campaignPrimary
-                            : const Color(0xFFCBD5E1),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
         ),
       ],
     );
