@@ -163,6 +163,7 @@ class AuthService {
       email: user.email,
       phone: user.phone,
       username: user.username,
+      avatarUrl: user.avatarUrl,
     );
     await preferences.setString(userPhoneKey, user.phone ?? '');
     await preferences.setString(userVillageKey, user.villageName ?? '');

@@ -1,10 +1,9 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/fluid_bottom_nav.dart';
 import '../../widgets/ocean_widgets.dart';
 import '../profile/profile_view.dart';
 import 'home_view.dart';
@@ -129,6 +128,7 @@ class _MainShellState extends State<MainShell> {
         isActive: _currentIndex == 2,
       ),
       _ProfileTab(
+        isActive: _currentIndex == 3,
         session: _session,
         onLogout: _logout,
         isLoggingOut: _isLoggingOut,
@@ -142,65 +142,41 @@ class _MainShellState extends State<MainShell> {
     ];
 
     return Scaffold(
+      extendBody: true,
       body: IndexedStack(index: _currentIndex, children: screens),
-      bottomNavigationBar: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: NavigationBarTheme(
-            data: NavigationBarThemeData(
-              labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>(
-                (states) => TextStyle(
-                  color: states.contains(WidgetState.selected)
-                      ? AppColors.primary
-                      : AppColors.muted,
-                  fontSize: 11,
-                  fontWeight: states.contains(WidgetState.selected)
-                      ? FontWeight.w400
-                      : FontWeight.w400,
-                ),
-              ),
+      bottomNavigationBar: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          10 + MediaQuery.viewPaddingOf(context).bottom,
+        ),
+        child: FluidBottomNav(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: _selectTab,
+          showLabels: true,
+          destinations: const [
+            FluidNavDestination(
+              label: 'Beranda',
+              icon: Icons.home_outlined,
+              selectedIcon: Icons.home_rounded,
             ),
-            child: NavigationBar(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: _selectTab,
-              backgroundColor: Colors.white.withValues(alpha: 0.88),
-              indicatorColor: AppColors.softRed,
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.home_outlined, color: AppColors.muted),
-                  selectedIcon: Icon(Icons.home, color: AppColors.primary),
-                  label: 'Beranda',
-                ),
-                NavigationDestination(
-                  icon: CircleAvatar(
-                    radius: 13,
-                    backgroundColor: AppColors.muted,
-                    child: Icon(Icons.add, color: Colors.white, size: 18),
-                  ),
-                  selectedIcon: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: AppColors.primary,
-                    child: Icon(Icons.add, color: Colors.white, size: 18),
-                  ),
-                  label: 'Lapor',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.access_time, color: AppColors.muted),
-                  selectedIcon: Icon(
-                    Icons.access_time_filled,
-                    color: AppColors.primary,
-                  ),
-                  label: 'Lacak',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.person_outline, color: AppColors.muted),
-                  selectedIcon: Icon(Icons.person, color: AppColors.primary),
-                  label: 'Profil',
-                ),
-              ],
+            FluidNavDestination(
+              label: 'Lapor',
+              icon: Icons.add_circle_outline_rounded,
+              selectedIcon: Icons.add_circle_rounded,
             ),
-          ),
+            FluidNavDestination(
+              label: 'Lacak',
+              icon: Icons.access_time_rounded,
+              selectedIcon: Icons.access_time_filled_rounded,
+            ),
+            FluidNavDestination(
+              label: 'Profil',
+              icon: Icons.person_outline_rounded,
+              selectedIcon: Icons.person_rounded,
+            ),
+          ],
         ),
       ),
     );
@@ -209,6 +185,7 @@ class _MainShellState extends State<MainShell> {
 
 class _ProfileTab extends StatelessWidget {
   const _ProfileTab({
+    required this.isActive,
     required this.session,
     required this.onLogout,
     required this.isLoggingOut,
@@ -216,6 +193,7 @@ class _ProfileTab extends StatelessWidget {
     required this.onProfileChanged,
   });
 
+  final bool isActive;
   final Future<AuthSession?> session;
   final VoidCallback onLogout;
   final bool isLoggingOut;
@@ -241,6 +219,7 @@ class _ProfileTab extends StatelessWidget {
           return const Center(child: Text('Sesi pengguna tidak ditemukan.'));
         }
         return ProfileView(
+          isActive: isActive,
           fallbackName: user.userName.isEmpty ? 'Warga' : user.userName,
           roleLabel: user.role == 'warga' ? 'Warga' : user.role,
           onBack: onBack,

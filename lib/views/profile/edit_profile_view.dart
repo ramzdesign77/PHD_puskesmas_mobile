@@ -28,6 +28,9 @@ class _EditProfileViewState extends State<EditProfileView> {
   late final _email = TextEditingController(text: widget.profile.email);
   late final _username = TextEditingController(text: widget.profile.username);
   late Uint8List? _avatar = widget.profile.avatarBytes;
+  late String? _avatarUrl = widget.profile.avatarUrl;
+  String? _avatarFileName;
+  bool _removeAvatar = false;
   bool _isSaving = false;
   bool _isPickingPhoto = false;
 
@@ -62,7 +65,7 @@ class _EditProfileViewState extends State<EditProfileView> {
               title: const Text('Pilih dari galeri'),
               onTap: () => Navigator.pop(context, 'gallery'),
             ),
-            if (_avatar != null)
+            if (_avatar != null || (_avatarUrl?.isNotEmpty ?? false))
               ListTile(
                 leading: const Icon(Icons.delete_outline_rounded),
                 title: const Text('Hapus foto profil'),
@@ -75,7 +78,12 @@ class _EditProfileViewState extends State<EditProfileView> {
     );
     if (source == null || !mounted) return;
     if (source == 'remove') {
-      setState(() => _avatar = null);
+      setState(() {
+        _avatar = null;
+        _avatarUrl = null;
+        _avatarFileName = null;
+        _removeAvatar = true;
+      });
       return;
     }
     setState(() => _isPickingPhoto = true);
@@ -89,11 +97,15 @@ class _EditProfileViewState extends State<EditProfileView> {
       if (photo == null) return;
       final bytes = await photo.readAsBytes();
       if (!mounted) return;
-      if (bytes.length > 2 * 1024 * 1024) {
-        _showError('Pilih foto berukuran maksimal 2 MB.');
+      if (bytes.length > 5 * 1024 * 1024) {
+        _showError('Pilih foto berukuran maksimal 5 MB.');
         return;
       }
-      setState(() => _avatar = bytes);
+      setState(() {
+        _avatar = bytes;
+        _avatarFileName = photo.name;
+        _removeAvatar = false;
+      });
     } catch (_) {
       if (mounted) {
         _showError('Foto belum dapat dibuka. Periksa izin kamera atau galeri.');
@@ -104,7 +116,7 @@ class _EditProfileViewState extends State<EditProfileView> {
   }
 
   Future<void> _save() async {
-    if (_isSaving || !_formKey.currentState!.validate()) return;
+    if (_isSaving || _isPickingPhoto || !_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
     setState(() => _isSaving = true);
     final updated = widget.profile.copyWith(
@@ -113,11 +125,12 @@ class _EditProfileViewState extends State<EditProfileView> {
       phone: _phone.text.trim(),
       username: _username.text.trim().replaceFirst(RegExp(r'^@'), ''),
       avatarBytes: _avatar,
-      clearAvatar: _avatar == null,
+      avatarFileName: _avatarFileName,
+      clearAvatar: _removeAvatar,
     );
     try {
-      await widget.profileService.save(updated);
-      if (mounted) Navigator.of(context).pop(updated);
+      final saved = await widget.profileService.save(updated);
+      if (mounted) Navigator.of(context).pop(saved);
     } catch (error) {
       if (mounted) {
         _showError(
@@ -165,6 +178,7 @@ class _EditProfileViewState extends State<EditProfileView> {
                         ProfileAvatar(
                           name: widget.profile.name,
                           bytes: _avatar,
+                          url: _avatarUrl,
                           size: 112,
                         ),
                         Positioned(
@@ -259,7 +273,8 @@ class _EditProfileViewState extends State<EditProfileView> {
                             autofillHints: const [AutofillHints.email],
                             validator: (value) {
                               final email = value?.trim() ?? '';
-                              return email.isEmpty ||
+                              if (email.isEmpty) return 'Email wajib diisi.';
+                              return email.length <= 255 &&
                                       RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
                                           .hasMatch(email)
                                   ? null
@@ -282,11 +297,10 @@ class _EditProfileViewState extends State<EditProfileView> {
                                     '',
                                   ) ??
                                   '';
-                              return username.isEmpty ||
-                                      RegExp(r'^[a-zA-Z0-9_.-]+$')
-                                          .hasMatch(username)
+                              return RegExp(r'^[a-zA-Z0-9_-]{3,50}$')
+                                      .hasMatch(username)
                                   ? null
-                                  : 'Gunakan huruf, angka, titik, - atau _.';
+                                  : 'Gunakan 3–50 karakter: huruf, angka, - atau _.';
                             },
                           ),
                         ],
@@ -315,8 +329,8 @@ class _EditProfileViewState extends State<EditProfileView> {
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 10),
                     child: Text(
-                      'Perubahan profil disimpan di perangkat ini selama sesi login. '
-                      'Email dan nama pengguna untuk masuk ke akun tetap sama.',
+                      'Perubahan profil dan foto disimpan pada akun Anda. '
+                      'Gunakan email atau nama pengguna terbaru saat login berikutnya.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: AppColors.muted,

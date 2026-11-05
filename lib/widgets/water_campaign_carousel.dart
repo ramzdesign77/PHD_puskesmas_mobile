@@ -4,10 +4,49 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-const _campaignPrimary = Color(0xFF0284C7);
-const _campaignSecondary = Color(0xFF06B6D4);
-const _campaignAccent = Color(0xFF38BDF8);
 const _campaignBodyFontFamily = 'Montserrat';
+const _pilarThemes = <_PilarTheme>[
+  (
+    colors: [Color(0xFF0284C7), Color(0xFF06B6D4)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    ornament: _WaterOrnament.drop,
+  ),
+  (
+    colors: [Color(0xFF0D9488), Color(0xFF14B8A6)],
+    begin: Alignment.topRight,
+    end: Alignment.bottomLeft,
+    ornament: _WaterOrnament.bubbles,
+  ),
+  (
+    colors: [Color(0xFF0369A1), Color(0xFF0284C7)],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    ornament: _WaterOrnament.waveLines,
+  ),
+  (
+    colors: [Color(0xFF0891B2), Color(0xFF22D3EE)],
+    begin: Alignment.bottomLeft,
+    end: Alignment.topRight,
+    ornament: _WaterOrnament.flowingWater,
+  ),
+  (
+    colors: [Color(0xFF1E3A8A), Color(0xFF0284C7)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomRight,
+    ornament: _WaterOrnament.stackedWaves,
+  ),
+];
+
+typedef _PilarTheme = ({
+  List<Color> colors,
+  Alignment begin,
+  Alignment end,
+  _WaterOrnament ornament,
+});
+
+enum _WaterOrnament { drop, bubbles, waveLines, flowingWater, stackedWaves }
+
 const _campaignPillars = [
   (
     title: 'Stop Buang Air Besar Sembarangan',
@@ -151,41 +190,6 @@ class _WaterCampaignCarouselState extends State<WaterCampaignCarousel> {
             },
           ),
         ),
-        const SizedBox(height: 14),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var index = 0; index < _campaignPillars.length; index++)
-              Semantics(
-                button: true,
-                selected: index == _currentPage,
-                label: 'Pilar ${index + 1} dari ${_campaignPillars.length}',
-                child: InkWell(
-                  key: Key('campaign_page_indicator_$index'),
-                  onTap: () => _goToPage(index),
-                  customBorder: const StadiumBorder(),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 6,
-                    ),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                      width: index == _currentPage ? 22 : 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: index == _currentPage
-                            ? _campaignPrimary
-                            : const Color(0xFFCBD5E1),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
       ],
     );
   }
@@ -206,6 +210,7 @@ class _WaterCampaignCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = _getPilarTheme(index);
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
@@ -220,34 +225,51 @@ class _WaterCampaignCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: DecoratedBox(
-          decoration: const BoxDecoration(
+          key: Key('campaign_card_gradient_$index'),
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [_campaignPrimary, _campaignSecondary, _campaignAccent],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              colors: theme.colors,
+              begin: theme.begin,
+              end: theme.end,
             ),
           ),
           child: Stack(
             children: [
-              const Positioned(
-                top: 20,
-                right: 24,
-                child: _GlassBubble(size: 78),
-              ),
-              const Positioned(
-                right: 98,
-                bottom: 20,
-                child: _GlassBubble(size: 38),
-              ),
-              Positioned(
-                right: -14,
-                bottom: -34,
-                child: Icon(
-                  Icons.water_drop_rounded,
-                  size: 132,
-                  color: Colors.white.withValues(alpha: 0.12),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    key: Key('campaign_card_ornament_$index'),
+                    painter: _WaterOrnamentPainter(theme.ornament),
+                  ),
                 ),
               ),
+              if (theme.ornament == _WaterOrnament.drop)
+                Positioned(
+                  right: -14,
+                  bottom: -34,
+                  child: Icon(
+                    Icons.water_drop_rounded,
+                    size: 132,
+                    color: Colors.white.withValues(alpha: 0.16),
+                  ),
+                ),
+              if (theme.ornament == _WaterOrnament.bubbles) ...[
+                const Positioned(
+                  top: 20,
+                  right: 24,
+                  child: _GlassBubble(size: 78),
+                ),
+                const Positioned(
+                  right: 98,
+                  bottom: 20,
+                  child: _GlassBubble(size: 38),
+                ),
+                const Positioned(
+                  top: 80,
+                  right: 74,
+                  child: _GlassBubble(size: 24),
+                ),
+              ],
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -331,6 +353,114 @@ class _WaterCampaignCard extends StatelessWidget {
       ),
     );
   }
+}
+
+_PilarTheme _getPilarTheme(int index) => _pilarThemes[index];
+
+class _WaterOrnamentPainter extends CustomPainter {
+  const _WaterOrnamentPainter(this.ornament);
+
+  final _WaterOrnament ornament;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    switch (ornament) {
+      case _WaterOrnament.drop:
+      case _WaterOrnament.bubbles:
+        return;
+      case _WaterOrnament.waveLines:
+        _paintWaveLines(canvas, size);
+        break;
+      case _WaterOrnament.flowingWater:
+        _paintFlowingWater(canvas, size);
+        break;
+      case _WaterOrnament.stackedWaves:
+        _paintStackedWaves(canvas, size);
+        break;
+    }
+  }
+
+  void _paintWaveLines(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    for (var index = 0; index < 3; index++) {
+      final y = size.height * (0.32 + index * 0.12);
+      final path = Path()
+        ..moveTo(size.width * 0.55, y)
+        ..cubicTo(
+          size.width * 0.7,
+          y - 18,
+          size.width * 0.82,
+          y + 18,
+          size.width * 1.08,
+          y - 3,
+        );
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  void _paintFlowingWater(Canvas canvas, Size size) {
+    final bounds = Rect.fromLTWH(
+      size.width * 0.58,
+      0,
+      size.width * 0.42,
+      size.height,
+    );
+    canvas.save();
+    canvas.clipRect(bounds);
+    for (var index = 0; index < 3; index++) {
+      final path = Path()
+        ..moveTo(size.width * (0.7 + index * 0.12), -12)
+        ..cubicTo(
+          size.width * 0.56,
+          size.height * 0.34,
+          size.width * 1.05,
+          size.height * 0.54,
+          size.width * (0.76 + index * 0.1),
+          size.height + 12,
+        );
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = Colors.white.withValues(alpha: index == 0 ? 0.16 : 0.1)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = index == 0 ? 12 : 4
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+    canvas.restore();
+  }
+
+  void _paintStackedWaves(Canvas canvas, Size size) {
+    final colors = [
+      Colors.white.withValues(alpha: 0.08),
+      Colors.white.withValues(alpha: 0.12),
+      Colors.white.withValues(alpha: 0.16),
+    ];
+    for (var index = 0; index < colors.length; index++) {
+      final y = size.height * (0.68 + index * 0.1);
+      final path = Path()
+        ..moveTo(size.width * 0.38, y)
+        ..cubicTo(
+          size.width * 0.58,
+          y - 26,
+          size.width * 0.73,
+          y + 20,
+          size.width,
+          y - 5,
+        )
+        ..lineTo(size.width, size.height)
+        ..lineTo(size.width * 0.38, size.height)
+        ..close();
+      canvas.drawPath(path, Paint()..color = colors[index]);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaterOrnamentPainter oldDelegate) =>
+      ornament != oldDelegate.ornament;
 }
 
 class _GlassBubble extends StatelessWidget {
