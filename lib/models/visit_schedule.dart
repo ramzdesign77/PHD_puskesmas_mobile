@@ -10,6 +10,7 @@ class VisitSchedule {
     required this.visitDate,
     required this.status,
     required this.category,
+    this.categoryCode,
     required this.description,
     required this.rt,
     required this.rw,
@@ -30,6 +31,7 @@ class VisitSchedule {
   /// Status tiket: 'pending', 'diproses', 'selesai'
   final String status;
   final String category;
+  final String? categoryCode;
   final String description;
   final String rt;
   final String rw;
@@ -196,6 +198,7 @@ class VisitSchedule {
       ),
       status: _stringValue(statusValue, fallback: 'menunggu'),
       category: _normalizeCategory(category),
+      categoryCode: category?.toString(),
       description: _stringValue(
         json['deskripsi'] ??
             json['description'] ??
@@ -249,6 +252,7 @@ class VisitSchedule {
       visitDate: visitDate,
       status: status ?? this.status,
       category: category,
+      categoryCode: categoryCode,
       description: description,
       rt: rt,
       rw: rw,

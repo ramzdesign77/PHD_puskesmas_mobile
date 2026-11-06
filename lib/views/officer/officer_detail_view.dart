@@ -31,9 +31,10 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
   final _recommendationController = TextEditingController();
   final _legacyNoteController = TextEditingController();
   final _picker = ImagePicker();
-  final List<bool> _riskIndicators = List<bool>.filled(5, false);
+  final List<bool> _riskIndicators = List<bool>.filled(7, false);
 
-  String _waterSource = 'sumur_terlindung';
+  String _waterSource = 'sumur_gali';
+  late String _categoryIkl;
   String _intervention = 'Tidak Ada';
   DateTime _inspectionDate = DateTime.now();
   Uint8List? _photoBytes;
@@ -41,6 +42,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
   bool _isSubmitting = false;
 
   static const _waterSources = {
+    'sumur_gali': 'Sumur Gali',
     'sumur_terlindung': 'Sumur Terlindung',
     'sumur_bor': 'Sumur Bor',
     'pdam': 'Perpipaan / PDAM',
@@ -48,27 +50,60 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
     'lainnya': 'Lainnya',
   };
   static const _interventions = [
-    'Pemberian Kaporit',
-    'Pemberian Bubuk Abate',
-    'Edukasi & Konseling PAMMRT',
+    'Pembagian Kaporit',
+    'Pembagian Bubuk Abate',
+    'Edukasi STBM / PAMMRT',
+    'Pemberantasan Sarang Nyamuk (PSN)',
     'Tidak Ada',
   ];
-  static const _riskLabels = RiskScore.questions;
+  List<String> get _riskLabels => RiskScore.questionsFor(_categoryIkl);
 
-  int get _riskScore => RiskScore.total(_riskIndicators);
+  int get _riskScore => RiskScore.totalDynamic(_riskIndicators);
+  bool get _urgentWaterFinding =>
+      _categoryIkl == 'sumur_bor' && _riskIndicators[6];
+  String get _riskCategory => RiskScore.dynamicCategory(
+    _riskScore,
+    urgentWaterFinding: _urgentWaterFinding,
+  );
 
   Color get _riskColor {
-    if (_riskScore == 0) return AppColors.green;
-    if (_riskScore <= 2) return AppColors.orange;
-    return const Color(0xFFE53935);
+    return switch (_riskCategory) {
+      'aman' => const Color(0xFF16A34A),
+      'risiko_sedang' => const Color(0xFFD97706),
+      'risiko_tinggi' => const Color(0xFFDC2626),
+      _ => const Color(0xFF7F1D1D),
+    };
   }
 
-  String get _riskTitle => RiskScore.label(RiskScore.category(_riskScore));
+  String get _riskTitle => RiskScore.label(_riskCategory);
+  String get _riskDescription => switch (_riskCategory) {
+    'aman' => 'Kondisi sanitasi memenuhi syarat kesehatan. Tetap jaga kebersihan dan lakukan pemantauan rutin.',
+    'risiko_sedang' => 'Terdapat potensi cemaran ringan. Disarankan edukasi perilaku higienis dan perbaikan fisik mandiri.',
+    'risiko_tinggi' => 'Kondisi berisiko tinggi mencemari kesehatan. Perlu intervensi Puskesmas (Kaporit/Abate/KIE) dan perbaikan segera.',
+    _ => 'Bahaya cemaran nyata! Air/sarana sangat berisiko menularkan penyakit dan wajib segera diintervensi.',
+  };
 
   @override
   void initState() {
     super.initState();
+    _categoryIkl = _detectIklCategory(widget.schedule);
+    _waterSource = _categoryIkl == 'sumur_bor' ? 'sumur_bor' : 'sumur_gali';
     _legacyNoteController.text = widget.schedule.officerNote;
+  }
+
+  String _detectIklCategory(VisitSchedule schedule) {
+    final raw = '${schedule.categoryCode ?? ''} ${schedule.category} ${schedule.description}'
+        .toLowerCase()
+        .replaceAll('_', ' ');
+    if (raw.contains('dbd') || raw.contains('nyamuk') || raw.contains('jentik')) {
+      return 'sarang_nyamuk_dbd';
+    }
+    if (raw.contains('jamban') || raw.contains('limbah') || raw.contains('stbm')) {
+      return 'jamban_limbah_stbm';
+    }
+    if (raw.contains('sampah')) return 'tumpukan_sampah';
+    if (raw.contains('bor') || raw.contains('pompa')) return 'sumur_bor';
+    return 'sumur_gali';
   }
 
   @override
@@ -113,11 +148,16 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
     }
     setState(() => _isSubmitting = true);
     try {
+      final pollutantDistance =
+          int.tryParse(_distanceController.text.trim()) ?? 0;
       final result = await widget.apiService.submitInspection(
         token: widget.token,
         scheduleId: widget.schedule.scheduleId!,
+        reportId: widget.schedule.id,
+        categoryIkl: _categoryIkl,
+        indicatorQuestions: _riskLabels,
         waterSource: _waterSource,
-        pollutantDistance: int.parse(_distanceController.text.trim()),
+        pollutantDistance: pollutantDistance,
         riskIndicators: List.unmodifiable(_riskIndicators),
         inspectionDate: _inspectionDate.toIso8601String().substring(0, 10),
         intervention: _intervention,
@@ -133,6 +173,13 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
     } on ApiOfficerException catch (error) {
       if (mounted) {
         _showMessage(error.message, isError: true);
+      }
+    } on FormatException catch (error) {
+      if (mounted) {
+        _showMessage(
+          'Data IKL tidak dapat dibaca. Periksa kembali jarak sumber pencemar. ${error.message}',
+          isError: true,
+        );
       }
     } catch (error) {
       if (mounted) {
@@ -317,7 +364,43 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _FieldLabel(text: 'Jenis Sarana Air'),
+          const _FieldLabel(text: 'Jenis Formulir IKL'),
+          const SizedBox(height: 8),
+          if (_categoryIkl == 'sumur_gali' || _categoryIkl == 'sumur_bor')
+            Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('1A. Sumur Gali'),
+                  selected: _categoryIkl == 'sumur_gali',
+                  onSelected: (_) => setState(() {
+                    _categoryIkl = 'sumur_gali';
+                    _waterSource = 'sumur_gali';
+                    _riskIndicators.fillRange(0, 7, false);
+                  }),
+                ),
+                ChoiceChip(
+                  label: const Text('1B. Sumur Bor / Pompa'),
+                  selected: _categoryIkl == 'sumur_bor',
+                  onSelected: (_) => setState(() {
+                    _categoryIkl = 'sumur_bor';
+                    _waterSource = 'sumur_bor';
+                    _riskIndicators.fillRange(0, 7, false);
+                  }),
+                ),
+              ],
+            )
+          else
+            Chip(
+              label: Text(switch (_categoryIkl) {
+                'sarang_nyamuk_dbd' => '2. Sarang Nyamuk / Indikasi DBD',
+                'jamban_limbah_stbm' => '3. Masalah Jamban & Limbah (STBM)',
+                _ => '4. Tumpukan Sampah',
+              }),
+              backgroundColor: AppColors.softBlue,
+            ),
+          const SizedBox(height: 12),
+          const _FieldLabel(text: 'Jenis Sarana Air (kompatibilitas API)'),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             key: const Key('officer_water_source_dropdown'),
@@ -369,10 +452,10 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _FieldLabel(text: 'Indikator Risiko Fisik Air'),
+          _FieldLabel(text: '7 Indikator Risiko — ${_riskTitle}'),
           const SizedBox(height: 4),
           const Text(
-            'Pilih semua kondisi yang ditemukan saat inspeksi.',
+            'Jawab Ya jika kondisi berisiko ditemukan; setiap Ya bernilai 1 poin.',
             style: TextStyle(color: AppColors.muted, fontSize: 11),
           ),
           const SizedBox(height: 8),
@@ -445,11 +528,16 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  _riskDescription,
+                  style: TextStyle(color: _riskColor, fontSize: 10, height: 1.3),
+                ),
               ],
             ),
           ),
           Text(
-            '$_riskScore/5',
+            '$_riskScore/7',
             style: TextStyle(
               color: _riskColor,
               fontSize: 23,

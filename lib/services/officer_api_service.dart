@@ -130,6 +130,8 @@ class OfficerApiService {
   Future<Map<String, dynamic>> submitInspection({
     required String token,
     required int scheduleId,
+    int? reportId,
+    String? categoryIkl,
     required String waterSource,
     required int pollutantDistance,
     required List<bool> riskIndicators,
@@ -139,15 +141,67 @@ class OfficerApiService {
     required String recommendation,
     required String officerNote,
     XFile? photo,
+    List<String>? indicatorQuestions,
   }) async {
-    RiskScore.total(riskIndicators);
+    if (riskIndicators.length == 7) {
+      RiskScore.totalDynamic(riskIndicators);
+    } else {
+      RiskScore.total(riskIndicators);
+    }
+    final isDynamic = categoryIkl != null;
+    final score = isDynamic
+        ? RiskScore.totalDynamic(riskIndicators)
+        : null;
+    final riskCategory = isDynamic
+        ? RiskScore.dynamicCategory(
+            score!,
+            urgentWaterFinding: categoryIkl == 'sumur_bor' && riskIndicators[6],
+          )
+        : null;
+    final legacyAnswers = isDynamic
+        ? switch (categoryIkl) {
+            'sumur_gali' => [
+              riskIndicators[2],
+              riskIndicators[5],
+              riskIndicators[3],
+              riskIndicators[4],
+              false,
+            ],
+            'sumur_bor' => [
+              riskIndicators[3],
+              riskIndicators[5],
+              riskIndicators[1],
+              riskIndicators[2],
+              riskIndicators[6],
+            ],
+            _ => List<bool>.filled(5, false),
+          }
+        : riskIndicators;
     final payload = <String, dynamic>{
       'id_jadwal': scheduleId,
+      if (reportId != null) 'id_laporan': reportId,
+      if (categoryIkl != null) 'kategori_ikl': categoryIkl,
       'jenis_sarana_air': waterSource,
       'jarak_sumber_pencemar': pollutantDistance,
       'tanggal_inspeksi': inspectionDate,
-      for (var index = 0; index < RiskScore.fields.length; index++)
-        RiskScore.fields[index]: riskIndicators[index],
+      if (isDynamic) ...{
+        for (var index = 0; index < 7; index++)
+          RiskScore.fields[index]: riskIndicators[index] ? 1 : 0,
+        'detail_indikator': [
+          for (var index = 0; index < 7; index++)
+            {
+              'nomor': index + 1,
+              'pertanyaan': indicatorQuestions != null && index < indicatorQuestions.length
+                  ? indicatorQuestions[index]
+                  : RiskScore.questionsFor(categoryIkl!)[index],
+              'jawaban_ya': riskIndicators[index],
+            },
+        ],
+        'total_skor_ya': score,
+        'kategori_risiko': riskCategory,
+      },
+      for (var index = 0; index < RiskScore.legacyFields.length; index++)
+        RiskScore.legacyFields[index]: legacyAnswers[index],
       'intervensi_fisik': intervention,
       'catatan_intervensi': interventionNote,
       'rekomendasi_sanitarian': recommendation,
@@ -171,6 +225,8 @@ class OfficerApiService {
               for (final entry in payload.entries)
                 entry.key: entry.value is bool
                     ? (entry.value == true ? '1' : '0')
+                    : entry.value is Map || entry.value is List
+                    ? jsonEncode(entry.value)
                     : entry.value.toString(),
             })
             ..files.add(
