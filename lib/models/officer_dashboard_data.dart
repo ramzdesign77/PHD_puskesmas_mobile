@@ -20,21 +20,69 @@ class OfficerDashboardData {
         _map(payload['user']) ??
         const <String, dynamic>{};
     final rawSchedules =
-        payload['tasks'] ?? payload['jadwal'] ?? payload['schedules'];
+        payload['tasks'] ??
+        payload['jadwal'] ??
+        payload['schedules'] ??
+        payload['reports'] ??
+        payload['laporan'] ??
+        payload['items'];
+    final combinedRows = <Object?>[
+      rawSchedules,
+      payload['recent_reports'],
+      payload['recentReports'],
+      payload['today_schedules'],
+      payload['todaySchedules'],
+    ];
+    final nestedData = payload['data'];
+    if (nestedData is Map) {
+      final nested = _map(nestedData) ?? const <String, dynamic>{};
+      combinedRows.addAll([
+        nested['tasks'],
+        nested['items'],
+        nested['jadwal'],
+        nested['schedules'],
+        nested['reports'],
+        nested['laporan'],
+        nested['recent_reports'],
+        nested['recentReports'],
+        nested['today_schedules'],
+        nested['todaySchedules'],
+      ]);
+    } else {
+      combinedRows.add(nestedData);
+    }
+    final schedules = <VisitSchedule>[];
+    final seen = <String>{};
+    for (final value in combinedRows) {
+      if (value is! List) continue;
+      for (final row in value.whereType<Map>()) {
+        final item = VisitSchedule.fromJson(Map<String, dynamic>.from(row));
+        final key =
+            '${item.isInspection}:${item.scheduleId ?? item.id}:${item.status}:${item.reporterName}:${item.category}';
+        if (seen.add(key)) schedules.add(item);
+      }
+    }
 
     return OfficerDashboardData(
       summary: OfficerSummary.fromJson(summaryJson),
-      schedules: _scheduleRows(rawSchedules),
+      schedules: schedules,
       profile: OfficerProfile.fromJson(profileJson),
     );
   }
 }
 
 class OfficerSummary {
-  const OfficerSummary({this.newReportsCount, this.todayInspectionsCount});
+  const OfficerSummary({
+    this.newReportsCount,
+    this.todayInspectionsCount,
+    this.activeTasksCount,
+    this.completedCount,
+  });
 
   final int? newReportsCount;
   final int? todayInspectionsCount;
+  final int? activeTasksCount;
+  final int? completedCount;
 
   factory OfficerSummary.fromJson(Map<String, dynamic> json) {
     return OfficerSummary(
@@ -45,6 +93,12 @@ class OfficerSummary {
         json['jadwal_ikl_hari_ini_count'] ??
             json['today_inspections_count'] ??
             json['jadwal_hari_ini_count'],
+      ),
+      activeTasksCount: _optionalInteger(
+        json['tugas_aktif_count'] ?? json['active_tasks_count'],
+      ),
+      completedCount: _optionalInteger(
+        json['selesai_count'] ?? json['completed_count'],
       ),
     );
   }
@@ -119,14 +173,6 @@ Map<String, dynamic>? _map(Object? value) {
   if (value is Map<String, dynamic>) return value;
   if (value is Map) return Map<String, dynamic>.from(value);
   return null;
-}
-
-List<VisitSchedule> _scheduleRows(Object? value) {
-  if (value is! List) return const [];
-  return value
-      .whereType<Map>()
-      .map((row) => VisitSchedule.fromJson(Map<String, dynamic>.from(row)))
-      .toList(growable: false);
 }
 
 int _integer(Object? value) {

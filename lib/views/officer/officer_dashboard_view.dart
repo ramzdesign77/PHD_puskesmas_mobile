@@ -35,7 +35,9 @@ class OfficerDashboardView extends StatefulWidget {
 
 class _OfficerDashboardViewState extends State<OfficerDashboardView> {
   int _selectedTab = 0;
-  String _taskFilter = 'Semua';
+  String _taskFilter = 'semua';
+  final TextEditingController _taskSearchController = TextEditingController();
+  String _taskSearch = '';
   List<VisitSchedule> _schedules = const [];
   OfficerDashboardData? _dashboard;
   bool _isLoading = true;
@@ -47,6 +49,12 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _taskSearchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -68,14 +76,33 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
       dashboardError = error;
     }
     try {
-      schedules = await widget.apiService.getTasks(widget.token);
+      schedules = await widget.apiService.fetchTasks(
+        token: widget.token,
+        filter: _taskFilter,
+        search: _taskSearch,
+      );
     } catch (error) {
       taskError = error;
     }
 
     if (!mounted) return;
-    final loadedSchedules =
-        schedules ?? dashboard?.schedules ?? const <VisitSchedule>[];
+    var loadedSchedules = schedules ?? const <VisitSchedule>[];
+    if (loadedSchedules.isEmpty && dashboard?.schedules.isNotEmpty == true) {
+      loadedSchedules = dashboard!.schedules;
+    } else if (loadedSchedules.isNotEmpty &&
+        dashboard?.schedules.isNotEmpty == true) {
+      final merged = <VisitSchedule>[...loadedSchedules];
+      final keys = {
+        for (final item in loadedSchedules)
+          '${item.isInspection}:${item.scheduleId ?? item.id}:${item.status}:${item.category}:${item.reporterName}',
+      };
+      for (final item in dashboard!.schedules) {
+        final key =
+            '${item.isInspection}:${item.scheduleId ?? item.id}:${item.status}:${item.category}:${item.reporterName}';
+        if (keys.add(key)) merged.add(item);
+      }
+      loadedSchedules = merged;
+    }
     setState(() {
       _dashboard = dashboard;
       _schedules = loadedSchedules;
@@ -109,25 +136,30 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
   String get _todayDate => DateTime.now().toIso8601String().substring(0, 10);
 
   int get _pendingTaskCount =>
-      _schedules.where((schedule) => _isPending(schedule.status)).length;
+      _dashboard?.summary.activeTasksCount ??
+      _schedules.where((schedule) => !_isFinished(schedule.status)).length;
 
-  int get _pendingReportCount => _schedules
-      .where(
-        (schedule) => !schedule.isInspection && _isPending(schedule.status),
-      )
-      .length;
+  int get _pendingReportCount =>
+      _dashboard?.summary.newReportsCount ??
+      _schedules
+          .where(
+            (schedule) => !schedule.isInspection && _isPending(schedule.status),
+          )
+          .length;
 
   int get _todayInspectionCount =>
       _dashboard?.summary.todayInspectionsCount ?? _todayInspections.length;
 
-  int get _completedTodayCount => _schedules
-      .where(
-        (schedule) =>
-            schedule.isInspection &&
-            schedule.status.toLowerCase() == 'selesai' &&
-            schedule.visitDate.startsWith(_todayDate),
-      )
-      .length;
+  int get _completedTodayCount =>
+      _dashboard?.summary.completedCount ??
+      _schedules
+          .where(
+            (schedule) =>
+                schedule.status.toLowerCase() == 'selesai' &&
+                (!schedule.isInspection ||
+                    schedule.visitDate.startsWith(_todayDate)),
+          )
+          .length;
 
   int get _totalInspectionCount =>
       _schedules.where((schedule) => schedule.isInspection).length;
@@ -168,7 +200,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
   }
 
   Future<void> _openDetail(VisitSchedule schedule) async {
-    final updated = await Navigator.of(context).push<VisitSchedule>(
+    final result = await Navigator.of(context).push<dynamic>(
       MaterialPageRoute(
         builder: (_) => OfficerDetailView(
           schedule: schedule,
@@ -177,7 +209,12 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
         ),
       ),
     );
-    if (updated == null || !mounted) return;
+    if (result == true) {
+      await _loadData();
+      return;
+    }
+    if (result is! VisitSchedule || !mounted) return;
+    final updated = result;
     setState(() {
       final index = _schedules.indexWhere((item) => item.id == updated.id);
       if (index >= 0) _schedules[index] = updated;
@@ -285,39 +322,37 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
           ],
         ),
       ),
-      bottomNavigationBar: Padding(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          8,
-          16,
-          10 + MediaQuery.viewPaddingOf(context).bottom,
-        ),
-        child: FluidBottomNav(
-          selectedIndex: _selectedTab,
-          onDestinationSelected: _selectTab,
-          showLabels: true,
-          destinations: const [
-            FluidNavDestination(
-              label: 'Beranda',
-              icon: Icons.home_outlined,
-              selectedIcon: Icons.home_rounded,
-            ),
-            FluidNavDestination(
-              label: 'Tugas Aduan',
-              icon: Icons.fact_check_outlined,
-              selectedIcon: Icons.fact_check_rounded,
-            ),
-            FluidNavDestination(
-              label: 'Input IKL',
-              icon: Icons.note_add_outlined,
-              selectedIcon: Icons.note_add_rounded,
-            ),
-            FluidNavDestination(
-              label: 'Profil',
-              icon: Icons.person_outline_rounded,
-              selectedIcon: Icons.person_rounded,
-            ),
-          ],
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+          child: FluidBottomNav(
+            selectedIndex: _selectedTab,
+            onDestinationSelected: _selectTab,
+            showLabels: true,
+            destinations: const [
+              FluidNavDestination(
+                label: 'Beranda',
+                icon: Icons.home_outlined,
+                selectedIcon: Icons.home_rounded,
+              ),
+              FluidNavDestination(
+                label: 'Tugas Aduan',
+                icon: Icons.fact_check_outlined,
+                selectedIcon: Icons.fact_check_rounded,
+              ),
+              FluidNavDestination(
+                label: 'Input IKL',
+                icon: Icons.note_add_outlined,
+                selectedIcon: Icons.note_add_rounded,
+              ),
+              FluidNavDestination(
+                label: 'Profil',
+                icon: Icons.person_outline_rounded,
+                selectedIcon: Icons.person_rounded,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -329,7 +364,15 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
       onRefresh: _loadData,
       child: ListView(
         key: const Key('officer_home_list'),
-        padding: const EdgeInsets.fromLTRB(18, 16, 18, 30),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: EdgeInsets.fromLTRB(
+          18,
+          16,
+          18,
+          120 + MediaQuery.viewPaddingOf(context).bottom,
+        ),
         children: [
           _buildHeroCard(),
           if (_dashboardWarning != null)
@@ -648,7 +691,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
   Widget _buildReportHighlights() {
     final reports = _recentReports;
     return SizedBox(
-      height: 178,
+      height: 195,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.only(bottom: 5, right: 4),
@@ -658,7 +701,13 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
           if (index == 0) {
             return _ReportCalloutCard(
               reportCount: _pendingReportCount,
-              onTap: () => _selectTab(1),
+              onTap: () {
+                setState(() {
+                  _taskFilter = 'aduan_baru';
+                  _selectedTab = 1;
+                });
+                _loadData();
+              },
             );
           }
           final report = reports[index - 1];
@@ -700,7 +749,10 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
     required bool isTaskList,
   }) {
     final visibleTasks = isTaskList
-        ? tasks.where(_matchesTaskFilter).toList(growable: false)
+        ? tasks
+              .where(_matchesTaskFilter)
+              .where(_matchesTaskSearch)
+              .toList(growable: false)
         : tasks;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -711,45 +763,106 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
           onRefresh: _loadData,
         ),
         if (isTaskList)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: ['Semua', 'Pending', 'Diproses', 'Selesai']
-                    .map(
-                      (filter) => Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(filter),
-                          selected: _taskFilter == filter,
-                          showCheckmark: false,
-                          selectedColor: AppColors.primary,
-                          backgroundColor: Colors.white,
-                          side: BorderSide(
-                            color: _taskFilter == filter
-                                ? AppColors.primary
-                                : AppColors.line,
-                          ),
-                          labelStyle: TextStyle(
-                            color: _taskFilter == filter
-                                ? Colors.white
-                                : AppColors.muted,
-                            fontFamily: AppTheme.bodyFontFamily,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          onSelected: (_) =>
-                              setState(() => _taskFilter = filter),
-                        ),
-                      ),
-                    )
-                    .toList(growable: false),
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children:
+                        const [
+                              ('semua', 'Semua'),
+                              ('aduan_baru', 'Aduan Baru'),
+                              ('jadwal_ikl', 'Jadwal IKL'),
+                              ('selesai', 'Selesai'),
+                            ]
+                            .map((item) {
+                              final selected = _taskFilter == item.$1;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text(item.$2),
+                                  selected: selected,
+                                  showCheckmark: false,
+                                  selectedColor: AppColors.primary,
+                                  backgroundColor: Colors.white,
+                                  side: BorderSide(
+                                    color: selected
+                                        ? AppColors.primary
+                                        : AppColors.line,
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: selected
+                                        ? Colors.white
+                                        : AppColors.muted,
+                                    fontFamily: AppTheme.bodyFontFamily,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  onSelected: (_) {
+                                    setState(() => _taskFilter = item.$1);
+                                    _loadData();
+                                  },
+                                ),
+                              );
+                            })
+                            .toList(growable: false),
+                  ),
+                ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: TextField(
+                  controller: _taskSearchController,
+                  onSubmitted: (_) => _loadData(),
+                  decoration: InputDecoration(
+                    hintText: 'Cari nama, desa, kategori, atau tiket',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _taskSearchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            onPressed: () {
+                              _taskSearchController.clear();
+                              setState(() => _taskSearch = '');
+                              _loadData();
+                            },
+                            icon: const Icon(Icons.close),
+                          ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: AppColors.line),
+                    ),
+                  ),
+                  onChanged: (value) => setState(() {
+                    _taskSearch = value;
+                  }),
+                ),
+              ),
+            ],
           ),
         if (_isLoading)
-          const Expanded(child: Center(child: WaterLoadingIndicator()))
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 12),
+                  Text(
+                    'Memuat daftar tugas aduan...',
+                    style: TextStyle(
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
         else if (_errorMessage != null)
           Expanded(child: Center(child: _buildError(_errorMessage!)))
         else if (visibleTasks.isEmpty)
@@ -779,19 +892,35 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                 color: AppColors.primary,
                 onRefresh: _loadData,
                 child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    8,
+                    16,
+                    120 + MediaQuery.viewPaddingOf(context).bottom,
+                  ),
                   itemCount: visibleTasks.length,
                   itemBuilder: (_, index) {
                     final task = visibleTasks[index];
                     return VisitCardWidget(
                       schedule: task,
                       onTap: () => _openDetail(task),
-                      onAction: isTaskList && _isPending(task.status)
+                      onAction:
+                          isTaskList &&
+                              !task.isInspection &&
+                              _isPending(task.status)
                           ? () => _verify(task)
                           : null,
-                      actionLabel: isTaskList && _isPending(task.status)
-                          ? 'Verifikasi'
-                          : 'Isi Form IKL',
+                      actionLabel:
+                          isTaskList &&
+                              !task.isInspection &&
+                              _isPending(task.status)
+                          ? 'Verifikasi & Jadwalkan'
+                          : task.isInspection
+                          ? 'Isi Form IKL'
+                          : 'Lihat Detail',
                       isInspection: !isTaskList || task.isInspection,
                     );
                   },
@@ -803,11 +932,44 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
     );
   }
 
+  bool _matchesTaskSearch(VisitSchedule task) {
+    final query = _taskSearch.trim().toLowerCase();
+    if (query.isEmpty) return true;
+    final searchable = [
+      task.reporterName,
+      task.category,
+      task.description,
+      task.village,
+      task.address,
+      task.ticketCode,
+      task.rt,
+      task.rw,
+    ].join(' ').toLowerCase();
+    return searchable.contains(query);
+  }
+
   bool _matchesTaskFilter(VisitSchedule task) {
+    final status = _normalizeTaskStatus(task.status);
     return switch (_taskFilter) {
-      'Pending' => _isPending(task.status),
-      'Diproses' => !_isPending(task.status) && !_isFinished(task.status),
-      'Selesai' => task.status.toLowerCase() == 'selesai',
+      'aduan_baru' => const [
+        'menunggu',
+        'dikirim',
+        'diproses',
+        'pending',
+        'belum_diverifikasi',
+        'menunggu_verifikasi',
+        'terjadwal',
+        'dijadwalkan',
+      ].contains(status),
+      'jadwal_ikl' =>
+        task.isInspection &&
+            const [
+              'dijadwalkan',
+              'terjadwal',
+              'ditindaklanjuti',
+              'diproses',
+            ].contains(task.status.toLowerCase()),
+      'selesai' => _isFinished(task.status),
       _ => true,
     };
   }
@@ -872,14 +1034,40 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
   }
 }
 
+String _normalizeTaskStatus(String status) =>
+    status.trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+
 bool _isFinished(String status) =>
     const ['selesai', 'batal', 'ditolak'].contains(status.toLowerCase());
 
+String formatKategoriLaporan(String raw) {
+  final normalized = raw.trim().toLowerCase();
+  return switch (normalized) {
+    'air_masalah' => 'Masalah Air Bersih',
+    'air_sumur_keruh_berbau' => 'Air Sumur Keruh / Berbau',
+    'sanitasi_lingkungan' => 'Sanitasi Lingkungan',
+    'sarang_nyamuk_dbd' => 'Sarang Nyamuk / DBD',
+    'jamban_limbah_stbm' => 'Masalah Jamban & Limbah (STBM)',
+    'tumpukan_sampah' => 'Tumpukan Sampah',
+    _ =>
+      raw.trim().isEmpty || raw == '-'
+          ? 'Kategori belum tersedia'
+          : raw.trim().replaceAll('_', ' ').replaceAll(RegExp(r'\s+'), ' '),
+  };
+}
+
 bool _isPending(String status) {
-  final normalized = status.toLowerCase();
-  return normalized == 'pending' ||
-      normalized == 'menunggu' ||
-      normalized == 'belum diverifikasi';
+  final normalized = _normalizeTaskStatus(status);
+  return const [
+    'pending',
+    'menunggu',
+    'dikirim',
+    'diproses',
+    'menunggu_verifikasi',
+    'belum_diverifikasi',
+    'terjadwal',
+    'dijadwalkan',
+  ].contains(normalized);
 }
 
 class _HeaderBubble extends StatelessWidget {
@@ -1207,7 +1395,7 @@ class _ReportCalloutCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 174,
-      height: 178,
+      height: 195,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -1314,7 +1502,7 @@ class _ReportSummaryCard extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(22),
           child: Container(
-            height: 178,
+            height: 195,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22),
@@ -1386,7 +1574,7 @@ class _ReportSummaryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  schedule.category,
+                  formatKategoriLaporan(schedule.category),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: AppColors.muted, fontSize: 10),

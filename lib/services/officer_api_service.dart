@@ -55,10 +55,21 @@ class OfficerApiService {
     return OfficerDashboardData.fromJson(_decode(response));
   }
 
-  Future<List<VisitSchedule>> getTasks(String token) async {
+  Future<List<VisitSchedule>> getTasks(
+    String token, {
+    String filter = 'semua',
+    String search = '',
+  }) async {
     final response = await _requestWithFallback(
-      () =>
-          _client.get(_officerEndpoint('tasks'), headers: _authHeaders(token)),
+      () {
+        final uri = _officerEndpoint('tasks').replace(
+          queryParameters: {
+            'filter': filter,
+            if (search.trim().isNotEmpty) 'search': search.trim(),
+          },
+        );
+        return _client.get(uri, headers: _authHeaders(token));
+      },
       () => _client.get(
         _legacyEndpoint('petugas/jadwal'),
         headers: _authHeaders(token),
@@ -66,6 +77,12 @@ class OfficerApiService {
     );
     return _extractSchedules(_decode(response));
   }
+
+  Future<List<VisitSchedule>> fetchTasks({
+    required String token,
+    String filter = 'semua',
+    String search = '',
+  }) => getTasks(token, filter: filter, search: search);
 
   /// Alias untuk kompatibilitas dengan pemanggil service sebelumnya.
   Future<List<VisitSchedule>> getMySchedules(String token) => getTasks(token);
@@ -144,22 +161,25 @@ class OfficerApiService {
         body: jsonEncode(payload),
       );
     } else {
-      final request = http.MultipartRequest('POST', _officerEndpoint('inspections'))
-        ..headers.addAll({
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        })
-        ..fields.addAll({
-          for (final entry in payload.entries)
-            entry.key: entry.value is bool
-                ? (entry.value == true ? '1' : '0')
-                : entry.value.toString(),
-        })
-        ..files.add(http.MultipartFile.fromBytes(
-          'foto_bukti',
-          await photo.readAsBytes(),
-          filename: photo.name,
-        ));
+      final request =
+          http.MultipartRequest('POST', _officerEndpoint('inspections'))
+            ..headers.addAll({
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            })
+            ..fields.addAll({
+              for (final entry in payload.entries)
+                entry.key: entry.value is bool
+                    ? (entry.value == true ? '1' : '0')
+                    : entry.value.toString(),
+            })
+            ..files.add(
+              http.MultipartFile.fromBytes(
+                'foto_bukti',
+                await photo.readAsBytes(),
+                filename: photo.name,
+              ),
+            );
       response = await http.Response.fromStream(await _client.send(request));
     }
     final body = _decode(response);
@@ -210,19 +230,74 @@ class OfficerApiService {
   }
 
   List<VisitSchedule> _extractSchedules(Map<String, dynamic> body) {
-    final payload = body['data'] ?? body['tasks'] ?? body['jadwal'];
-    if (payload is Map) {
-      final nested = payload['tasks'] ?? payload['jadwal'] ?? payload['data'];
-      if (nested is List) return _scheduleList(nested);
+    final result = <VisitSchedule>[];
+    final seenIds = <String>{};
+    void addRows(Object? value) {
+      if (value is List) {
+        for (final row in value.whereType<Map>()) {
+          final map = Map<String, dynamic>.from(row);
+          final item = VisitSchedule.fromJson(map);
+          final key =
+              '${item.isInspection ? 'schedule' : 'report'}:${item.scheduleId ?? item.id}:${item.status}:${item.reporterName}:${item.category}';
+          if (!seenIds.add(key)) continue;
+          result.add(item);
+        }
+      }
     }
-    if (payload is List) return _scheduleList(payload);
-    return const [];
-  }
 
-  List<VisitSchedule> _scheduleList(List<dynamic> rows) => rows
-      .whereType<Map>()
-      .map((row) => VisitSchedule.fromJson(Map<String, dynamic>.from(row)))
-      .toList(growable: false);
+    addRows(body['tasks']);
+    addRows(body['jadwal']);
+    addRows(body['schedules']);
+    addRows(body['reports']);
+    addRows(body['laporan']);
+    addRows(body['recent_reports']);
+    addRows(body['today_schedules']);
+
+    final data = body['data'];
+    if (data is List) {
+      addRows(data);
+    } else if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+      for (final key in const [
+        'tasks',
+        'items',
+        'jadwal',
+        'schedules',
+        'reports',
+        'laporan',
+        'recent_reports',
+        'recentReports',
+        'today_schedules',
+        'todaySchedules',
+        'data',
+      ]) {
+        addRows(map[key]);
+        final nested = map[key];
+        if (nested is Map) {
+          final nestedMap = Map<String, dynamic>.from(nested);
+          addRows(nestedMap['data']);
+          addRows(nestedMap['items']);
+          addRows(nestedMap['tasks']);
+        }
+      }
+    }
+
+    for (final key in const [
+      'tasks',
+      'items',
+      'jadwal',
+      'schedules',
+      'reports',
+      'laporan',
+      'recent_reports',
+      'recentReports',
+      'today_schedules',
+      'todaySchedules',
+    ]) {
+      addRows(body[key]);
+    }
+    return result;
+  }
 
   Uri _officerEndpoint(String path) {
     final configuredPath = _configuredUri.path.replaceFirst(RegExp(r'/+$'), '');

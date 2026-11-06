@@ -76,12 +76,50 @@ void main() {
       },
     );
 
+    test('reads tasks from data items and recent reports', () async {
+      final client = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'data': {
+              'items': [
+                {
+                  'id_laporan': 101,
+                  'nama_pelapor': 'Budi',
+                  'kategori_laporan': 'air_masalah',
+                  'status_laporan': 'menunggu_verifikasi',
+                  'nama_desa': 'Desa Satu',
+                  'rt': '02',
+                  'rw': '01',
+                },
+              ],
+              'recent_reports': [
+                {
+                  'id': 102,
+                  'nama_pelapor': 'Siti',
+                  'kategori_laporan': 'sanitasi_lingkungan',
+                  'status_laporan': 'dikirim',
+                },
+              ],
+            },
+          }),
+          200,
+        );
+      });
+
+      final tasks = await OfficerApiService(client: client)
+          .fetchTasks(token: 'token');
+
+      expect(tasks, hasLength(2));
+      expect(tasks.map((task) => task.id), containsAll([101, 102]));
+      expect(tasks.every((task) => task.scheduleId == null), isTrue);
+      client.close();
+    });
+
     test('hides database details when the schedule query fails', () async {
       final client = MockClient((request) async {
         return http.Response(
           jsonEncode({
-            'message':
-                "SQLSTATE[42S22]: Column not found: 1054 Unknown column 'id_paket' in 'field list'",
+            'message': "SQLSTATE[42S22]: Column not found: 1054 Unknown column 'id_paket' in 'field list'",
           }),
           500,
         );
@@ -123,12 +161,17 @@ void main() {
           expect(body.containsKey('total_skor_ya'), isFalse);
           expect(body['p5_air_keruh_berbau'], isFalse);
           expect(body['intervensi_fisik'], 'Pemberian Kaporit');
-          return http.Response(jsonEncode({'data': {
-            'id_inspeksi': 10,
-            'status_kunjungan': 'selesai',
-            'total_skor_ya': 1,
-            'kategori_risiko': 'risiko_sedang',
-          }}), 201);
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'id_inspeksi': 10,
+                'status_kunjungan': 'selesai',
+                'total_skor_ya': 1,
+                'kategori_risiko': 'risiko_sedang',
+              },
+            }),
+            201,
+          );
         });
 
         await OfficerApiService(client: client).submitInspection(
@@ -147,24 +190,35 @@ void main() {
       },
     );
 
-    test('does not fall back to saving a visit note when inspection fails', () async {
-      var requests = 0;
-      final client = MockClient((request) async {
-        requests++;
-        return http.Response(jsonEncode({'message': 'Jadwal tidak ditemukan.'}), 404);
-      });
-      await expectLater(
-        OfficerApiService(client: client).submitInspection(
-          token: 'token', scheduleId: 8, waterSource: 'pdam',
-          pollutantDistance: 12, inspectionDate: '2026-11-02',
-          riskIndicators: const [false, false, false, false, false],
-          intervention: 'Tidak Ada', interventionNote: '',
-          recommendation: 'Jaga kebersihan.', officerNote: '',
-        ),
-        throwsA(isA<ApiOfficerException>()),
-      );
-      expect(requests, 1);
-      client.close();
-    });
+    test(
+      'does not fall back to saving a visit note when inspection fails',
+      () async {
+        var requests = 0;
+        final client = MockClient((request) async {
+          requests++;
+          return http.Response(
+            jsonEncode({'message': 'Jadwal tidak ditemukan.'}),
+            404,
+          );
+        });
+        await expectLater(
+          OfficerApiService(client: client).submitInspection(
+            token: 'token',
+            scheduleId: 8,
+            waterSource: 'pdam',
+            pollutantDistance: 12,
+            inspectionDate: '2026-11-02',
+            riskIndicators: const [false, false, false, false, false],
+            intervention: 'Tidak Ada',
+            interventionNote: '',
+            recommendation: 'Jaga kebersihan.',
+            officerNote: '',
+          ),
+          throwsA(isA<ApiOfficerException>()),
+        );
+        expect(requests, 1);
+        client.close();
+      },
+    );
   });
 }

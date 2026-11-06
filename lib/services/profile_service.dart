@@ -340,8 +340,10 @@ class ProfileService {
     } catch (error) {
       // A response from a previous account must never replace a new session.
       for (final entry in previous.entries) {
-        if (_loadedToken != token || preferences.getString(_tokenKey) != token)
+        if (_loadedToken != token ||
+            preferences.getString(_tokenKey) != token) {
           break;
+        }
         try {
           if (entry.value == null) {
             await preferences.remove(entry.key);

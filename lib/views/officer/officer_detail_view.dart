@@ -129,12 +129,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
       if (!mounted) return;
       final riskLabel = RiskScore.label(result['kategori_risiko'] as String?);
       _showMessage('Hasil IKL tersimpan. Risiko: $riskLabel.');
-      Navigator.of(context).pop(
-        widget.schedule.copyWith(
-          status: result['status_kunjungan'] as String,
-          officerNote: result['rekomendasi_sanitarian'] as String? ?? '',
-        ),
-      );
+      Navigator.of(context).pop(true);
     } on ApiOfficerException catch (error) {
       if (mounted) {
         _showMessage(error.message, isError: true);

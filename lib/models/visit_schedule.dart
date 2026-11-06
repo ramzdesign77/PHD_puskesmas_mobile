@@ -48,12 +48,59 @@ class VisitSchedule {
     final location = json['lokasi'] is Map
         ? Map<String, dynamic>.from(json['lokasi'] as Map)
         : const <String, dynamic>{};
+    final villageValue = json['desa'] is Map
+        ? json['desa']
+        : json['village'] is Map
+        ? json['village']
+        : json['lokasi'] is Map
+        ? ((json['lokasi'] as Map)['desa'] is Map
+              ? (json['lokasi'] as Map)['desa']
+              : null)
+        : null;
+    final villageMap = villageValue is Map
+        ? Map<String, dynamic>.from(villageValue)
+        : const <String, dynamic>{};
+    final reporterValue = json['pelapor'] is Map
+        ? json['pelapor']
+        : json['user'] is Map
+        ? json['user']
+        : json['warga'] is Map
+        ? json['warga']
+        : null;
+    final reporterMap = reporterValue is Map
+        ? Map<String, dynamic>.from(reporterValue)
+        : const <String, dynamic>{};
     final inspectionValue =
-        json['hasil_inspeksi'] ?? json['inspection'] ?? schedule?['hasil_inspeksi'];
+        json['hasil_inspeksi'] ??
+        json['inspection'] ??
+        schedule?['hasil_inspeksi'];
     final inspection = inspectionValue is Map
         ? Map<String, dynamic>.from(inspectionValue)
         : const <String, dynamic>{};
-    final id = json['id'] ?? json['id_laporan'] ?? json['id_jadwal'];
+    final reportValue =
+        json['laporan'] ?? json['report'] ?? json['aduan'] ?? json['data'];
+    final report = reportValue is Map
+        ? Map<String, dynamic>.from(reportValue)
+        : const <String, dynamic>{};
+    final desaValue =
+        json['desa'] ??
+        json['village_name'] ??
+        report['desa'] ??
+        report['village'];
+    final desaMap = desaValue is Map
+        ? Map<String, dynamic>.from(desaValue)
+        : const <String, dynamic>{};
+    final nestedLocation = _map(report['lokasi']) ?? location;
+    final nestedPelapor = _map(report['pelapor']) ?? reporterMap;
+    final id =
+        json['id_laporan'] ??
+        json['laporan_id'] ??
+        report['id_laporan'] ??
+        report['id'] ??
+        json['id'] ??
+        json['id_jadwal'] ??
+        schedule?['id_laporan'] ??
+        schedule?['id'];
     final type =
         (json['tipe'] ??
                 json['type'] ??
@@ -62,34 +109,117 @@ class VisitSchedule {
                 '')
             .toString()
             .toLowerCase();
-    final scheduleId = json['id_jadwal'] ?? json['jadwal_id'] ??
-        schedule?['id_jadwal'] ?? schedule?['id'] ??
+    final scheduleId =
+        json['id_jadwal'] ??
+        json['jadwal_id'] ??
+        schedule?['id_jadwal'] ??
+        schedule?['id'] ??
         (type.contains('ikl') || type.contains('inspeksi') ? id : null);
+    final isInspectionValue =
+        type.contains('ikl') ||
+        type.contains('inspeksi') ||
+        json['is_inspection'] == true ||
+        json['id_jadwal'] != null ||
+        json['jadwal_id'] != null ||
+        schedule != null ||
+        json['tanggal_kunjungan'] != null ||
+        json['visit_date'] != null;
+    final statusValue =
+        json['status_kunjungan'] ??
+        schedule?['status_kunjungan'] ??
+        json['status_verifikasi'] ??
+        report['status_verifikasi'] ??
+        json['status_laporan'] ??
+        report['status_laporan'] ??
+        json['status'] ??
+        schedule?['status'];
+    final reporterName =
+        json['nama_pelapor'] ??
+        json['citizen_name'] ??
+        json['pelapor'] ??
+        reporterMap['nama_lengkap'] ??
+        reporterMap['name'] ??
+        reporterMap['nama'] ??
+        nestedPelapor['nama_lengkap'] ??
+        nestedPelapor['name'] ??
+        nestedPelapor['nama'] ??
+        report['nama_pelapor'];
+    final ticketCode =
+        json['kode_tiket'] ??
+        json['ticket_code'] ??
+        report['kode_tiket'] ??
+        report['ticket_code'];
+    final category =
+        json['kategori_label'] ??
+        json['kategori_laporan'] ??
+        json['category'] ??
+        json['kategori'] ??
+        report['kategori_label'] ??
+        report['kategori_laporan'];
+    final villageName =
+        json['nama_desa'] ??
+        desaMap['nama_desa'] ??
+        report['nama_desa'] ??
+        _map(report['desa'])?['nama_desa'] ??
+        json['village_name'] ??
+        villageMap['nama_desa'] ??
+        villageMap['name'] ??
+        (desaValue is String ? desaValue : null) ??
+        location['nama_desa'] ??
+        location['desa'];
     return VisitSchedule(
-      scheduleId: scheduleId is int ? scheduleId : int.tryParse(scheduleId?.toString() ?? ''),
+      scheduleId: scheduleId is int
+          ? scheduleId
+          : int.tryParse(scheduleId?.toString() ?? ''),
       id: id is int ? id : int.tryParse(id?.toString() ?? '') ?? 0,
-      reporterName: _stringValue(json['nama_pelapor'] ?? json['reporter_name']),
-      address: _stringValue(json['alamat'] ?? json['address']),
-      village: _stringValue(
-        json['desa'] ?? json['nama_desa'] ?? location['desa'],
+      reporterName: _stringValue(reporterName, fallback: 'Warga Pelapor'),
+      address: _stringValue(
+        json['alamat_detail'] ??
+            json['patokan_alamat'] ??
+            json['alamat'] ??
+            json['address'] ??
+            report['alamat_detail'] ??
+            report['alamat'] ??
+            nestedLocation['alamat_detail'] ??
+            '',
+        fallback: '',
       ),
+      village: _stringValue(villageName, fallback: '-'),
       visitDate: _stringValue(
         schedule?['tanggal_kunjungan'] ??
             json['tanggal_kunjungan'] ??
-            json['visit_date'],
+            json['visit_date'] ??
+            json['created_at'] ??
+            report['tanggal_kunjungan'] ??
+            report['created_at'],
+        fallback: '',
       ),
-      status: _stringValue(
-        json['status_kunjungan'] ?? schedule?['status_kunjungan'] ??
-        json['status_laporan'] ?? json['status'] ?? schedule?['status'],
-        fallback: 'pending',
+      status: _stringValue(statusValue, fallback: 'menunggu'),
+      category: _normalizeCategory(category),
+      description: _stringValue(
+        json['deskripsi'] ??
+            json['description'] ??
+            json['isi_laporan'] ??
+            report['deskripsi'] ??
+            report['description'] ??
+            '',
+        fallback: '',
       ),
-      category: _stringValue(
-        json['kategori_laporan'] ?? json['kategori'] ?? json['category'],
+      rt: _stringValue(
+        json['rt'] ??
+            report['rt'] ??
+            nestedLocation['rt'] ??
+            location['rt'] ??
+            villageMap['rt'],
       ),
-      description: _stringValue(json['deskripsi'] ?? json['description']),
-      rt: _stringValue(json['rt'] ?? location['rt']),
-      rw: _stringValue(json['rw'] ?? location['rw']),
-      ticketCode: _stringValue(json['kode_tiket'] ?? json['ticket_code']),
+      rw: _stringValue(
+        json['rw'] ??
+            report['rw'] ??
+            nestedLocation['rw'] ??
+            location['rw'] ??
+            villageMap['rw'],
+      ),
+      ticketCode: _stringValue(ticketCode, fallback: '-'),
       officerNote: _stringValue(
         schedule?['catatan_petugas'] ?? json['catatan_petugas'],
       ),
@@ -98,7 +228,7 @@ class VisitSchedule {
           : schedule?['foto_bukti'] is String
           ? schedule!['foto_bukti'] as String
           : null,
-      isInspection: type.contains('ikl') || type.contains('inspeksi'),
+      isInspection: isInspectionValue,
       riskCategory: _optionalString(
         inspection['kategori_risiko'] ??
             inspection['kategori_risiko_air'] ??
@@ -136,6 +266,27 @@ String _stringValue(Object? value, {String fallback = '-'}) =>
 
 String? _optionalString(Object? value) =>
     value is String && value.trim().isNotEmpty ? value.trim() : null;
+
+Map<String, dynamic>? _map(Object? value) {
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) return Map<String, dynamic>.from(value);
+  return null;
+}
+
+String _normalizeCategory(Object? value) {
+  final raw = value?.toString().trim() ?? '';
+  if (raw.isEmpty || raw == '-') return 'Masalah Sanitasi';
+  final normalized = raw.toLowerCase().replaceAll(' ', '_');
+  return switch (normalized) {
+    'air_masalah' => 'Masalah Air Bersih',
+    'air_sumur_keruh_berbau' => 'Air Sumur Keruh / Berbau',
+    'sanitasi_lingkungan' => 'Sanitasi Lingkungan',
+    'sarang_nyamuk_dbd' => 'Sarang Nyamuk / DBD',
+    'jamban_limbah_stbm' => 'Masalah Jamban & Limbah (STBM)',
+    'tumpukan_sampah' => 'Tumpukan Sampah',
+    _ => raw.replaceAll('_', ' ').replaceAll(RegExp(r'\s+'), ' ').trim(),
+  };
+}
 
 /// Data dummy untuk preview UI sebelum API dihubungkan.
 final List<VisitSchedule> dummyVisitSchedules = [
