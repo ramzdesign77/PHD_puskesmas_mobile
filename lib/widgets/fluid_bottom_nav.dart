@@ -132,13 +132,9 @@ class _FluidBottomNavState extends State<FluidBottomNav>
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.82),
-                            ),
-                          ),
+                        DecoratedBox(
+                          key: const Key('fluid_nav_surface'),
+                          decoration: const BoxDecoration(color: Colors.white),
                         ),
                         CustomPaint(
                           painter: _FluidNavBorderPainter(

@@ -305,7 +305,6 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
       _buildProfileTab(),
     ];
     return Scaffold(
-      extendBody: true,
       backgroundColor: _canvasWhite,
       body: SafeArea(
         bottom: false,

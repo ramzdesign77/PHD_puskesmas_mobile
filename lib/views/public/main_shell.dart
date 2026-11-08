@@ -142,7 +142,6 @@ class _MainShellState extends State<MainShell> {
     ];
 
     return Scaffold(
-      extendBody: true,
       body: IndexedStack(index: _currentIndex, children: screens),
       bottomNavigationBar: Padding(
         padding: EdgeInsets.fromLTRB(

@@ -103,7 +103,13 @@ void main() {
 
     expect(find.text('Halaman Beranda'), findsOneWidget);
     expect(find.byType(FluidBottomNav), findsOneWidget);
+    expect(tester.widget<Scaffold>(find.byType(Scaffold)).extendBody, isFalse);
     expect(tester.getSize(find.byType(FluidBottomNav)).height, 64);
+    final navSurface = tester.widget<DecoratedBox>(
+      find.byKey(const Key('fluid_nav_surface')),
+    );
+    expect((navSurface.decoration as BoxDecoration).color, Colors.white);
+    expect(find.byType(BackdropFilter), findsNothing);
     final selectedDrop = tester.widget<Container>(
       find.byKey(const Key('fluid_nav_drop_Beranda')),
     );
