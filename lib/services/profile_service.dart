@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_config.dart';
+import '../models/saved_address.dart';
 
 class LocalProfile {
   LocalProfile({
@@ -132,6 +133,48 @@ class ProfileService {
         return profile;
       });
 
+  Future<SavedAddress?> loadSavedAddress() => _withNetworkErrors(() async {
+    final preferences = await _preferencesProvider();
+    final token = await _currentToken(preferences);
+    final response = await _client
+        .get(_profileUri, headers: _headers(token))
+        .timeout(const Duration(seconds: 20));
+    _assertCurrentSession(preferences, token);
+    return _savedAddressFromResponse(_responseBody(response));
+  });
+
+  Future<SavedAddress> saveAddress(
+    SavedAddress address, {
+    required LocalProfile profile,
+  }) => _withNetworkErrors(() async {
+    final preferences = await _preferencesProvider();
+    final token = await _currentToken(preferences);
+    final response = await _client
+        .put(
+          _profileUri,
+          headers: _headers(token, json: true),
+          body: jsonEncode({
+            'nama_lengkap': profile.name.trim(),
+            'username': profile.username.trim(),
+            'email': profile.email.trim(),
+            'no_telepon': profile.phone.trim(),
+            ...address.toJson(),
+          }),
+        )
+        .timeout(const Duration(seconds: 20));
+    _assertCurrentSession(preferences, token);
+    final saved = _savedAddressFromResponse(_responseBody(response));
+    return saved == null
+        ? address
+        : SavedAddress(
+            villageId: saved.villageId,
+            rt: saved.rt,
+            rw: saved.rw,
+            detail: saved.detail,
+            villageName: saved.villageName ?? address.villageName,
+          );
+  });
+
   Future<LocalProfile> save(LocalProfile profile) =>
       _withNetworkErrors(() async {
         final preferences = await _preferencesProvider();
@@ -153,6 +196,58 @@ class ProfileService {
         await _cache(preferences, saved, token);
         return saved;
       });
+
+  Future<String> _currentToken(SharedPreferences preferences) async {
+    final token = preferences.getString(_tokenKey);
+    if (token == null || token.trim().isEmpty) {
+      throw const ProfileException('Silakan masuk untuk mengelola alamat.');
+    }
+    _loadedToken = token;
+    _assertCurrentSession(preferences, token);
+    return token;
+  }
+
+  SavedAddress? _savedAddressFromResponse(Map<String, dynamic> body) {
+    final data = body['data'];
+    final user = data is Map
+        ? (data['user'] is Map ? data['user'] as Map : data)
+        : body['user'] is Map
+        ? body['user'] as Map
+        : body;
+    final nestedAddress = user['alamat'] is Map ? user['alamat'] as Map : user;
+    final village = nestedAddress['desa'] is Map
+        ? nestedAddress['desa'] as Map
+        : const <Object?, Object?>{};
+    final villageId =
+        nestedAddress['id_desa'] ??
+        nestedAddress['desa_id'] ??
+        nestedAddress['village_id'] ??
+        village['id_desa'] ??
+        village['id'];
+    final rt = nestedAddress['rt']?.toString();
+    final rw = nestedAddress['rw']?.toString();
+    final detail =
+        nestedAddress['alamat_detail'] ??
+        nestedAddress['patokan_alamat'] ??
+        nestedAddress['detail_alamat'];
+    final villageName = village['nama_desa'] ?? nestedAddress['nama_desa'];
+    if (villageId == null && rt == null && rw == null && detail == null) {
+      return null;
+    }
+    final parsedVillageId = int.tryParse(villageId?.toString() ?? '');
+    if (parsedVillageId == null || rt == null || rw == null) {
+      throw const ProfileException(
+        'Data alamat dari server belum lengkap. Periksa konfigurasi API profil.',
+      );
+    }
+    return SavedAddress(
+      villageId: parsedVillageId,
+      rt: rt,
+      rw: rw,
+      detail: detail?.toString() ?? '',
+      villageName: villageName is String ? villageName : null,
+    );
+  }
 
   Future<void> changePassword({
     required String currentPassword,

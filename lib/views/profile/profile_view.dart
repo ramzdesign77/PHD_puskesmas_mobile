@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
+import '../../services/api_service.dart';
 import '../../services/profile_service.dart';
+import 'account_info_view.dart';
 import 'change_password_view.dart';
 import 'edit_profile_view.dart';
 import 'profile_widgets.dart';
@@ -19,6 +21,7 @@ class ProfileView extends StatefulWidget {
     this.accountDetails = const {},
     this.logoutKey,
     this.profileService,
+    this.apiService,
   });
 
   final String fallbackName;
@@ -31,6 +34,7 @@ class ProfileView extends StatefulWidget {
   final Map<String, String> accountDetails;
   final Key? logoutKey;
   final ProfileService? profileService;
+  final ApiService? apiService;
 
   @override
   State<ProfileView> createState() => _ProfileViewState();
@@ -92,6 +96,18 @@ class _ProfileViewState extends State<ProfileView> {
     if (changed != true || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Password berhasil diperbarui.')),
+    );
+  }
+
+  Future<void> _openAccountInfo(LocalProfile profile) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => AccountInfoView(
+          profile: profile,
+          profileService: _profileService,
+          apiService: widget.apiService,
+        ),
+      ),
     );
   }
 
@@ -316,15 +332,10 @@ class _ProfileViewState extends State<ProfileView> {
                               onTap: _changePassword,
                             ),
                             ProfileSettingsRow(
+                              key: const Key('profile_account_info_button'),
                               icon: Icons.badge_outlined,
-                              label: 'Informasi akun',
-                              onTap: () => _showDetails('Informasi akun', {
-                                'Peran akun': widget.roleLabel,
-                                'Nama lengkap': profile.name,
-                                'Email': profile.email,
-                                'Nomor telepon': profile.phone,
-                                ...widget.accountDetails,
-                              }),
+                              label: 'Alamat',
+                              onTap: () => _openAccountInfo(profile),
                             ),
                           ],
                         ),

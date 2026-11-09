@@ -6,8 +6,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../constants/app_colors.dart';
+import '../../models/saved_address.dart';
 import '../../models/village.dart';
 import '../../services/api_service.dart';
+import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
 
@@ -222,6 +224,68 @@ class _CategoryWaterPainter extends CustomPainter {
       oldDelegate.progress != progress;
 }
 
+class _AddressSourceOption extends StatelessWidget {
+  const _AddressSourceOption({
+    super.key,
+    required this.selected,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(14),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: selected ? AppColors.softBlue : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: selected ? AppColors.primary : AppColors.line,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            selected
+                ? Icons.radio_button_checked_rounded
+                : Icons.radio_button_off_rounded,
+            color: selected ? AppColors.primary : AppColors.muted,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class ReportView extends StatefulWidget {
   const ReportView({
     super.key,
@@ -229,18 +293,24 @@ class ReportView extends StatefulWidget {
     this.onReportSubmitted,
     this.onOpenTicketHistory,
     this.onOpenAllHistory,
+    this.profileService,
+    this.isActive = true,
   });
 
   final ApiService apiService;
   final ValueChanged<String>? onReportSubmitted;
   final ValueChanged<String>? onOpenTicketHistory;
   final VoidCallback? onOpenAllHistory;
+  final ProfileService? profileService;
+  final bool isActive;
 
   @override
   State<ReportView> createState() => _ReportViewState();
 }
 
 class _ReportViewState extends State<ReportView> {
+  late final ProfileService _profileService =
+      widget.profileService ?? ProfileService();
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _phone = TextEditingController();
@@ -261,12 +331,29 @@ class _ReportViewState extends State<ReportView> {
   bool _isLoadingLocation = false;
   Position? _selectedPosition;
   String? _profileVillageName;
+  SavedAddress? _savedAddress;
+  String? _savedAddressError;
+  bool _useAccountAddress = false;
 
   @override
   void initState() {
     super.initState();
     _villages = widget.apiService.getVillages();
-    _loadSession();
+    if (widget.isActive) _loadSession();
+  }
+
+  @override
+  void didUpdateWidget(covariant ReportView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !oldWidget.isActive) {
+      if (_sessionLoaded) {
+        _refreshSavedAddress(
+          applyAddress: _useAccountAddress || _savedAddress == null,
+        );
+      } else {
+        _loadSession();
+      }
+    }
   }
 
   Future<void> _loadSession() async {
@@ -284,6 +371,49 @@ class _ReportViewState extends State<ReportView> {
         _selectedRw = rw == null || rw.isEmpty ? null : rw.padLeft(2, '0');
         _phone.text = session.phone ?? '';
       }
+    });
+    if (session == null) return;
+    await _refreshSavedAddress(applyAddress: true);
+  }
+
+  Future<void> _refreshSavedAddress({required bool applyAddress}) async {
+    try {
+      final address = await _profileService.loadSavedAddress();
+      if (!mounted) return;
+      setState(() {
+        _savedAddress = address;
+        _savedAddressError = null;
+        if (applyAddress && address != null) {
+          _useAccountAddress = true;
+          _profileVillageName = address.villageName ?? _profileVillageName;
+          _selectedRt = address.rt.trim().padLeft(2, '0');
+          _selectedRw = address.rw.trim().padLeft(2, '0');
+          _alamatDetail.text = address.detail;
+        } else if (address == null && _useAccountAddress) {
+          _useAccountAddress = false;
+        }
+      });
+    } on ProfileException catch (error) {
+      if (mounted) setState(() => _savedAddressError = error.message);
+    } on Exception catch (_) {
+      if (mounted) {
+        setState(
+          () => _savedAddressError = 'Alamat akun belum dapat dimuat. Anda tetap bisa mengisi lokasi secara manual.',
+        );
+      }
+    }
+  }
+
+  void _useSavedAccountAddress() {
+    final address = _savedAddress;
+    if (address == null) return;
+    setState(() {
+      _useAccountAddress = true;
+      _selectedVillage = null;
+      _profileVillageName = address.villageName ?? _profileVillageName;
+      _selectedRt = address.rt.trim().padLeft(2, '0');
+      _selectedRw = address.rw.trim().padLeft(2, '0');
+      _alamatDetail.text = address.detail;
     });
   }
 
@@ -512,13 +642,20 @@ class _ReportViewState extends State<ReportView> {
       _description.clear();
       setState(() {
         _selectedVillage = null;
-        _selectedRt = null;
-        _selectedRw = null;
+        _selectedRt = _useAccountAddress
+            ? _savedAddress?.rt.trim().padLeft(2, '0')
+            : null;
+        _selectedRw = _useAccountAddress
+            ? _savedAddress?.rw.trim().padLeft(2, '0')
+            : null;
         _category = '';
         _image = null;
         _imageBytes = null;
         _selectedPosition = null;
       });
+      _alamatDetail.text = _useAccountAddress
+          ? _savedAddress?.detail ?? ''
+          : '';
     } on ApiException catch (error) {
       _showError(error.message);
     } on Exception catch (error) {
@@ -826,6 +963,67 @@ class _ReportViewState extends State<ReportView> {
                               title: 'Lokasi Kejadian',
                             ),
                             const SizedBox(height: 12),
+                            if (_savedAddressError != null) ...[
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.softBlue,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Text(
+                                  _savedAddressError!,
+                                  style: const TextStyle(
+                                    color: AppColors.ink,
+                                    fontSize: 12,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                            if (_savedAddress != null) ...[
+                              _AddressSourceOption(
+                                key: const Key('report_use_account_address'),
+                                selected: _useAccountAddress,
+                                title: 'Gunakan alamat akun',
+                                subtitle: 'Alamat tersimpan di Informasi Akun',
+                                onTap: _useSavedAccountAddress,
+                              ),
+                              const SizedBox(height: 8),
+                              _AddressSourceOption(
+                                key: const Key('report_use_other_address'),
+                                selected: !_useAccountAddress,
+                                title: 'Gunakan lokasi lain',
+                                subtitle: 'Isi lokasi kejadian secara manual',
+                                onTap: () =>
+                                    setState(() => _useAccountAddress = false),
+                              ),
+                              const SizedBox(height: 12),
+                            ] else if (_isLoggedIn && _sessionLoaded) ...[
+                              Container(
+                                key: const Key('report_address_not_saved'),
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.softBlue,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.18,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  _savedAddressError ?? 'Belum ada alamat tersimpan. Anda tetap bisa mengisi lokasi laporan di sini. Simpan alamat melalui Profil → Alamat.',
+                                  style: const TextStyle(
+                                    color: AppColors.ink,
+                                    fontSize: 12,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
                             _buildFieldLabel('Desa / Kelurahan'),
                             FutureBuilder<List<Village>>(
                               future: _villages,
@@ -840,15 +1038,20 @@ class _ReportViewState extends State<ReportView> {
                                 }
                                 final villages = snapshot.data ?? [];
                                 if (_selectedVillage == null &&
-                                    _profileVillageName != null &&
+                                    (_savedAddress != null ||
+                                        _profileVillageName != null) &&
                                     villages.isNotEmpty) {
                                   final matches = villages
                                       .where(
-                                        (village) =>
-                                            village.name.toLowerCase().trim() ==
-                                            _profileVillageName!
-                                                .toLowerCase()
-                                                .trim(),
+                                        (village) => _savedAddress != null
+                                            ? village.id ==
+                                                  _savedAddress!.villageId
+                                            : village.name
+                                                      .toLowerCase()
+                                                      .trim() ==
+                                                  _profileVillageName!
+                                                      .toLowerCase()
+                                                      .trim(),
                                       )
                                       .toList();
                                   if (matches.isNotEmpty) {
@@ -862,10 +1065,26 @@ class _ReportViewState extends State<ReportView> {
                                             });
                                           }
                                         });
+                                  } else if (_savedAddress != null &&
+                                      _useAccountAddress) {
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (mounted &&
+                                              _useAccountAddress &&
+                                              _savedAddress != null) {
+                                            setState(() {
+                                              _useAccountAddress = false;
+                                              _savedAddressError = 'Desa pada alamat akun tidak tersedia. Pilih lokasi lain untuk melanjutkan.';
+                                            });
+                                          }
+                                        });
                                   }
                                 }
 
                                 return DropdownButtonFormField<Village>(
+                                  key: ValueKey(
+                                    'report_village_${_selectedVillage?.id ?? 'none'}_$_useAccountAddress',
+                                  ),
                                   initialValue: _selectedVillage,
                                   icon: const Icon(
                                     Icons.keyboard_arrow_down,
@@ -897,9 +1116,11 @@ class _ReportViewState extends State<ReportView> {
                                       ),
                                     );
                                   }).toList(),
-                                  onChanged: (village) => setState(
-                                    () => _selectedVillage = village,
-                                  ),
+                                  onChanged: _useAccountAddress
+                                      ? null
+                                      : (village) => setState(
+                                          () => _selectedVillage = village,
+                                        ),
                                   validator: (val) => val == null
                                       ? 'Pilih desa atau kelurahan.'
                                       : null,
@@ -919,6 +1140,9 @@ class _ReportViewState extends State<ReportView> {
                               children: [
                                 Expanded(
                                   child: DropdownButtonFormField<String>(
+                                    key: ValueKey(
+                                      'report_rt_${_selectedRt}_$_useAccountAddress',
+                                    ),
                                     initialValue: _selectedRt,
                                     icon: const Icon(
                                       Icons.keyboard_arrow_down,
@@ -962,8 +1186,10 @@ class _ReportViewState extends State<ReportView> {
                                         ),
                                       );
                                     }),
-                                    onChanged: (val) =>
-                                        setState(() => _selectedRt = val),
+                                    onChanged: _useAccountAddress
+                                        ? null
+                                        : (val) =>
+                                              setState(() => _selectedRt = val),
                                     validator: (val) =>
                                         val == null || val.isEmpty
                                         ? 'Pilih RT'
@@ -973,6 +1199,9 @@ class _ReportViewState extends State<ReportView> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: DropdownButtonFormField<String>(
+                                    key: ValueKey(
+                                      'report_rw_${_selectedRw}_$_useAccountAddress',
+                                    ),
                                     initialValue: _selectedRw,
                                     icon: const Icon(
                                       Icons.keyboard_arrow_down,
@@ -1016,8 +1245,10 @@ class _ReportViewState extends State<ReportView> {
                                         ),
                                       );
                                     }),
-                                    onChanged: (val) =>
-                                        setState(() => _selectedRw = val),
+                                    onChanged: _useAccountAddress
+                                        ? null
+                                        : (val) =>
+                                              setState(() => _selectedRw = val),
                                     validator: (val) =>
                                         val == null || val.isEmpty
                                         ? 'Pilih RW'
@@ -1028,7 +1259,11 @@ class _ReportViewState extends State<ReportView> {
                             ),
                             const SizedBox(height: 10),
                             TextFormField(
+                              key: ValueKey(
+                                'report_address_detail_$_useAccountAddress',
+                              ),
                               controller: _alamatDetail,
+                              enabled: !_useAccountAddress,
                               validator: _required,
                               textCapitalization: TextCapitalization.sentences,
                               style: const TextStyle(

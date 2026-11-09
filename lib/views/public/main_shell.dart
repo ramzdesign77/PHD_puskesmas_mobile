@@ -118,6 +118,7 @@ class _MainShellState extends State<MainShell> {
       ),
       ReportView(
         apiService: widget.apiService,
+        isActive: _currentIndex == 1,
         onReportSubmitted: _handleReportSubmitted,
         onOpenTicketHistory: _handleOpenTicketHistory,
         onOpenAllHistory: _handleOpenAllHistory,
