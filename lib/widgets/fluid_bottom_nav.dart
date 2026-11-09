@@ -107,14 +107,15 @@ class _FluidBottomNavState extends State<FluidBottomNav>
                 borderRadius: BorderRadius.circular(_fluidNavCornerRadius),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.19),
-                    blurRadius: 28,
-                    offset: const Offset(0, 10),
+                    color: AppColors.primary.withValues(alpha: 0.16),
+                    blurRadius: 26,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 8),
                   ),
                   BoxShadow(
-                    color: AppColors.primaryLight.withValues(alpha: 0.09),
-                    blurRadius: 12,
-                    offset: const Offset(0, 3),
+                    color: AppColors.primaryLight.withValues(alpha: 0.12),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
@@ -132,9 +133,30 @@ class _FluidBottomNavState extends State<FluidBottomNav>
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
+
                         DecoratedBox(
                           key: const Key('fluid_nav_surface'),
                           decoration: const BoxDecoration(color: Colors.white),
+
+                        BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.76),
+                                  const Color(0xFFDDF4FC)
+                                      .withValues(alpha: 0.70),
+                                ],
+                              ),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.55),
+                              ),
+                            ),
+                          ),
+                        )
                         ),
                         CustomPaint(
                           painter: _FluidNavBorderPainter(

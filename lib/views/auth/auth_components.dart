@@ -82,6 +82,7 @@ class AuthBrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return DynamicWaterHeader(
       height: 230,
+      animated: true,
       child: SizedBox(
         width: double.infinity,
         child: Stack(
