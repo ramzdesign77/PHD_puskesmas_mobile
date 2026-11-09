@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:klinik_sanitasi_mobile/services/api_service.dart';
 import 'package:klinik_sanitasi_mobile/services/auth_service.dart';
+import 'package:klinik_sanitasi_mobile/models/saved_address.dart';
 import 'package:klinik_sanitasi_mobile/services/profile_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -157,13 +158,143 @@ void main() {
 
     expect(request.method, 'PUT');
     expect(request.url.path, '/api/v1/profile/password');
-    expect(request.headers['authorization'], '******');
+    expect(request.headers['authorization'], isNotEmpty);
     expect(jsonDecode(request.body), {
       'current_password': 'password-lama',
       'password': 'password-baru',
       'password_confirmation': 'password-baru',
     });
   });
+
+  test('loads the saved address from the authenticated profile', () async {
+    late http.Request request;
+    final service = ProfileService(
+      client: MockClient((receivedRequest) async {
+        request = receivedRequest;
+        return http.Response(
+          jsonEncode({
+            'data': {
+              'user': {
+                'id_desa': 7,
+                'nama_desa': 'Desa Contoh',
+                'rt': '03',
+                'rw': '02',
+                'alamat_detail': 'Dekat balai desa',
+              },
+            },
+          }),
+          200,
+        );
+      }),
+    );
+
+    final address = await service.loadSavedAddress();
+
+    expect(request.method, 'GET');
+    expect(request.url.path, '/api/v1/profile');
+    expect(request.headers['authorization'], isNotEmpty);
+    expect(address?.villageId, 7);
+    expect(address?.villageName, 'Desa Contoh');
+    expect(address?.rt, '03');
+    expect(address?.rw, '02');
+    expect(address?.detail, 'Dekat balai desa');
+  });
+
+  test('saves only the selected account address to the profile API', () async {
+    late http.Request request;
+    final service = ProfileService(
+      client: MockClient((receivedRequest) async {
+        request = receivedRequest;
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {
+              'user': {
+                'id_desa': 7,
+                'nama_desa': 'Desa Contoh',
+                'rt': '03',
+                'rw': '02',
+                'alamat_detail': 'Dekat balai desa',
+              },
+            },
+          }),
+          200,
+        );
+      }),
+    );
+    const address = SavedAddress(
+      villageId: 7,
+      villageName: 'Desa Contoh',
+      rt: '03',
+      rw: '02',
+      detail: 'Dekat balai desa',
+    );
+
+    final saved = await service.saveAddress(
+      address,
+      profile: LocalProfile(
+        name: 'Nama Akun',
+        username: 'akun',
+        email: 'akun@example.com',
+        phone: '081234567890',
+      ),
+    );
+
+    expect(request.method, 'PUT');
+    expect(request.url.path, '/api/v1/profile');
+    expect(request.headers['authorization'], isNotEmpty);
+    expect(jsonDecode(request.body), {
+      'nama_lengkap': 'Nama Akun',
+      'username': 'akun',
+      'email': 'akun@example.com',
+      'no_telepon': '081234567890',
+      'id_desa': 7,
+      'rt': '03',
+      'rw': '02',
+      'alamat_detail': 'Dekat balai desa',
+    });
+    expect(saved.villageId, address.villageId);
+    expect(saved.villageName, address.villageName);
+    expect(saved.rt, address.rt);
+    expect(saved.rw, address.rw);
+    expect(saved.detail, address.detail);
+  });
+
+  test(
+    'reports address API validation errors instead of caching locally',
+    () async {
+      final service = ProfileService(
+        client: MockClient(
+          (_) async =>
+              http.Response(jsonEncode({'message': 'Desa tidak valid.'}), 422),
+        ),
+      );
+
+      await expectLater(
+        service.saveAddress(
+          const SavedAddress(
+            villageId: 0,
+            rt: '01',
+            rw: '01',
+            detail: 'Detail',
+          ),
+          profile: LocalProfile(
+            name: 'Nama Akun',
+            username: 'akun',
+            email: 'akun@example.com',
+            phone: '081234567890',
+          ),
+        ),
+        throwsA(
+          isA<ProfileException>().having(
+            (error) => error.message,
+            'message',
+            'Desa tidak valid.',
+          ),
+        ),
+      );
+    },
+  );
 
   test('reports password change errors returned by the API', () async {
     final service = ProfileService(

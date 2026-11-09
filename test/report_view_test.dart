@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:klinik_sanitasi_mobile/models/saved_address.dart';
 import 'package:klinik_sanitasi_mobile/models/village.dart';
 import 'package:klinik_sanitasi_mobile/services/api_service.dart';
+import 'package:klinik_sanitasi_mobile/services/profile_service.dart';
 import 'package:klinik_sanitasi_mobile/views/public/report_view.dart';
 
 class _FakeReportApiService extends ApiService {
@@ -11,6 +13,31 @@ class _FakeReportApiService extends ApiService {
       const Village(id: 1, name: 'Desa Sumbersari'),
       const Village(id: 2, name: 'Desa Sukamaju'),
     ];
+  }
+}
+
+class _AuthenticatedReportApiService extends _FakeReportApiService {
+  @override
+  Future<AuthSession?> loadSavedSession() async =>
+      const AuthSession(token: 'test-token', role: 'warga', userName: 'Warga');
+}
+
+class _SavedAddressProfileService extends ProfileService {
+  _SavedAddressProfileService(this.address);
+
+  final SavedAddress? address;
+  int saveCalls = 0;
+
+  @override
+  Future<SavedAddress?> loadSavedAddress() async => address;
+
+  @override
+  Future<SavedAddress> saveAddress(
+    SavedAddress value, {
+    required LocalProfile profile,
+  }) async {
+    saveCalls++;
+    return value;
   }
 }
 
@@ -70,4 +97,82 @@ void main() {
       expect(find.byIcon(Icons.send_rounded), findsOneWidget);
     },
   );
+
+  testWidgets('saved account address is selected and can be overridden', (
+    tester,
+  ) async {
+    final profileService = _SavedAddressProfileService(
+      const SavedAddress(
+        villageId: 2,
+        villageName: 'Desa Sukamaju',
+        rt: '03',
+        rw: '02',
+        detail: 'Dekat balai desa',
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReportView(
+          apiService: _AuthenticatedReportApiService(),
+          profileService: profileService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final accountAddressOption = find.byKey(
+      const Key('report_use_account_address'),
+    );
+    await tester.ensureVisible(accountAddressOption);
+    expect(find.text('Gunakan alamat akun'), findsOneWidget);
+    expect(find.text('Gunakan lokasi lain'), findsOneWidget);
+    expect(find.text('RT 03'), findsOneWidget);
+    expect(find.text('RW 02'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('report_address_detail_true')),
+          )
+          .controller
+          ?.text,
+      'Dekat balai desa',
+    );
+
+    final otherAddressOption = find.byKey(
+      const Key('report_use_other_address'),
+    );
+    await tester.ensureVisible(otherAddressOption);
+    await tester.tap(otherAddressOption);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('report_address_detail_false')),
+          )
+          .enabled,
+      isTrue,
+    );
+    expect(profileService.saveCalls, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('signed-in user without an address can still enter a location', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReportView(
+          apiService: _AuthenticatedReportApiService(),
+          profileService: _SavedAddressProfileService(null),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('report_address_not_saved')), findsOneWidget);
+    expect(find.textContaining('Profil → Informasi Akun'), findsOneWidget);
+    expect(find.text('Pilih desa'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

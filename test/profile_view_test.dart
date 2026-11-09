@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:klinik_sanitasi_mobile/models/village.dart';
+import 'package:klinik_sanitasi_mobile/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:klinik_sanitasi_mobile/services/profile_service.dart';
@@ -221,6 +223,29 @@ void main() {
     expect(avatarCenter.dy, lessThan(waterHeaderRect.bottom));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('account information opens the saved address form', (
+    tester,
+  ) async {
+    await _openProfile(tester);
+
+    final accountInfoButton = find.byKey(
+      const Key('profile_account_info_button'),
+    );
+    await tester.ensureVisible(accountInfoButton);
+    await tester.tap(accountInfoButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Informasi akun'), findsOneWidget);
+    expect(find.text('Alamat Saya'), findsOneWidget);
+    expect(find.text('Nama lengkap'), findsNothing);
+    expect(find.text('Nomor telepon'), findsNothing);
+    expect(find.byIcon(Icons.home_rounded), findsOneWidget);
+    expect(find.text('Desa / Kelurahan'), findsOneWidget);
+    expect(find.text('Patokan / Detail Alamat'), findsOneWidget);
+    expect(find.byKey(const Key('saved_address_save_button')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Finder _field(String name) => find.byKey(Key('profile_${name}_field'));
@@ -245,6 +270,7 @@ Future<void> _openProfile(
           onBack: () {},
           onLogout: () {},
           onProfileChanged: onProfileChanged,
+          apiService: _FakeAccountInfoApiService(),
           profileService: ProfileService(
             client: MockClient((request) async {
               final values = request.method == 'PUT'
@@ -272,6 +298,13 @@ Future<void> _openProfile(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+class _FakeAccountInfoApiService extends ApiService {
+  @override
+  Future<List<Village>> getVillages() async => [
+    const Village(id: 1, name: 'Desa Sumbersari'),
+  ];
 }
 
 Future<void> _openEditor(WidgetTester tester) async {
