@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../constants/app_colors.dart';
 import '../../models/village.dart';
-import '../../models/ticket_status.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
@@ -263,48 +261,12 @@ class _ReportViewState extends State<ReportView> {
   bool _isLoadingLocation = false;
   Position? _selectedPosition;
   String? _profileVillageName;
-  List<TicketStatus> _recentTickets = [];
 
   @override
   void initState() {
     super.initState();
     _villages = widget.apiService.getVillages();
     _loadSession();
-    unawaited(_loadHistory());
-  }
-
-  Future<void> _loadHistory() async {
-    try {
-      await widget.apiService.syncCitizenTicketsHistory();
-      final tickets = await widget.apiService.getCachedCitizenTicketStatuses();
-      if (!mounted) return;
-      setState(() {
-        _recentTickets = tickets.take(3).toList();
-      });
-
-      final codes = await widget.apiService.getSavedCitizenTickets();
-      for (final code in codes.take(3)) {
-        try {
-          final ticket = await widget.apiService.getTicket(code);
-          if (!mounted) return;
-          setState(() {
-            final updated = [
-              ticket,
-              ..._recentTickets.where((item) => item.code != ticket.code),
-            ];
-            _recentTickets = updated.take(3).toList();
-          });
-        } on ApiException {
-          continue;
-        } on Exception {
-          continue;
-        }
-      }
-    } on Exception {
-      if (!mounted) return;
-      final cached = await widget.apiService.getCachedCitizenTicketStatuses();
-      if (mounted) setState(() => _recentTickets = cached.take(3).toList());
-    }
   }
 
   Future<void> _loadSession() async {
@@ -440,6 +402,62 @@ class _ReportViewState extends State<ReportView> {
     }
   }
 
+  Widget _buildLocationPicker() {
+    final position = _selectedPosition;
+    if (position == null) {
+      return SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: OutlinedButton.icon(
+          onPressed: _isLoadingLocation ? null : _takeLocation,
+          icon: _isLoadingLocation
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primary,
+                  ),
+                )
+              : const Icon(Icons.my_location_rounded),
+          label: Text(
+            _isLoadingLocation
+                ? 'Mengambil titik lokasi...'
+                : 'Gunakan Lokasi Saat Ini',
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            backgroundColor: AppColors.softBlue,
+            side: const BorderSide(color: AppColors.primary),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        _LocationMiniMap(
+          position: position,
+          isLoading: _isLoadingLocation,
+          onRefresh: _takeLocation,
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          '✅ Titik lokasi akurat berhasil disimpan',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Color(0xFF16A34A),
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _selectedVillage == null) {
       if (_selectedVillage == null) {
@@ -473,7 +491,6 @@ class _ReportViewState extends State<ReportView> {
         reportData,
         imageFile: _image,
       );
-      await _loadHistory();
 
       if (!mounted) return;
       final onReportSubmitted = widget.onReportSubmitted;
@@ -566,193 +583,6 @@ class _ReportViewState extends State<ReportView> {
           label: category.label,
         );
       }).toList(),
-    );
-  }
-
-  String _categoryLabel(String category) {
-    switch (category.trim()) {
-      case 'air_sumur_keruh_berbau':
-        return 'Air Sumur Keruh / Berbau';
-      case 'sarang_nyamuk_dbd':
-        return 'Sarang Nyamuk / Indikasi DBD';
-      case 'jamban_limbah_stbm':
-        return 'Masalah Jamban & Limbah';
-      case 'tumpukan_sampah':
-        return 'Tumpukan Sampah';
-      default:
-        if (category.trim().isEmpty) return 'Kategori tidak tersedia';
-        return category.replaceAll('_', ' ');
-    }
-  }
-
-  String _statusLabel(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'dikirim':
-        return 'Dikirim';
-      case 'menunggu':
-      case 'pending':
-      case 'diproses':
-        return 'Diproses';
-      case 'dijadwalkan':
-        return 'Dijadwalkan';
-      case 'ditindaklanjuti':
-        return 'Ditindaklanjuti';
-      case 'selesai':
-        return 'Selesai';
-      case 'ditolak':
-        return 'Ditolak';
-      default:
-        return status.trim().isEmpty ? 'Dikirim' : status;
-    }
-  }
-
-  String _formatDate(String? raw) {
-    if (raw == null || raw.trim().isEmpty) {
-      return 'Tanggal tidak tersedia';
-    }
-    final date = DateTime.tryParse(raw.trim());
-    if (date == null) return raw.trim();
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-  }
-
-  Widget _buildReportHistory() {
-    if (_recentTickets.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF7F7),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.history_rounded, color: AppColors.primary),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Riwayat Laporan Terakhir Anda',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: widget.onOpenAllHistory,
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(0, 32),
-                ),
-                child: const Text('Lihat Semua', textAlign: TextAlign.right),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          for (final ticket in _recentTickets.take(3)) ...[
-            Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () {
-                  final callback =
-                      widget.onOpenTicketHistory ?? widget.onReportSubmitted;
-                  callback?.call(ticket.code);
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              ticket.code,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.ink,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: 'Salin kode tiket',
-                            onPressed: () async {
-                              await Clipboard.setData(
-                                ClipboardData(text: ticket.code),
-                              );
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Kode tiket disalin.'),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                              }
-                            },
-                            icon: const Icon(
-                              Icons.copy_rounded,
-                              size: 18,
-                              color: AppColors.primary,
-                            ),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.softRed,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              _statusLabel(ticket.status),
-                              style: const TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        _categoryLabel(ticket.category),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.ink,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _formatDate(ticket.createdAt),
-                        style: const TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ],
-      ),
     );
   }
 
@@ -940,7 +770,6 @@ class _ReportViewState extends State<ReportView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _buildReportHistory(),
                             // ============================================
                             // Section 1: Data Pelapor
                             // ============================================
@@ -1216,54 +1045,7 @@ class _ReportViewState extends State<ReportView> {
                               ),
                             ),
                             const SizedBox(height: 10),
-                            OutlinedButton.icon(
-                              onPressed: _isLoadingLocation
-                                  ? null
-                                  : _takeLocation,
-                              icon: _isLoadingLocation
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: AppColors.primary,
-                                      ),
-                                    )
-                                  : const Icon(Icons.my_location_rounded),
-                              label: Text(
-                                _selectedPosition == null
-                                    ? 'Ambil Titik Lokasi (GPS)'
-                                    : 'Perbarui Titik Lokasi (GPS)',
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.primary,
-                                backgroundColor: AppColors.softBlue,
-                                side: const BorderSide(
-                                  color: AppColors.primary,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 13,
-                                  horizontal: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                            ),
-                            if (_selectedPosition != null) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                'Titik Koordinat Terkunci: '
-                                '${_selectedPosition!.latitude.toStringAsFixed(6)}, '
-                                '${_selectedPosition!.longitude.toStringAsFixed(6)}',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF267A58),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ],
+                            _buildLocationPicker(),
 
                             // ============================================
                             // Section 3: Detail Laporan
@@ -1472,6 +1254,177 @@ class _ReportViewState extends State<ReportView> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LocationMiniMap extends StatelessWidget {
+  const _LocationMiniMap({
+    required this.position,
+    required this.isLoading,
+    required this.onRefresh,
+  });
+
+  final Position position;
+  final bool isLoading;
+  final VoidCallback onRefresh;
+
+  static const _zoom = 16;
+  static const _tileSize = 256.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final latitude = position.latitude.clamp(-85.0511, 85.0511);
+    final longitude = position.longitude;
+    final worldTileCount = 1 << _zoom;
+    final latitudeRadians = latitude * math.pi / 180;
+    final centerTileX = (longitude + 180) / 360 * worldTileCount;
+    final centerTileY =
+        (1 -
+            math.log(
+                  math.tan(latitudeRadians) + 1 / math.cos(latitudeRadians),
+                ) /
+                math.pi) /
+        2 *
+        worldTileCount;
+
+    return ClipRRect(
+      key: const Key('report_location_map'),
+      borderRadius: BorderRadius.circular(14),
+      child: SizedBox(
+        height: 150,
+        width: double.infinity,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final centerPixelX = centerTileX * _tileSize;
+                    final centerPixelY = centerTileY * _tileSize;
+                    final mapLeft = centerPixelX - constraints.maxWidth / 2;
+                    final mapTop = centerPixelY - constraints.maxHeight / 2;
+                    final firstTileX = (mapLeft / _tileSize).floor();
+                    final lastTileX =
+                        ((mapLeft + constraints.maxWidth) / _tileSize).floor();
+                    final firstTileY = (mapTop / _tileSize).floor();
+                    final lastTileY =
+                        ((mapTop + constraints.maxHeight) / _tileSize).floor();
+                    final tiles = <Widget>[];
+
+                    for (var tileX = firstTileX; tileX <= lastTileX; tileX++) {
+                      for (
+                        var tileY = firstTileY;
+                        tileY <= lastTileY;
+                        tileY++
+                      ) {
+                        if (tileY < 0 || tileY >= worldTileCount) continue;
+                        final wrappedTileX = tileX % worldTileCount;
+                        tiles.add(
+                          Positioned(
+                            left: tileX * _tileSize - mapLeft,
+                            top: tileY * _tileSize - mapTop,
+                            width: _tileSize,
+                            height: _tileSize,
+                            child: Image.network(
+                              Uri.https(
+                                'tile.openstreetmap.org',
+                                '/$_zoom/$wrappedTileX/$tileY.png',
+                              ).toString(),
+                              fit: BoxFit.cover,
+                              headers: const {
+                                'User-Agent': 'PHD-Puskesmas-Mobile/1.0',
+                              },
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const ColoredBox(color: Color(0xFFE7ECEF)),
+                            ),
+                          ),
+                        );
+                      }
+                    }
+
+                    return Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        const Positioned.fill(
+                          child: ColoredBox(color: Color(0xFFE7ECEF)),
+                        ),
+                        ...tiles,
+                        Align(
+                          alignment: Alignment.center,
+                          child: Transform.translate(
+                            offset: const Offset(0, -18),
+                            child: const Icon(
+                              Icons.location_on,
+                              color: Color(0xFFDC2626),
+                              size: 36,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+            Positioned(
+              left: 8,
+              bottom: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.94),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${latitude.toStringAsFixed(6)}, '
+                  '${longitude.toStringAsFixed(6)}',
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+            const Positioned(
+              right: 7,
+              bottom: 7,
+              child: Text(
+                '© OpenStreetMap',
+                style: TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 8,
+                  backgroundColor: Colors.white70,
+                ),
+              ),
+            ),
+            Positioned(
+              top: 6,
+              right: 6,
+              child: TextButton.icon(
+                onPressed: isLoading ? null : onRefresh,
+                icon: isLoading
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded, size: 15),
+                label: Text(isLoading ? 'Mengambil...' : 'Ambil Ulang'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  backgroundColor: Colors.white.withValues(alpha: 0.96),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 30),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
             ),
           ],

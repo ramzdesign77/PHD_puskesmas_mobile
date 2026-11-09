@@ -45,6 +45,9 @@ void main() {
       expect(find.text('Pilih desa'), findsOneWidget);
       expect(find.text('RT'), findsOneWidget);
       expect(find.text('RW'), findsOneWidget);
+      expect(find.text('Gunakan Lokasi Saat Ini'), findsOneWidget);
+      expect(find.text('Riwayat Laporan Terakhir Anda'), findsNothing);
+      expect(find.byKey(const Key('report_location_map')), findsNothing);
 
       // Verify Section 3: Detail Laporan
       expect(find.text('Detail Laporan'), findsOneWidget);

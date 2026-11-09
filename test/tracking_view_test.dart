@@ -61,12 +61,14 @@ class _InspectionTrackingApiService extends ApiService {
   Future<TicketStatus> getTicket(String code) async => TicketStatus.fromJson({
     'kode_tiket': code,
     'status_laporan': inspected ? 'selesai' : 'dijadwalkan',
-    'hasil_inspeksi': inspected ? {
-      'total_skor_ya': 3,
-      'kategori_risiko': 'risiko_tinggi',
-      'tanggal_inspeksi': '2026-11-02',
-      'rekomendasi_sanitarian': 'Perbaiki penutup sumur.',
-    } : null,
+    'hasil_inspeksi': inspected
+        ? {
+            'total_skor_ya': 3,
+            'kategori_risiko': 'risiko_tinggi',
+            'tanggal_inspeksi': '2026-11-02',
+            'rekomendasi_sanitarian': 'Perbaiki penutup sumur.',
+          }
+        : null,
   });
 }
 
@@ -137,26 +139,56 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
-  testWidgets('refresh displays the official inspection result to the citizen', (tester) async {
-    final api = _InspectionTrackingApiService();
-    Widget screen(bool active) => MaterialApp(home: TrackingView(
-      apiService: api, initialTicketCode: 'IKL-1', isActive: active,
-    ));
-    await tester.pumpWidget(screen(true));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('citizen_inspection_result')));
-    expect(find.text('Menunggu hasil inspeksi petugas.'), findsOneWidget);
-    expect(find.text('Aman'), findsNothing);
+  testWidgets(
+    'completed ticket prioritizes examination results and folds initial report',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(screen(false));
-    api.inspected = true;
-    await tester.pumpWidget(screen(true));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('citizen_inspection_result')));
-    expect(find.text('Tinggi'), findsOneWidget);
-    expect(find.text('Skor: 3 dari 5'), findsOneWidget);
-    expect(find.text('Perbaiki penutup sumur.'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      final api = _InspectionTrackingApiService();
+      Widget screen(bool active) => MaterialApp(
+        home: TrackingView(
+          apiService: api,
+          initialTicketCode: 'IKL-1',
+          isActive: active,
+        ),
+      );
+      await tester.pumpWidget(screen(true));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('citizen_inspection_result')),
+      );
+      expect(find.text('Menunggu hasil pemeriksaan petugas.'), findsOneWidget);
+      expect(find.text('Aman'), findsNothing);
 
+      await tester.pumpWidget(screen(false));
+      api.inspected = true;
+      await tester.pumpWidget(screen(true));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Penanganan Selesai'));
+      final statusBottom = tester
+          .getBottomLeft(find.text('Penanganan Selesai'))
+          .dy;
+      final resultTop = tester
+          .getTopLeft(find.byKey(const Key('citizen_inspection_result')))
+          .dy;
+      final progressTop = tester.getTopLeft(find.text('Progres penanganan')).dy;
+      expect(resultTop, greaterThan(statusBottom));
+      expect(progressTop, greaterThan(resultTop));
+
+      await tester.ensureVisible(
+        find.byKey(const Key('citizen_inspection_result')),
+      );
+      expect(find.text('Hasil Pemeriksaan Petugas'), findsOneWidget);
+      expect(find.text('Risiko Tinggi'), findsOneWidget);
+      expect(find.text('Skor: 3 dari 5'), findsOneWidget);
+      expect(find.text('Perbaiki penutup sumur.'), findsOneWidget);
+
+      expect(find.text('Nama pelapor'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
