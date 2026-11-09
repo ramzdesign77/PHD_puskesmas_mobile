@@ -13,6 +13,39 @@ import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
 
+const _reportAreaNumbers = [
+  '01',
+  '02',
+  '03',
+  '04',
+  '05',
+  '06',
+  '07',
+  '08',
+  '09',
+  '10',
+  '11',
+  '12',
+  '13',
+  '14',
+  '15',
+  '16',
+  '17',
+  '18',
+  '19',
+  '20',
+  '21',
+  '22',
+  '23',
+  '24',
+  '25',
+  '26',
+  '27',
+  '28',
+  '29',
+  '30',
+];
+
 class _WaterCategoryCard extends StatefulWidget {
   const _WaterCategoryCard({
     required this.selected,
@@ -1169,11 +1202,7 @@ class _ReportViewState extends State<ReportView> {
                                         fontSize: 14,
                                       ),
                                     ),
-                                    items: List.generate(30, (i) {
-                                      final numStr = (i + 1).toString().padLeft(
-                                        2,
-                                        '0',
-                                      );
+                                    items: _reportAreaNumbers.map((numStr) {
                                       return DropdownMenuItem(
                                         value: numStr,
                                         child: Text(
@@ -1185,7 +1214,7 @@ class _ReportViewState extends State<ReportView> {
                                           ),
                                         ),
                                       );
-                                    }),
+                                    }).toList(),
                                     onChanged: _useAccountAddress
                                         ? null
                                         : (val) =>
@@ -1228,11 +1257,9 @@ class _ReportViewState extends State<ReportView> {
                                         fontSize: 14,
                                       ),
                                     ),
-                                    items: List.generate(20, (i) {
-                                      final numStr = (i + 1).toString().padLeft(
-                                        2,
-                                        '0',
-                                      );
+                                    items: _reportAreaNumbers.take(20).map((
+                                      numStr,
+                                    ) {
                                       return DropdownMenuItem(
                                         value: numStr,
                                         child: Text(
@@ -1244,7 +1271,7 @@ class _ReportViewState extends State<ReportView> {
                                           ),
                                         ),
                                       );
-                                    }),
+                                    }).toList(),
                                     onChanged: _useAccountAddress
                                         ? null
                                         : (val) =>
