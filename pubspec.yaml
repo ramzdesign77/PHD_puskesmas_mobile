@@ -30,6 +30,7 @@ flutter:
 
   assets:
     - assets/images/logo.jpg
+    - assets/images/login_water_background.jpg
 
   fonts:
     - family: Montserrat

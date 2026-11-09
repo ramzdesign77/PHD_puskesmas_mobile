@@ -13,6 +13,217 @@ import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
 
+class _WaterCategoryCard extends StatefulWidget {
+  const _WaterCategoryCard({
+    required this.selected,
+    required this.onTap,
+    required this.icon,
+    required this.label,
+  });
+
+  final bool selected;
+  final VoidCallback onTap;
+  final IconData icon;
+  final String label;
+
+  @override
+  State<_WaterCategoryCard> createState() => _WaterCategoryCardState();
+}
+
+class _WaterCategoryCardState extends State<_WaterCategoryCard>
+    with SingleTickerProviderStateMixin {
+  bool _hovered = false;
+  late final AnimationController _waterController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2200),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _waterController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.selected || _hovered;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: TweenAnimationBuilder<double>(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          tween: Tween(begin: 0, end: _hovered ? -5 : 0),
+          builder: (context, lift, child) {
+            return Transform.translate(
+              offset: Offset(0, lift),
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 220),
+                scale: _hovered ? 1.025 : 1,
+                curve: Curves.easeOutBack,
+                child: child,
+              ),
+            );
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            clipBehavior: Clip.antiAlias,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: widget.selected
+                  ? AppColors.softBlue
+                  : const Color(0xFFF5F6F8),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: active
+                    ? AppColors.primary.withValues(alpha: _hovered ? 0.9 : 1)
+                    : const Color(0xFFE0E0E0),
+                width: active ? 2 : 1,
+              ),
+              boxShadow: _hovered || widget.selected
+                  ? [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(
+                          alpha: _hovered ? 0.20 : 0.12,
+                        ),
+                        blurRadius: 18,
+                        spreadRadius: -2,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : const [],
+            ),
+            child: Stack(
+              children: [
+                if (_hovered || widget.selected)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: AnimatedBuilder(
+                        animation: _waterController,
+                        builder: (context, _) => CustomPaint(
+                          painter: _CategoryWaterPainter(
+                            _waterController.value,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (widget.selected)
+                  const Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Icon(
+                      Icons.check_circle,
+                      size: 17,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                Center(
+                  child: Row(
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: active
+                              ? AppColors.primary.withValues(alpha: 0.10)
+                              : Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: TweenAnimationBuilder<double>(
+                          duration: const Duration(milliseconds: 220),
+                          tween: Tween(begin: 0, end: _hovered ? -0.08 : 0),
+                          builder: (context, tilt, child) {
+                            return Transform.rotate(angle: tilt, child: child);
+                          },
+                          child: Icon(
+                            widget.icon,
+                            size: 22,
+                            color: active
+                                ? AppColors.primary
+                                : const Color(0xFF6B7280),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          widget.label,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.2,
+                            color: active
+                                ? AppColors.primary
+                                : const Color(0xFF374151),
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryWaterPainter extends CustomPainter {
+  const _CategoryWaterPainter(this.progress);
+
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = AppColors.primary.withValues(alpha: 0.26);
+
+    for (var ring = 0; ring < 3; ring++) {
+      final distance = ((progress + ring / 3) % 1);
+      final radius = 16 + distance * size.height * 0.5;
+      canvas.drawCircle(
+        Offset(size.width * 0.14, size.height * 0.92),
+        radius,
+        paint
+          ..color = AppColors.primary.withValues(alpha: 0.30 * (1 - distance)),
+      );
+    }
+
+    final wavePaint = Paint()
+      ..color = const Color(0xFF4DA3E8).withValues(alpha: 0.36)
+      ..style = PaintingStyle.fill;
+    final path = Path()..moveTo(-10, size.height * 0.82);
+    for (var x = -10.0; x <= size.width + 10; x += 4) {
+      final y =
+          size.height * 0.82 +
+          math.sin((x / size.width) * math.pi * 3 + progress * math.pi * 2) * 4;
+      path.lineTo(x, y);
+    }
+    path
+      ..lineTo(size.width + 10, size.height)
+      ..lineTo(-10, size.height)
+      ..close();
+    canvas.drawPath(path, wavePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CategoryWaterPainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+
 class ReportView extends StatefulWidget {
   const ReportView({
     super.key,
@@ -348,66 +559,11 @@ class _ReportViewState extends State<ReportView> {
       crossAxisSpacing: 10,
       children: categories.map((category) {
         final selected = _category == category.value;
-        return InkWell(
+        return _WaterCategoryCard(
+          selected: selected,
           onTap: () => setState(() => _category = category.value),
-          borderRadius: BorderRadius.circular(14),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: selected ? AppColors.softBlue : const Color(0xFFF5F6F8),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: selected ? AppColors.primary : const Color(0xFFE0E0E0),
-                width: selected ? 2 : 1,
-              ),
-            ),
-            child: Stack(
-              children: [
-                if (selected)
-                  const Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Icon(
-                      Icons.check_circle,
-                      size: 17,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                Center(
-                  child: Row(
-                    children: [
-                      Icon(
-                        category.icon,
-                        size: 22,
-                        color: selected
-                            ? AppColors.primary
-                            : const Color(0xFF6B7280),
-                      ),
-                      const SizedBox(width: 7),
-                      Expanded(
-                        child: Text(
-                          category.label,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.2,
-                            fontWeight: selected
-                                ? FontWeight.w400
-                                : FontWeight.w400,
-                            color: selected
-                                ? AppColors.primary
-                                : const Color(0xFF374151),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          icon: category.icon,
+          label: category.label,
         );
       }).toList(),
     );
