@@ -60,11 +60,17 @@ class _ProfileViewState extends State<ProfileView> {
     }
   }
 
-  Future<void> _edit(LocalProfile profile) async {
+  Future<void> _edit(
+    LocalProfile profile, {
+    bool startWithPhotoPicker = false,
+  }) async {
     final updated = await Navigator.of(context).push<LocalProfile>(
       MaterialPageRoute(
-        builder: (_) =>
-            EditProfileView(profile: profile, profileService: _profileService),
+        builder: (_) => EditProfileView(
+          profile: profile,
+          profileService: _profileService,
+          openPhotoPickerOnStart: startWithPhotoPicker,
+        ),
       ),
     );
     if (updated == null || !mounted) return;
@@ -147,6 +153,79 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
+  void _showProfileDetails(LocalProfile profile) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: AppColors.canvas,
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ProfileAvatar(
+                name: profile.name,
+                bytes: profile.avatarBytes,
+                url: profile.avatarUrl,
+                size: 88,
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                key: const Key('profile_details_change_photo_button'),
+                onPressed: () {
+                  Navigator.of(sheetContext).pop();
+                  _edit(profile, startWithPhotoPicker: true);
+                },
+                icon: const Icon(Icons.edit_rounded, size: 18),
+                label: const Text('Ubah foto profil'),
+              ),
+              const SizedBox(height: 8),
+              for (final detail in <String, String>{
+                'Nama': profile.name,
+                'Nama pengguna': profile.username.isEmpty
+                    ? ''
+                    : '@${profile.username}',
+                'Nomor telepon': profile.phone,
+                'Email': profile.email,
+              }.entries)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 18),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          detail.key,
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          detail.value.trim().isEmpty
+                              ? 'Belum tersedia'
+                              : detail.value,
+                          style: const TextStyle(
+                            color: AppColors.ink,
+                            fontSize: 14,
+                            height: 1.6,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!widget.isActive) return const SizedBox.shrink();
@@ -207,74 +286,26 @@ class _ProfileViewState extends State<ProfileView> {
                 onBack: widget.onBack,
                 waterStyle: true,
                 onRefresh: () => setState(_reload),
+                centeredName: profile.name,
+                centeredSubtitle: 'Lihat detail',
+                onCenteredTap: () => _showProfileDetails(profile),
+                onPhotoEditTap: () =>
+                    _edit(profile, startWithPhotoPicker: true),
                 centeredAvatar: ProfileAvatar(
                   name: profile.name,
                   bytes: profile.avatarBytes,
                   url: profile.avatarUrl,
-                  size: 90,
+                  size: 78,
                 ),
               ),
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 560),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 10, 22, 24),
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        ProfileCard(
-                          child: InkWell(
-                            key: const Key('profile_edit_button'),
-                            onTap: () => _edit(profile),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  Column(
-                                    children: [
-                                      Text(
-                                        profile.name,
-                                        textAlign: TextAlign.center,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: AppColors.ink,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w400,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        profile.username.isEmpty
-                                            ? widget.roleLabel
-                                            : '@${profile.username}',
-                                        textAlign: TextAlign.center,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: AppColors.muted,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w400,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
                         ProfileSettingsGroup(
                           label: 'Akun',
                           children: [

@@ -12,10 +12,12 @@ class EditProfileView extends StatefulWidget {
     super.key,
     required this.profile,
     required this.profileService,
+    this.openPhotoPickerOnStart = false,
   });
 
   final LocalProfile profile;
   final ProfileService profileService;
+  final bool openPhotoPickerOnStart;
 
   @override
   State<EditProfileView> createState() => _EditProfileViewState();
@@ -33,6 +35,16 @@ class _EditProfileViewState extends State<EditProfileView> {
   bool _removeAvatar = false;
   bool _isSaving = false;
   bool _isPickingPhoto = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.openPhotoPickerOnStart) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _changePhoto();
+      });
+    }
+  }
 
   @override
   void dispose() {

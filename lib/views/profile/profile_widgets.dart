@@ -15,6 +15,10 @@ class ProfilePageHeader extends StatelessWidget {
     this.description,
     this.onRefresh,
     this.centeredAvatar,
+    this.centeredName,
+    this.centeredSubtitle,
+    this.onCenteredTap,
+    this.onPhotoEditTap,
   });
 
   final String title;
@@ -23,18 +27,22 @@ class ProfilePageHeader extends StatelessWidget {
   final String? description;
   final VoidCallback? onRefresh;
   final Widget? centeredAvatar;
+  final String? centeredName;
+  final String? centeredSubtitle;
+  final VoidCallback? onCenteredTap;
+  final VoidCallback? onPhotoEditTap;
 
   @override
   Widget build(BuildContext context) {
     if (waterStyle) {
       return SizedBox(
-        height: centeredAvatar == null ? 165 : 190,
+        height: centeredAvatar == null ? 165 : 218,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
             DynamicWaterHeader(
               key: const Key('profile_water_header'),
-              height: 165,
+              height: centeredAvatar == null ? 165 : 145,
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 30),
               child: Align(
                 alignment: Alignment.topLeft,
@@ -69,26 +77,113 @@ class ProfilePageHeader extends StatelessWidget {
             ),
             if (centeredAvatar != null)
               Positioned(
-                top: 98,
+                top: 78,
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: Container(
-                    width: 96,
-                    height: 96,
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.ink.withValues(alpha: 0.12),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 84,
+                        height: 84,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 84,
+                              height: 84,
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.ink.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: centeredAvatar,
+                            ),
+                            Positioned(
+                              right: -1,
+                              bottom: 1,
+                              child: Material(
+                                color: Colors.white,
+                                shape: const CircleBorder(),
+                                child: InkWell(
+                                  key: const Key('profile_edit_button'),
+                                  onTap: onPhotoEditTap,
+                                  customBorder: const CircleBorder(),
+                                  child: Container(
+                                    width: 27,
+                                    height: 27,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: AppColors.line,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.edit_rounded,
+                                      size: 14,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: centeredAvatar,
+                      ),
+                      if (centeredName != null || centeredSubtitle != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: InkWell(
+                            key: const Key('profile_details_button'),
+                            onTap: onCenteredTap,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 3,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (centeredName != null)
+                                    Text(
+                                      centeredName!,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: AppColors.ink,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  if (centeredSubtitle != null)
+                                    Text(
+                                      centeredSubtitle!,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: AppColors.muted,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
