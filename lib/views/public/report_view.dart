@@ -1014,7 +1014,7 @@ class _ReportViewState extends State<ReportView> {
                                   ),
                                 ),
                                 child: Text(
-                                  _savedAddressError ?? 'Belum ada alamat tersimpan. Anda tetap bisa mengisi lokasi laporan di sini. Simpan alamat melalui Profil → Informasi Akun.',
+                                  _savedAddressError ?? 'Belum ada alamat tersimpan. Anda tetap bisa mengisi lokasi laporan di sini. Simpan alamat melalui Profil → Alamat.',
                                   style: const TextStyle(
                                     color: AppColors.ink,
                                     fontSize: 12,

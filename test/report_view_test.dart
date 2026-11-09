@@ -171,7 +171,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('report_address_not_saved')), findsOneWidget);
-    expect(find.textContaining('Profil → Informasi Akun'), findsOneWidget);
+    expect(find.textContaining('Profil → Alamat'), findsOneWidget);
     expect(find.text('Pilih desa'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

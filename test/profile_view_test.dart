@@ -236,7 +236,7 @@ void main() {
     await tester.tap(accountInfoButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('Informasi akun'), findsOneWidget);
+    expect(find.text('Alamat'), findsOneWidget);
     expect(find.text('Alamat Saya'), findsOneWidget);
     expect(find.text('Nama lengkap'), findsNothing);
     expect(find.text('Nomor telepon'), findsNothing);
@@ -244,6 +244,28 @@ void main() {
     expect(find.text('Desa / Kelurahan'), findsOneWidget);
     expect(find.text('Patokan / Detail Alamat'), findsOneWidget);
     expect(find.byKey(const Key('saved_address_save_button')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('address form fits a narrow screen with larger text', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 640);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await _openProfile(tester, textScale: 1.3);
+    final accountInfoButton = find.byKey(
+      const Key('profile_account_info_button'),
+    );
+    await tester.ensureVisible(accountInfoButton);
+    await tester.tap(accountInfoButton);
+    await tester.pumpAndSettle();
+
+    final saveButton = find.byKey(const Key('saved_address_save_button'));
+    await tester.ensureVisible(saveButton);
+    expect(tester.getRect(saveButton).width, lessThanOrEqualTo(320));
     expect(tester.takeException(), isNull);
   });
 }

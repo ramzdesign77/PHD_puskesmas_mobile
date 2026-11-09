@@ -303,7 +303,7 @@ class _ProfileViewState extends State<ProfileView> {
                             ProfileSettingsRow(
                               key: const Key('profile_account_info_button'),
                               icon: Icons.badge_outlined,
-                              label: 'Informasi akun',
+                              label: 'Alamat',
                               onTap: () => _openAccountInfo(profile),
                             ),
                           ],
