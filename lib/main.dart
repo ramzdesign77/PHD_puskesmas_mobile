@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Klinik Sanitasi',
+      title: 'OtterSan',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       home: SplashView(apiService: _apiService, authService: _authService),

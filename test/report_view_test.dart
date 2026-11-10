@@ -1,10 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:klinik_sanitasi_mobile/models/saved_address.dart';
 import 'package:klinik_sanitasi_mobile/models/village.dart';
 import 'package:klinik_sanitasi_mobile/services/api_service.dart';
 import 'package:klinik_sanitasi_mobile/services/profile_service.dart';
 import 'package:klinik_sanitasi_mobile/views/public/report_view.dart';
+
+class _FakeGeolocatorPlatform extends GeolocatorPlatform {
+  @override
+  Future<bool> isLocationServiceEnabled() async => true;
+
+  @override
+  Future<LocationPermission> checkPermission() async =>
+      LocationPermission.whileInUse;
+
+  @override
+  Future<Position> getCurrentPosition({
+    LocationSettings? locationSettings,
+  }) async => Position(
+    latitude: -8.198997,
+    longitude: 113.643575,
+    timestamp: DateTime.now(),
+    accuracy: 5,
+    altitude: 0,
+    altitudeAccuracy: 0,
+    heading: 0,
+    headingAccuracy: 0,
+    speed: 0,
+    speedAccuracy: 0,
+  );
+}
 
 class _FakeReportApiService extends ApiService {
   @override
@@ -126,17 +152,14 @@ void main() {
     await tester.ensureVisible(accountAddressOption);
     expect(find.text('Gunakan alamat akun'), findsOneWidget);
     expect(find.text('Gunakan lokasi lain'), findsOneWidget);
-    expect(find.text('RT 03'), findsOneWidget);
-    expect(find.text('RW 02'), findsOneWidget);
     expect(
-      tester
-          .widget<TextFormField>(
-            find.byKey(const Key('report_address_detail_true')),
-          )
-          .controller
-          ?.text,
-      'Dekat balai desa',
+      find.byKey(const Key('report_account_address_summary')),
+      findsOneWidget,
     );
+    expect(find.byType(DropdownButtonFormField<Village>), findsNothing);
+    expect(find.text('Gunakan Lokasi Saat Ini'), findsNothing);
+    expect(find.byKey(const Key('report_address_detail_true')), findsNothing);
+    expect(find.textContaining('RT 03 / RW 02'), findsOneWidget);
 
     final otherAddressOption = find.byKey(
       const Key('report_use_other_address'),
@@ -153,7 +176,38 @@ void main() {
           .enabled,
       isTrue,
     );
+    expect(find.byType(DropdownButtonFormField<Village>), findsOneWidget);
+    expect(find.text('Gunakan Lokasi Saat Ini'), findsOneWidget);
     expect(profileService.saveCalls, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a picked GPS point can be canceled and selected again', (
+    tester,
+  ) async {
+    final previousPlatform = GeolocatorPlatform.instance;
+    GeolocatorPlatform.instance = _FakeGeolocatorPlatform();
+    addTearDown(() => GeolocatorPlatform.instance = previousPlatform);
+
+    await tester.pumpWidget(
+      MaterialApp(home: ReportView(apiService: _FakeReportApiService())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Gunakan Lokasi Saat Ini'));
+    await tester.tap(find.text('Gunakan Lokasi Saat Ini'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('report_location_map')), findsOneWidget);
+
+    final cancelButton = find.byKey(
+      const Key('report_cancel_location_selection'),
+    );
+    await tester.ensureVisible(cancelButton);
+    await tester.tap(cancelButton);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('report_location_map')), findsNothing);
+    expect(find.text('Gunakan Lokasi Saat Ini'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

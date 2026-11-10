@@ -443,6 +443,7 @@ class _ReportViewState extends State<ReportView> {
     setState(() {
       _useAccountAddress = true;
       _selectedVillage = null;
+      _selectedPosition = null;
       _profileVillageName = address.villageName ?? _profileVillageName;
       _selectedRt = address.rt.trim().padLeft(2, '0');
       _selectedRw = address.rw.trim().padLeft(2, '0');
@@ -565,6 +566,10 @@ class _ReportViewState extends State<ReportView> {
     }
   }
 
+  void _cancelLocationSelection() {
+    setState(() => _selectedPosition = null);
+  }
+
   Widget _buildLocationPicker() {
     final position = _selectedPosition;
     if (position == null) {
@@ -617,13 +622,23 @@ class _ReportViewState extends State<ReportView> {
             fontWeight: FontWeight.w700,
           ),
         ),
+        TextButton.icon(
+          key: const Key('report_cancel_location_selection'),
+          onPressed: _cancelLocationSelection,
+          icon: const Icon(Icons.close_rounded, size: 18),
+          label: const Text('Batalkan titik lokasi'),
+          style: TextButton.styleFrom(foregroundColor: AppColors.muted),
+        ),
       ],
     );
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate() || _selectedVillage == null) {
-      if (_selectedVillage == null) {
+    final villageId = _useAccountAddress
+        ? _savedAddress?.villageId
+        : _selectedVillage?.id;
+    if (!_formKey.currentState!.validate() || villageId == null) {
+      if (villageId == null) {
         _showError('Pilih desa atau kelurahan terlebih dahulu.');
       }
       return;
@@ -638,12 +653,16 @@ class _ReportViewState extends State<ReportView> {
       final reportData = <String, String>{
         'nama_pelapor': _name.text.trim(),
         'no_wa': _phone.text.trim(),
-        'id_desa': _selectedVillage!.id.toString(),
-        'rt': _selectedRt ?? '',
-        'rw': _selectedRw ?? '',
+        'id_desa': villageId.toString(),
+        'rt': _useAccountAddress ? _savedAddress!.rt : _selectedRt ?? '',
+        'rw': _useAccountAddress ? _savedAddress!.rw : _selectedRw ?? '',
         'kategori_laporan': _category,
-        'alamat_detail': _alamatDetail.text.trim(),
-        'patokan_alamat': _alamatDetail.text.trim(),
+        'alamat_detail': _useAccountAddress
+            ? _savedAddress!.detail
+            : _alamatDetail.text.trim(),
+        'patokan_alamat': _useAccountAddress
+            ? _savedAddress!.detail
+            : _alamatDetail.text.trim(),
         'deskripsi': _description.text.trim(),
       };
       if (_selectedPosition != null) {
@@ -1028,8 +1047,10 @@ class _ReportViewState extends State<ReportView> {
                                 selected: !_useAccountAddress,
                                 title: 'Gunakan lokasi lain',
                                 subtitle: 'Isi lokasi kejadian secara manual',
-                                onTap: () =>
-                                    setState(() => _useAccountAddress = false),
+                                onTap: () => setState(() {
+                                  _useAccountAddress = false;
+                                  _selectedPosition = null;
+                                }),
                               ),
                               const SizedBox(height: 12),
                             ] else if (_isLoggedIn && _sessionLoaded) ...[
@@ -1057,126 +1078,125 @@ class _ReportViewState extends State<ReportView> {
                               ),
                               const SizedBox(height: 12),
                             ],
-                            _buildFieldLabel('Desa / Kelurahan'),
-                            FutureBuilder<List<Village>>(
-                              future: _villages,
-                              builder: (context, snapshot) {
-                                if (snapshot.hasError) {
-                                  return _RetryVillage(
-                                    onRetry: () => setState(
-                                      () => _villages = widget.apiService
-                                          .getVillages(),
-                                    ),
-                                  );
-                                }
-                                final villages = snapshot.data ?? [];
-                                if (_selectedVillage == null &&
-                                    (_savedAddress != null ||
-                                        _profileVillageName != null) &&
-                                    villages.isNotEmpty) {
-                                  final matches = villages
-                                      .where(
-                                        (village) => _savedAddress != null
-                                            ? village.id ==
-                                                  _savedAddress!.villageId
-                                            : village.name
-                                                      .toLowerCase()
-                                                      .trim() ==
-                                                  _profileVillageName!
-                                                      .toLowerCase()
-                                                      .trim(),
-                                      )
-                                      .toList();
-                                  if (matches.isNotEmpty) {
-                                    final match = matches.first;
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                          if (mounted &&
-                                              _selectedVillage == null) {
-                                            setState(() {
-                                              _selectedVillage = match;
-                                            });
-                                          }
-                                        });
-                                  } else if (_savedAddress != null &&
-                                      _useAccountAddress) {
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                          if (mounted &&
-                                              _useAccountAddress &&
-                                              _savedAddress != null) {
-                                            setState(() {
-                                              _useAccountAddress = false;
-                                              _savedAddressError = 'Desa pada alamat akun tidak tersedia. Pilih lokasi lain untuk melanjutkan.';
-                                            });
-                                          }
-                                        });
-                                  }
-                                }
-
-                                return DropdownButtonFormField<Village>(
-                                  key: ValueKey(
-                                    'report_village_${_selectedVillage?.id ?? 'none'}_$_useAccountAddress',
-                                  ),
-                                  initialValue: _selectedVillage,
-                                  icon: const Icon(
-                                    Icons.keyboard_arrow_down,
-                                    color: AppColors.muted,
-                                  ),
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.bodyFontFamily,
-                                    fontSize: 14,
-                                    color: AppColors.ink,
-                                  ),
-                                  decoration: _fieldDecoration(
-                                    hintText: 'Pilih desa',
-                                    prefixIcon: const Icon(
-                                      Icons.location_on_outlined,
-                                      color: AppColors.muted,
-                                      size: 20,
+                            if (_useAccountAddress &&
+                                _savedAddress != null) ...[
+                              Container(
+                                key: const Key(
+                                  'report_account_address_summary',
+                                ),
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: AppColors.softBlue,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.18,
                                     ),
                                   ),
-                                  items: villages.map((village) {
-                                    return DropdownMenuItem(
-                                      value: village,
-                                      child: Text(
-                                        village.name,
-                                        style: TextStyle(
-                                          fontFamily: AppTheme.bodyFontFamily,
-                                          fontSize: 14,
-                                          color: AppColors.ink,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.home_outlined,
+                                          color: AppColors.primary,
+                                          size: 18,
                                         ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _savedAddress!.villageName ??
+                                                _profileVillageName ??
+                                                'Alamat rumah tersimpan',
+                                            style: const TextStyle(
+                                              color: AppColors.ink,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'RT ${_savedAddress!.rt} / RW ${_savedAddress!.rw}'
+                                      '${_savedAddress!.detail.trim().isEmpty ? '' : ' • ${_savedAddress!.detail}'}',
+                                      style: const TextStyle(
+                                        color: AppColors.ink,
+                                        fontSize: 12,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ] else ...[
+                              _buildFieldLabel('Desa / Kelurahan'),
+                              FutureBuilder<List<Village>>(
+                                future: _villages,
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasError) {
+                                    return _RetryVillage(
+                                      onRetry: () => setState(
+                                        () => _villages = widget.apiService
+                                            .getVillages(),
                                       ),
                                     );
-                                  }).toList(),
-                                  onChanged: _useAccountAddress
-                                      ? null
-                                      : (village) => setState(
-                                          () => _selectedVillage = village,
-                                        ),
-                                  validator: (val) => val == null
-                                      ? 'Pilih desa atau kelurahan.'
-                                      : null,
-                                  hint: Text(
-                                    'Pilih desa',
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.bodyFontFamily,
-                                      color: AppColors.muted,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
+                                  }
+                                  final villages = snapshot.data ?? [];
+                                  if (_selectedVillage == null &&
+                                      (_savedAddress != null ||
+                                          _profileVillageName != null) &&
+                                      villages.isNotEmpty) {
+                                    final matches = villages
+                                        .where(
+                                          (village) => _savedAddress != null
+                                              ? village.id ==
+                                                    _savedAddress!.villageId
+                                              : village.name
+                                                        .toLowerCase()
+                                                        .trim() ==
+                                                    _profileVillageName!
+                                                        .toLowerCase()
+                                                        .trim(),
+                                        )
+                                        .toList();
+                                    if (matches.isNotEmpty) {
+                                      final match = matches.first;
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                            if (mounted &&
+                                                _selectedVillage == null) {
+                                              setState(() {
+                                                _selectedVillage = match;
+                                              });
+                                            }
+                                          });
+                                    } else if (_savedAddress != null &&
+                                        _useAccountAddress) {
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                            if (mounted &&
+                                                _useAccountAddress &&
+                                                _savedAddress != null) {
+                                              setState(() {
+                                                _useAccountAddress = false;
+                                                _savedAddressError = 'Desa pada alamat akun tidak tersedia. Pilih lokasi lain untuk melanjutkan.';
+                                              });
+                                            }
+                                          });
+                                    }
+                                  }
+
+                                  return DropdownButtonFormField<Village>(
                                     key: ValueKey(
-                                      'report_rt_${_selectedRt}_$_useAccountAddress',
+                                      'report_village_${_selectedVillage?.id ?? 'none'}_$_useAccountAddress',
                                     ),
-                                    initialValue: _selectedRt,
+                                    initialValue: _selectedVillage,
                                     icon: const Icon(
                                       Icons.keyboard_arrow_down,
                                       color: AppColors.muted,
@@ -1187,26 +1207,18 @@ class _ReportViewState extends State<ReportView> {
                                       color: AppColors.ink,
                                     ),
                                     decoration: _fieldDecoration(
-                                      hintText: 'RT',
+                                      hintText: 'Pilih desa',
                                       prefixIcon: const Icon(
                                         Icons.location_on_outlined,
                                         color: AppColors.muted,
                                         size: 20,
                                       ),
                                     ),
-                                    hint: Text(
-                                      'RT',
-                                      style: TextStyle(
-                                        fontFamily: AppTheme.bodyFontFamily,
-                                        color: AppColors.muted,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    items: _reportAreaNumbers.map((numStr) {
+                                    items: villages.map((village) {
                                       return DropdownMenuItem(
-                                        value: numStr,
+                                        value: village,
                                         child: Text(
-                                          'RT $numStr',
+                                          village.name,
                                           style: TextStyle(
                                             fontFamily: AppTheme.bodyFontFamily,
                                             fontSize: 14,
@@ -1217,97 +1229,169 @@ class _ReportViewState extends State<ReportView> {
                                     }).toList(),
                                     onChanged: _useAccountAddress
                                         ? null
-                                        : (val) =>
-                                              setState(() => _selectedRt = val),
-                                    validator: (val) =>
-                                        val == null || val.isEmpty
-                                        ? 'Pilih RT'
+                                        : (village) => setState(
+                                            () => _selectedVillage = village,
+                                          ),
+                                    validator: (val) => val == null
+                                        ? 'Pilih desa atau kelurahan.'
                                         : null,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    key: ValueKey(
-                                      'report_rw_${_selectedRw}_$_useAccountAddress',
-                                    ),
-                                    initialValue: _selectedRw,
-                                    icon: const Icon(
-                                      Icons.keyboard_arrow_down,
-                                      color: AppColors.muted,
-                                    ),
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.bodyFontFamily,
-                                      fontSize: 14,
-                                      color: AppColors.ink,
-                                    ),
-                                    decoration: _fieldDecoration(
-                                      hintText: 'RW',
-                                      prefixIcon: const Icon(
-                                        Icons.home_outlined,
-                                        color: AppColors.muted,
-                                        size: 20,
-                                      ),
-                                    ),
                                     hint: Text(
-                                      'RW',
+                                      'Pilih desa',
                                       style: TextStyle(
                                         fontFamily: AppTheme.bodyFontFamily,
                                         color: AppColors.muted,
                                         fontSize: 14,
                                       ),
                                     ),
-                                    items: _reportAreaNumbers.take(20).map((
-                                      numStr,
-                                    ) {
-                                      return DropdownMenuItem(
-                                        value: numStr,
-                                        child: Text(
-                                          'RW $numStr',
-                                          style: TextStyle(
-                                            fontFamily: AppTheme.bodyFontFamily,
-                                            fontSize: 14,
-                                            color: AppColors.ink,
-                                          ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      key: ValueKey(
+                                        'report_rt_${_selectedRt}_$_useAccountAddress',
+                                      ),
+                                      initialValue: _selectedRt,
+                                      icon: const Icon(
+                                        Icons.keyboard_arrow_down,
+                                        color: AppColors.muted,
+                                      ),
+                                      style: TextStyle(
+                                        fontFamily: AppTheme.bodyFontFamily,
+                                        fontSize: 14,
+                                        color: AppColors.ink,
+                                      ),
+                                      decoration: _fieldDecoration(
+                                        hintText: 'RT',
+                                        prefixIcon: const Icon(
+                                          Icons.location_on_outlined,
+                                          color: AppColors.muted,
+                                          size: 20,
                                         ),
-                                      );
-                                    }).toList(),
-                                    onChanged: _useAccountAddress
-                                        ? null
-                                        : (val) =>
-                                              setState(() => _selectedRw = val),
-                                    validator: (val) =>
-                                        val == null || val.isEmpty
-                                        ? 'Pilih RW'
-                                        : null,
+                                      ),
+                                      hint: Text(
+                                        'RT',
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.bodyFontFamily,
+                                          color: AppColors.muted,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      items: _reportAreaNumbers.map((numStr) {
+                                        return DropdownMenuItem(
+                                          value: numStr,
+                                          child: Text(
+                                            'RT $numStr',
+                                            style: TextStyle(
+                                              fontFamily:
+                                                  AppTheme.bodyFontFamily,
+                                              fontSize: 14,
+                                              color: AppColors.ink,
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: _useAccountAddress
+                                          ? null
+                                          : (val) => setState(
+                                              () => _selectedRt = val,
+                                            ),
+                                      validator: (val) =>
+                                          val == null || val.isEmpty
+                                          ? 'Pilih RT'
+                                          : null,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      key: ValueKey(
+                                        'report_rw_${_selectedRw}_$_useAccountAddress',
+                                      ),
+                                      initialValue: _selectedRw,
+                                      icon: const Icon(
+                                        Icons.keyboard_arrow_down,
+                                        color: AppColors.muted,
+                                      ),
+                                      style: TextStyle(
+                                        fontFamily: AppTheme.bodyFontFamily,
+                                        fontSize: 14,
+                                        color: AppColors.ink,
+                                      ),
+                                      decoration: _fieldDecoration(
+                                        hintText: 'RW',
+                                        prefixIcon: const Icon(
+                                          Icons.home_outlined,
+                                          color: AppColors.muted,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      hint: Text(
+                                        'RW',
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.bodyFontFamily,
+                                          color: AppColors.muted,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      items: _reportAreaNumbers.take(20).map((
+                                        numStr,
+                                      ) {
+                                        return DropdownMenuItem(
+                                          value: numStr,
+                                          child: Text(
+                                            'RW $numStr',
+                                            style: TextStyle(
+                                              fontFamily:
+                                                  AppTheme.bodyFontFamily,
+                                              fontSize: 14,
+                                              color: AppColors.ink,
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: _useAccountAddress
+                                          ? null
+                                          : (val) => setState(
+                                              () => _selectedRw = val,
+                                            ),
+                                      validator: (val) =>
+                                          val == null || val.isEmpty
+                                          ? 'Pilih RW'
+                                          : null,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              TextFormField(
+                                key: ValueKey(
+                                  'report_address_detail_$_useAccountAddress',
+                                ),
+                                controller: _alamatDetail,
+                                enabled: !_useAccountAddress,
+                                validator: _required,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.ink,
+                                ),
+                                decoration: _fieldDecoration(
+                                  hintText: 'Patokan / Detail Alamat (Contoh: Depan Masjid Al-Ikhlas, rumah pagar hitam)',
+                                  prefixIcon: const Icon(
+                                    Icons.place_outlined,
+                                    color: AppColors.primary,
+                                    size: 20,
                                   ),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              key: ValueKey(
-                                'report_address_detail_$_useAccountAddress',
                               ),
-                              controller: _alamatDetail,
-                              enabled: !_useAccountAddress,
-                              validator: _required,
-                              textCapitalization: TextCapitalization.sentences,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: AppColors.ink,
-                              ),
-                              decoration: _fieldDecoration(
-                                hintText: 'Patokan / Detail Alamat (Contoh: Depan Masjid Al-Ikhlas, rumah pagar hitam)',
-                                prefixIcon: const Icon(
-                                  Icons.place_outlined,
-                                  color: AppColors.primary,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            _buildLocationPicker(),
+                              const SizedBox(height: 10),
+                              _buildLocationPicker(),
+                            ],
 
                             // ============================================
                             // Section 3: Detail Laporan
