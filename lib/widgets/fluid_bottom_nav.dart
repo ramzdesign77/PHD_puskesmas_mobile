@@ -6,12 +6,12 @@ import '../constants/app_colors.dart';
 
 const _fluidAnimationDuration = Duration(milliseconds: 420);
 const _fluidNavHeight = 64.0;
-const _fluidNavLabeledHeight = 82.0 ;
-const _fluidNavSelectedButtonSize = 50.0;
+const _fluidNavLabeledHeight = 82.0;
+const _fluidNavSelectedButtonSize = 36.0;
 const _fluidNavSelectedButtonOffset = 18.0;
-const _fluidNavNotchMargin = 8.0;
+const _fluidNavNotchMargin = 5.0;
 const _fluidNavCornerRadius = 32.0;
-const _fluidNavLabeledButtonSize = .0;
+const _fluidNavLabeledButtonSize = 38.0;
 const _fluidNavLabeledButtonOffset = 13.0;
 const _fluidNavLabeledBarTop = 28.0;
 const _fluidNavLabeledCornerRadius = 20.0;
@@ -108,6 +108,7 @@ class _FluidBottomNavState extends State<FluidBottomNav>
                 clipBehavior: Clip.none,
                 children: [
                   ClipPath(
+                    key: const Key('fluid_nav_clip'),
                     clipBehavior: Clip.antiAlias,
                     clipper: _FluidNavClipper(
                       activePosition,
@@ -119,13 +120,7 @@ class _FluidBottomNavState extends State<FluidBottomNav>
                       children: [
                         DecoratedBox(
                           key: const Key('fluid_nav_surface'),
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Colors.white, Color(0xFFEAF8FE)],
-                            ),
-                          ),
+                          decoration: const BoxDecoration(color: Colors.white),
                         ),
                         CustomPaint(
                           painter: _FluidNavBorderPainter(
@@ -307,27 +302,27 @@ class _FluidNavButtonState extends State<_FluidNavButton>
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [Colors.white, Color(0xFFE0F2FE)],
-                                  ),
+                                  color: Colors.white,
                                   border: Border.all(
-                                    color: AppColors.primary,
-                                    width: 3,
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.18,
+                                    ),
+                                    width: 1,
                                   ),
-                                  boxShadow: const [
+                                  boxShadow: [
                                     BoxShadow(
-                                      color: Color(0x330284C7),
-                                      blurRadius: 12,
-                                      offset: Offset(0, 5),
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.16,
+                                      ),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
                                     ),
                                   ],
                                 ),
                                 child: Icon(
                                   widget.destination.selectedIcon ??
                                       widget.destination.icon,
-                                  size: widget.showLabel ? 30 : 26,
+                                  size: 22,
                                   color: AppColors.primary,
                                 ),
                               )
@@ -396,15 +391,15 @@ class _FluidNavClipper extends CustomClipper<Path> {
         buttonScale /
         2;
     final barTop = showLabels ? _fluidNavLabeledBarTop : 0.0;
-    final buttonCenter = showLabels
-        ? Offset(notchCenter, barTop)
-        : Offset(
-            notchCenter,
-            size.height / 2 - _fluidNavSelectedButtonOffset * progress,
-          );
-    final notchRadius = showLabels
-        ? buttonRadius + 2
-        : buttonRadius + _fluidNavNotchMargin;
+    final buttonOffset = showLabels
+        ? _fluidNavLabeledButtonOffset
+        : _fluidNavSelectedButtonOffset;
+    final buttonCenter = Offset(
+      notchCenter,
+      size.height / 2 - buttonOffset * progress,
+    );
+    final notchHalfWidth = buttonRadius + _fluidNavNotchMargin + 20;
+    final notchBottom = buttonCenter.dy + buttonRadius + _fluidNavNotchMargin;
     final bar = Path()
       ..addRRect(
         RRect.fromRectAndRadius(
@@ -415,7 +410,26 @@ class _FluidNavClipper extends CustomClipper<Path> {
         ),
       );
     final notch = Path()
-      ..addOval(Rect.fromCircle(center: buttonCenter, radius: notchRadius));
+      ..moveTo(notchCenter - notchHalfWidth, barTop - 1)
+      ..lineTo(notchCenter - notchHalfWidth, barTop)
+      ..cubicTo(
+        notchCenter - notchHalfWidth * 0.55,
+        barTop,
+        notchCenter - notchHalfWidth * 0.4,
+        notchBottom,
+        notchCenter,
+        notchBottom,
+      )
+      ..cubicTo(
+        notchCenter + notchHalfWidth * 0.4,
+        notchBottom,
+        notchCenter + notchHalfWidth * 0.55,
+        barTop,
+        notchCenter + notchHalfWidth,
+        barTop,
+      )
+      ..lineTo(notchCenter + notchHalfWidth, barTop - 1)
+      ..close();
     return Path.combine(PathOperation.difference, bar, notch);
   }
 

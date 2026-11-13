@@ -4,7 +4,7 @@ import 'package:klinik_sanitasi_mobile/views/main_layout_screen.dart';
 import 'package:klinik_sanitasi_mobile/widgets/fluid_bottom_nav.dart';
 
 void main() {
-  testWidgets('labeled navigation raises its circular selection', (
+  testWidgets('labeled navigation floats its selection over a smooth notch', (
     tester,
   ) async {
     var selectedIndex = 0;
@@ -41,8 +41,19 @@ void main() {
     );
     expect(
       tester.getSize(find.byKey(const Key('fluid_nav_drop_Beranda'))).width,
-      56,
+      38,
     );
+    final navClip = tester.widget<ClipPath>(
+      find.byKey(const Key('fluid_nav_clip')),
+    );
+    final navRect = tester.getRect(find.byKey(const Key('fluid_nav_clip')));
+    final notchPath = navClip.clipper!.getClip(navRect.size);
+    final bubbleCenter =
+        tester.getCenter(find.byKey(const Key('fluid_nav_drop_Beranda'))) -
+        navRect.topLeft;
+    expect(notchPath.contains(bubbleCenter), isFalse);
+    expect(notchPath.contains(bubbleCenter.translate(0, 26)), isTrue);
+    expect(find.byKey(const Key('fluid_nav_active_backdrop')), findsNothing);
 
     await tester.tap(find.text('Profil'));
     await tester.pump();
@@ -114,26 +125,23 @@ void main() {
       find.byKey(const Key('fluid_nav_drop_Beranda')),
     );
     expect((selectedDrop.decoration! as BoxDecoration).shape, BoxShape.circle);
-    expect(tester.widget<Icon>(find.byIcon(Icons.home_rounded)).size, 26);
+    expect(
+      tester.getSize(find.byKey(const Key('fluid_nav_drop_Beranda'))).width,
+      36,
+    );
+    expect(tester.widget<Icon>(find.byIcon(Icons.home_rounded)).size, 22);
     expect(find.text('Beranda'), findsNothing);
     final navRect = tester.getRect(find.byType(FluidBottomNav));
-    final clip = tester
-        .widgetList<ClipPath>(
-          find.descendant(
-            of: find.byType(FluidBottomNav),
-            matching: find.byType(ClipPath),
-          ),
-        )
-        .first;
+    final clip = tester.widget<ClipPath>(
+      find.byKey(const Key('fluid_nav_clip')),
+    );
     expect(clip.clipBehavior, Clip.antiAlias);
     final notchPath = clip.clipper!.getClip(navRect.size);
     final buttonCenter =
         tester.getCenter(find.byIcon(Icons.home_rounded)) - navRect.topLeft;
     expect(notchPath.contains(buttonCenter), isFalse);
-    expect(notchPath.contains(buttonCenter.translate(-31, 10)), isFalse);
-    expect(notchPath.contains(buttonCenter.translate(31, 10)), isFalse);
-    expect(notchPath.contains(buttonCenter.translate(-32, 10)), isTrue);
-    expect(notchPath.contains(buttonCenter.translate(32, 10)), isTrue);
+    expect(notchPath.contains(buttonCenter.translate(0, 22)), isFalse);
+    expect(notchPath.contains(buttonCenter.translate(0, 25)), isTrue);
     await tester.tap(find.byIcon(Icons.person_outline_rounded));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
