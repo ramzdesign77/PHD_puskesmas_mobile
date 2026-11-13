@@ -42,6 +42,20 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  void _handleOpenTicketHistory(String ticketCode) {
+    setState(() {
+      _activeTrackingTicketCode = ticketCode;
+      _currentIndex = 2;
+    });
+  }
+
+  void _handleOpenAllHistory() {
+    setState(() {
+      _activeTrackingTicketCode = null;
+      _currentIndex = 2;
+    });
+  }
+
   Future<void> _logout() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -104,7 +118,10 @@ class _MainShellState extends State<MainShell> {
       ),
       ReportView(
         apiService: widget.apiService,
+        isActive: _currentIndex == 1,
         onReportSubmitted: _handleReportSubmitted,
+        onOpenTicketHistory: _handleOpenTicketHistory,
+        onOpenAllHistory: _handleOpenAllHistory,
       ),
       TrackingView(
         apiService: widget.apiService,
@@ -126,7 +143,6 @@ class _MainShellState extends State<MainShell> {
     ];
 
     return Scaffold(
-      extendBody: true,
       body: IndexedStack(index: _currentIndex, children: screens),
       bottomNavigationBar: Padding(
         padding: EdgeInsets.fromLTRB(

@@ -75,6 +75,7 @@ class _TrackingViewState extends State<TrackingView> {
     });
 
     try {
+      await widget.apiService.syncCitizenTicketsHistory();
       final savedCodes = await widget.apiService.getSavedCitizenTicketCodes();
       if (preferredCode != null && !savedCodes.contains(preferredCode)) {
         await widget.apiService.saveCitizenTicketCode(preferredCode);
@@ -650,6 +651,10 @@ class _TicketDetails extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _StatusHero(ticket: ticket),
+        if (!ticket.isRejected && ticket.isCompleted) ...[
+          const SizedBox(height: 14),
+          _RecommendationCard(ticket: ticket),
+        ],
         if (!ticket.isRejected) ...[
           const SizedBox(height: 14),
           _ProgressCard(currentStepIndex: stepIndex ?? 0),
@@ -662,11 +667,11 @@ class _TicketDetails extends StatelessWidget {
           const SizedBox(height: 14),
           _ScheduleCard(ticket: ticket),
         ],
-        const SizedBox(height: 14),
-        if (!ticket.isRejected) ...[
-          _RecommendationCard(ticket: ticket),
+        if (!ticket.isRejected && !ticket.isCompleted) ...[
           const SizedBox(height: 14),
+          _RecommendationCard(ticket: ticket),
         ],
+        const SizedBox(height: 14),
         _TimelineCard(ticket: ticket),
         const SizedBox(height: 14),
         _ReportSummaryCard(ticket: ticket),
@@ -703,7 +708,8 @@ class _StatusHero extends StatelessWidget {
             0 => 'Laporan Anda sudah tercatat dan menunggu verifikasi.',
             1 => 'Admin Puskesmas sedang memverifikasi laporan Anda.',
             2 => 'Jadwal kunjungan petugas sedang disiapkan.',
-            3 => 'Petugas sedang melakukan pemeriksaan atau intervensi.',
+            3 =>
+              'Petugas sedang melakukan pemeriksaan dan tindakan penanganan.',
             4 => 'Pemeriksaan selesai dan rekomendasi telah diterbitkan.',
             _ => 'Status laporan Anda telah diperbarui.',
           };
@@ -939,14 +945,14 @@ class _ScheduleCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Petugas Kesehatan Lingkungan',
+                      'Petugas Puskesmas',
                       style: TextStyle(color: AppColors.muted, fontSize: 11),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       ticket.officer?.trim().isNotEmpty == true
                           ? ticket.officer!
-                          : 'Sanitarian',
+                          : 'Petugas',
                       style: const TextStyle(
                         color: AppColors.ink,
                         fontSize: 14,
@@ -981,10 +987,10 @@ class _ScheduleCard extends StatelessWidget {
           const SizedBox(height: 10),
           _InfoRow(
             icon: Icons.assignment_outlined,
-            label: 'Intervensi lapangan',
+            label: 'Tindakan Petugas',
             value: ticket.intervention?.trim().isNotEmpty == true
                 ? ticket.intervention!
-                : 'Inspeksi Kesehatan Lingkungan (IKL)',
+                : 'Pemeriksaan',
           ),
           if (ticket.visitStatus?.trim().isNotEmpty == true) ...[
             const SizedBox(height: 10),
@@ -1015,9 +1021,9 @@ class _TimelineCard extends StatelessWidget {
   static const _descriptions = [
     'Laporan warga berhasil diterima oleh sistem.',
     'Admin Puskesmas melakukan verifikasi laporan.',
-    'Jadwal kunjungan petugas sanitarian ditetapkan.',
-    'Petugas melakukan IKL atau intervensi di lokasi.',
-    'Pemeriksaan selesai dan rekomendasi sanitasi diterbitkan.',
+    'Jadwal kunjungan petugas ditetapkan.',
+    'Petugas sedang melakukan pemeriksaan dan tindakan penanganan di lokasi.',
+    'Pemeriksaan selesai dan rekomendasi diterbitkan.',
   ];
 
   @override
@@ -1195,71 +1201,80 @@ class _ReportSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SectionHeading(
-            title: 'Rincian laporan',
+      child: Material(
+        color: Colors.transparent,
+        child: ExpansionTile(
+          key: ValueKey(ticket.isCompleted),
+          initiallyExpanded: !ticket.isCompleted,
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: EdgeInsets.zero,
+          title: const _SectionHeading(
+            title: 'Rincian Laporan Awal',
             subtitle: 'Informasi laporan yang Anda kirim',
             icon: Icons.receipt_long_outlined,
           ),
-          const SizedBox(height: 17),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8F9FA),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.confirmation_number_outlined,
-                  size: 18,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    ticket.code,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w400,
-                      fontSize: 13,
-                      color: AppColors.ink,
+          children: [
+            const SizedBox(height: 17),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F9FA),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.confirmation_number_outlined,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      ticket.code,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w400,
+                        fontSize: 13,
+                        color: AppColors.ink,
+                      ),
                     ),
                   ),
-                ),
-                TextButton.icon(
-                  onPressed: () => _copyCode(context),
-                  icon: const Icon(Icons.copy_rounded, size: 15),
-                  label: const Text('Salin'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    visualDensity: VisualDensity.compact,
+                  TextButton.icon(
+                    onPressed: () => _copyCode(context),
+                    icon: const Icon(Icons.copy_rounded, size: 15),
+                    label: const Text('Salin'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
-          _DetailRow(
-            label: 'Nama pelapor',
-            value: ticket.reporterName?.trim().isNotEmpty == true
-                ? ticket.reporterName!
-                : 'Warga',
-          ),
-          _DetailRow(
-            label: 'Lokasi',
-            value:
-                '${ticket.village ?? '-'}, RT ${ticket.rt} / RW ${ticket.rw}',
-          ),
-          _DetailRow(label: 'Kategori', value: _categoryLabel(ticket.category)),
-          _DetailRow(
-            label: 'Deskripsi',
-            value: ticket.description.trim().isNotEmpty
-                ? ticket.description
-                : '-',
-          ),
-        ],
+            const SizedBox(height: 14),
+            _DetailRow(
+              label: 'Nama pelapor',
+              value: ticket.reporterName?.trim().isNotEmpty == true
+                  ? ticket.reporterName!
+                  : 'Warga',
+            ),
+            _DetailRow(
+              label: 'Lokasi',
+              value:
+                  '${ticket.village ?? '-'}, RT ${ticket.rt} / RW ${ticket.rw}',
+            ),
+            _DetailRow(
+              label: 'Kategori',
+              value: _categoryLabel(ticket.category),
+            ),
+            _DetailRow(
+              label: 'Deskripsi',
+              value: ticket.description.trim().isNotEmpty
+                  ? ticket.description
+                  : '-',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1289,7 +1304,7 @@ class _RecommendationCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionHeading(
-            title: 'Hasil Inspeksi Petugas',
+            title: 'Hasil Pemeriksaan Petugas',
             subtitle: 'Hasil pemeriksaan pada laporan ini',
             icon: Icons.health_and_safety_outlined,
             iconColor: color,
@@ -1298,8 +1313,8 @@ class _RecommendationCard extends StatelessWidget {
           if (!hasResult)
             Text(
               ticket.status.toLowerCase() == 'selesai'
-                  ? 'Hasil inspeksi belum tersedia. Tarik halaman untuk memperbarui.'
-                  : 'Menunggu hasil inspeksi petugas.',
+                  ? 'Hasil pemeriksaan belum tersedia. Tarik halaman untuk memperbarui.'
+                  : 'Menunggu hasil pemeriksaan petugas.',
               style: const TextStyle(color: AppColors.muted, fontSize: 13),
             )
           else ...[
@@ -1336,13 +1351,16 @@ class _RecommendationCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _DetailRow(
-              label: 'Tanggal inspeksi',
+              label: 'Tanggal pemeriksaan',
               value: ticket.inspectionDate ?? 'Belum dicantumkan',
             ),
             if (ticket.officer?.trim().isNotEmpty == true)
               _DetailRow(label: 'Petugas', value: ticket.officer!),
             if (ticket.intervention?.trim().isNotEmpty == true)
-              _DetailRow(label: 'Intervensi', value: ticket.intervention!),
+              _DetailRow(
+                label: 'Tindakan Petugas',
+                value: ticket.intervention!,
+              ),
             const Text(
               'Rekomendasi Petugas',
               style: TextStyle(

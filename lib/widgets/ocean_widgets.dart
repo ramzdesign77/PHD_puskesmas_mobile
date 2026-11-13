@@ -4,34 +4,106 @@ import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
 
-class DynamicWaterHeader extends StatelessWidget {
+class DynamicWaterHeader extends StatefulWidget {
   const DynamicWaterHeader({
     super.key,
     required this.height,
     required this.child,
     this.padding = EdgeInsets.zero,
+    this.animated = false,
+    this.backgroundImageAsset,
   });
 
   final double height;
   final Widget child;
   final EdgeInsetsGeometry padding;
+  final bool animated;
+  final String? backgroundImageAsset;
+
+  @override
+  State<DynamicWaterHeader> createState() => _DynamicWaterHeaderState();
+}
+
+class _DynamicWaterHeaderState extends State<DynamicWaterHeader>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 6200),
+    );
+    if (widget.animated) _controller.repeat();
+  }
+
+  @override
+  void didUpdateWidget(covariant DynamicWaterHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.animated != oldWidget.animated) {
+      widget.animated ? _controller.repeat() : _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ClipPath(
       clipper: _WaterWaveClipper(),
       child: Container(
-        height: height,
+        height: widget.height,
         width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.primary, AppColors.primaryLight],
-          ),
-        ),
+        decoration: widget.backgroundImageAsset == null
+            ? const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.primary, AppColors.primaryLight],
+                ),
+              )
+            : BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage(widget.backgroundImageAsset!),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                ),
+              ),
         child: Stack(
           children: [
+            if (widget.backgroundImageAsset != null)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        AppColors.primary.withValues(alpha: 0.12),
+                        AppColors.primary.withValues(alpha: 0.48),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            if (widget.animated)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 24,
+                height: widget.height * 0.58,
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) => CustomPaint(
+                    painter: _AnimatedWaterPainter(_controller.value),
+                  ),
+                ),
+              ),
             Positioned(
               top: -54,
               right: -42,
@@ -51,7 +123,7 @@ class DynamicWaterHeader extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.1),
               ),
             ),
-            Padding(padding: padding, child: child),
+            Padding(padding: widget.padding, child: widget.child),
           ],
         ),
       ),
@@ -173,6 +245,74 @@ class _Bubble extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AnimatedWaterPainter extends CustomPainter {
+  const _AnimatedWaterPainter(this.progress);
+
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _paintWave(
+      canvas,
+      size,
+      baseHeight: size.height * 0.58,
+      amplitude: size.height * 0.105,
+      phase: progress * math.pi * 2,
+      color: Colors.white.withValues(alpha: 0.16),
+      widthScale: 1.0,
+    );
+    _paintWave(
+      canvas,
+      size,
+      baseHeight: size.height * 0.74,
+      amplitude: size.height * 0.085,
+      phase: progress * math.pi * 2 + math.pi * 0.72,
+      color: Colors.white.withValues(alpha: 0.24),
+      widthScale: 1.28,
+    );
+    _paintWave(
+      canvas,
+      size,
+      baseHeight: size.height * 0.86,
+      amplitude: size.height * 0.055,
+      phase: progress * math.pi * 2 + math.pi * 1.45,
+      color: const Color(0xA8EAFBFF),
+      widthScale: 0.82,
+    );
+  }
+
+  void _paintWave(
+    Canvas canvas,
+    Size size, {
+    required double baseHeight,
+    required double amplitude,
+    required double phase,
+    required Color color,
+    required double widthScale,
+  }) {
+    final path = Path()..moveTo(0, baseHeight);
+    for (var x = 0.0; x <= size.width; x += 2) {
+      final normalizedX = x / size.width;
+      final y = baseHeight +
+          math.sin(normalizedX * math.pi * 2 * widthScale + phase) *
+              amplitude +
+          math.sin(normalizedX * math.pi * 4 * widthScale - phase * 0.35) *
+              amplitude *
+              0.18;
+      path.lineTo(x, y);
+    }
+    path
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AnimatedWaterPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 class _WaterWaveClipper extends CustomClipper<Path> {

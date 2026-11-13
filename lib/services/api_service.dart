@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -34,6 +35,8 @@ class ApiService {
   static const _rolesKey = 'auth_roles';
   static const _savedCitizenTicketsKey = 'saved_citizen_tickets';
   static const _ticketCachePrefix = 'citizen_ticket_cache_';
+  static const _cachedCitizenTicketStatusesKey =
+      'cached_citizen_ticket_statuses';
   final Uri _baseUri = Uri.parse(
     '${AppConfig.apiBaseUrl.replaceFirst(RegExp(r'/$'), '')}/',
   );
@@ -74,6 +77,7 @@ class ApiService {
       'password': password,
       'password_confirmation': password,
       'no_telepon': phone.trim(),
+      'no_hp': phone.trim(),
     };
     final response = await _client.post(
       _endpoint('auth/register'),
@@ -133,10 +137,15 @@ class ApiService {
     final roleSaved = await preferences.setString(_roleKey, role);
     await preferences.setString(
       _userPhoneKey,
-      user['no_telepon'] as String? ??
-          user['no_wa'] as String? ??
-          user['no_hp'] as String? ??
-          user['phone'] as String? ??
+      _firstNonEmptyString([
+            user['no_telepon'],
+            user['no_wa'],
+            user['no_hp'],
+            user['phone'],
+            user['phone_number'],
+            user['nomor_telepon'],
+          ]) ??
+          fallbackPhone?.trim() ??
           '',
     );
     await preferences.setString(
@@ -208,9 +217,17 @@ class ApiService {
   }
 
   static bool isOfficerRole(String? role) {
-    return (role ?? '').split(',').any((value) => const {
-      'petugas', 'sanitarian', 'staf_backup_kluster4', 'admin', 'kepala_puskesmas',
-    }.contains(value.trim().toLowerCase()));
+    return (role ?? '')
+        .split(',')
+        .any(
+          (value) => const {
+            'petugas',
+            'sanitarian',
+            'staf_backup_kluster4',
+            'admin',
+            'kepala_puskesmas',
+          }.contains(value.trim().toLowerCase()),
+        );
   }
 
   Map<String, dynamic> _userFromResponse(Map<String, dynamic> response) {
@@ -306,7 +323,9 @@ class ApiService {
       );
     }
 
-    final streamedResponse = await _client.send(request);
+    final streamedResponse = await _client
+        .send(request)
+        .timeout(const Duration(seconds: 30));
     final response = await http.Response.fromStream(streamedResponse);
     final body = _decode(response);
     final ticketCode = body['kode_tiket'];
@@ -365,6 +384,95 @@ class ApiService {
     return preferences.getStringList(_savedCitizenTicketsKey) ?? [];
   }
 
+  Future<List<String>> getSavedCitizenTickets() => getSavedCitizenTicketCodes();
+
+  Future<List<TicketStatus>> getCachedCitizenTicketStatuses() async {
+    final preferences = await SharedPreferences.getInstance();
+    final raw = preferences.getString(_cachedCitizenTicketStatusesKey);
+    if (raw == null || raw.isEmpty) {
+      final codes = await getSavedCitizenTicketCodes();
+      final statuses = <TicketStatus>[];
+      for (final code in codes) {
+        final status = await getCachedTicketStatus(code);
+        if (status != null) statuses.add(status);
+      }
+      return statuses;
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<Map>()
+          .map((item) => TicketStatus.fromJson(Map<String, dynamic>.from(item)))
+          .toList(growable: false);
+    } on FormatException {
+      return const [];
+    }
+  }
+
+  Future<List<String>> syncCitizenTicketsHistory() async {
+    final preferences = await SharedPreferences.getInstance();
+    final localCodes = preferences.getStringList(_savedCitizenTicketsKey) ?? [];
+    final token = preferences.getString(_tokenKey)?.trim();
+    var uri = _endpoint('v1/laporan/history');
+    if (localCodes.isNotEmpty) {
+      uri = uri.replace(queryParameters: {'codes': localCodes.join(',')});
+    }
+
+    try {
+      final response = await _client
+          .get(
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              if (token != null && token.isNotEmpty)
+                'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 4));
+      final body = _decode(response);
+      final payload = body['data'] ?? body['history'] ?? body['laporan'];
+      final rows = payload is List
+          ? payload
+          : payload is Map
+          ? (payload['data'] is List
+                ? payload['data'] as List<dynamic>
+                : <dynamic>[])
+          : <dynamic>[];
+
+      final serverCodes = <String>[];
+      final serverStatuses = <TicketStatus>[];
+      for (final row in rows) {
+        if (row is! Map) continue;
+        final map = Map<String, dynamic>.from(row);
+        final ticket = TicketStatus.fromJson(map);
+        final code = ticket.code.trim();
+        if (code.isNotEmpty) {
+          serverCodes.add(code);
+          serverStatuses.add(ticket);
+          await cacheTicketStatus(ticket);
+        }
+      }
+
+      final merged = <String>{
+        for (final code in [...serverCodes, ...localCodes])
+          if (code.trim().isNotEmpty) code.trim(),
+      }.toList();
+      await preferences.setStringList(_savedCitizenTicketsKey, merged);
+      await preferences.setString(
+        _cachedCitizenTicketStatusesKey,
+        jsonEncode(serverStatuses.map((ticket) => ticket.toJson()).toList()),
+      );
+      return merged;
+    } on ApiException {
+      return localCodes;
+    } on http.ClientException {
+      return localCodes;
+    } on Exception {
+      return localCodes;
+    }
+  }
+
   Future<void> saveCitizenTicketCode(String code) async {
     final normalizedCode = code.trim();
     if (normalizedCode.isEmpty) {
@@ -412,6 +520,16 @@ class ApiService {
     if (!saved) {
       throw const ApiException('Status tiket tidak dapat disimpan ke cache.');
     }
+
+    final statuses = await getCachedCitizenTicketStatuses();
+    final updated = [
+      ticket,
+      ...statuses.where((status) => status.code != ticket.code),
+    ];
+    await preferences.setString(
+      _cachedCitizenTicketStatusesKey,
+      jsonEncode(updated.map((status) => status.toJson()).toList()),
+    );
   }
 
   String _ticketCacheKey(String code) =>

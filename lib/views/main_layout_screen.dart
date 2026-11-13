@@ -25,7 +25,6 @@ class MainLayoutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBody: true,
       backgroundColor: backgroundColor,
       body: bodySafeArea
           ? SafeArea(

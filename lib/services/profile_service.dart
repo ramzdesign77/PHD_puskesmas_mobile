@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_config.dart';
+import '../models/saved_address.dart';
 
 class LocalProfile {
   LocalProfile({
@@ -132,16 +133,121 @@ class ProfileService {
         return profile;
       });
 
+  Future<SavedAddress?> loadSavedAddress() => _withNetworkErrors(() async {
+    final preferences = await _preferencesProvider();
+    final token = await _currentToken(preferences);
+    final response = await _client
+        .get(_profileUri, headers: _headers(token))
+        .timeout(const Duration(seconds: 20));
+    _assertCurrentSession(preferences, token);
+    return _savedAddressFromResponse(_responseBody(response));
+  });
+
+  Future<SavedAddress> saveAddress(
+    SavedAddress address, {
+    required LocalProfile profile,
+  }) => _withNetworkErrors(() async {
+    final preferences = await _preferencesProvider();
+    final token = await _currentToken(preferences);
+    final response = await _client
+        .put(
+          _profileUri,
+          headers: _headers(token, json: true),
+          body: jsonEncode({
+            'nama_lengkap': profile.name.trim(),
+            'username': profile.username.trim(),
+            'email': profile.email.trim(),
+            'no_telepon': profile.phone.trim(),
+            ...address.toJson(),
+          }),
+        )
+        .timeout(const Duration(seconds: 20));
+    _assertCurrentSession(preferences, token);
+    final saved = _savedAddressFromResponse(_responseBody(response));
+    return saved == null
+        ? address
+        : SavedAddress(
+            villageId: saved.villageId,
+            rt: saved.rt,
+            rw: saved.rw,
+            detail: saved.detail,
+            villageName: saved.villageName ?? address.villageName,
+          );
+  });
+
   Future<LocalProfile> save(LocalProfile profile) =>
       _withNetworkErrors(() async {
         final preferences = await _preferencesProvider();
         final token = _loadedToken;
         _assertCurrentSession(preferences, token);
-        final saved = await _updateRemote(profile, token!);
+        final cachedAvatar = preferences.getString(avatarKey);
+        final avatarChanged =
+            profile.removeAvatar ||
+            (profile.avatarBytes == null && cachedAvatar != null) ||
+            (profile.avatarBytes != null &&
+                (cachedAvatar == null ||
+                    cachedAvatar != base64Encode(profile.avatarBytes!)));
+        final saved = await _updateRemote(
+          profile,
+          token!,
+          uploadAvatar: avatarChanged,
+        );
         _assertCurrentSession(preferences, token);
         await _cache(preferences, saved, token);
         return saved;
       });
+
+  Future<String> _currentToken(SharedPreferences preferences) async {
+    final token = preferences.getString(_tokenKey);
+    if (token == null || token.trim().isEmpty) {
+      throw const ProfileException('Silakan masuk untuk mengelola alamat.');
+    }
+    _loadedToken = token;
+    _assertCurrentSession(preferences, token);
+    return token;
+  }
+
+  SavedAddress? _savedAddressFromResponse(Map<String, dynamic> body) {
+    final data = body['data'];
+    final user = data is Map
+        ? (data['user'] is Map ? data['user'] as Map : data)
+        : body['user'] is Map
+        ? body['user'] as Map
+        : body;
+    final nestedAddress = user['alamat'] is Map ? user['alamat'] as Map : user;
+    final village = nestedAddress['desa'] is Map
+        ? nestedAddress['desa'] as Map
+        : const <Object?, Object?>{};
+    final villageId =
+        nestedAddress['id_desa'] ??
+        nestedAddress['desa_id'] ??
+        nestedAddress['village_id'] ??
+        village['id_desa'] ??
+        village['id'];
+    final rt = nestedAddress['rt']?.toString();
+    final rw = nestedAddress['rw']?.toString();
+    final detail =
+        nestedAddress['alamat_detail'] ??
+        nestedAddress['patokan_alamat'] ??
+        nestedAddress['detail_alamat'];
+    final villageName = village['nama_desa'] ?? nestedAddress['nama_desa'];
+    if (villageId == null && rt == null && rw == null && detail == null) {
+      return null;
+    }
+    final parsedVillageId = int.tryParse(villageId?.toString() ?? '');
+    if (parsedVillageId == null || rt == null || rw == null) {
+      throw const ProfileException(
+        'Data alamat dari server belum lengkap. Periksa konfigurasi API profil.',
+      );
+    }
+    return SavedAddress(
+      villageId: parsedVillageId,
+      rt: rt,
+      rw: rw,
+      detail: detail?.toString() ?? '',
+      villageName: villageName is String ? villageName : null,
+    );
+  }
 
   Future<void> changePassword({
     required String currentPassword,
@@ -181,7 +287,11 @@ class ProfileService {
     }
   }
 
-  Future<LocalProfile> _updateRemote(LocalProfile profile, String token) async {
+  Future<LocalProfile> _updateRemote(
+    LocalProfile profile,
+    String token, {
+    required bool uploadAvatar,
+  }) async {
     final fields = <String, String>{
       'nama_lengkap': profile.name.trim(),
       'username': profile.username.trim(),
@@ -189,15 +299,17 @@ class ProfileService {
       'no_telepon': profile.phone.trim(),
     };
     late http.Response response;
-    if (profile.avatarBytes != null && !profile.removeAvatar) {
+    if (uploadAvatar && profile.avatarBytes != null && !profile.removeAvatar) {
       final request = http.MultipartRequest('POST', _profileUri)
         ..headers.addAll(_headers(token))
         ..fields.addAll({...fields, '_method': 'PUT'})
-        ..files.add(http.MultipartFile.fromBytes(
-          'foto',
-          profile.avatarBytes!,
-          filename: profile.avatarFileName ?? 'avatar.jpg',
-        ));
+        ..files.add(
+          http.MultipartFile.fromBytes(
+            'foto',
+            profile.avatarBytes!,
+            filename: profile.avatarFileName ?? 'avatar.jpg',
+          ),
+        );
       response = await (() async {
         final stream = await _client.send(request);
         return http.Response.fromStream(stream);
@@ -214,6 +326,17 @@ class ProfileService {
           )
           .timeout(const Duration(seconds: 20));
     }
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic> && decoded.isNotEmpty) {
+          return _profileFromResponse(response);
+        }
+      } on FormatException {
+        // Some profile endpoints return an empty successful response.
+      }
+      return profile;
+    }
     return _profileFromResponse(response);
   }
 
@@ -223,7 +346,8 @@ class ProfileService {
     final user = data is Map ? data['user'] : null;
     if (user is! Map ||
         user['nama_lengkap'] is! String ||
-        user['username'] is! String || user['email'] is! String) {
+        user['username'] is! String ||
+        user['email'] is! String) {
       throw const ProfileException('Data profil dari server tidak lengkap.');
     }
     return LocalProfile(
@@ -244,12 +368,12 @@ class ProfileService {
       // Status codes still identify authentication and server failures.
     }
     if (response.statusCode == 401 || response.statusCode == 403) {
-      throw const ProfileException('Sesi login tidak valid. Silakan masuk kembali.');
+      throw const ProfileException(
+        'Sesi login tidak valid. Silakan masuk kembali.',
+      );
     }
-    if (response.statusCode >= 200 &&
-        response.statusCode < 300 &&
-        body?['success'] == true) {
-      return body!;
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return body ?? {'success': true};
     }
     String? message;
     final errors = body?['errors'];
@@ -270,10 +394,14 @@ class ProfileService {
       );
     }
     if (response.statusCode == 429) {
-      throw const ProfileException('Terlalu banyak percobaan. Coba lagi dalam satu menit.');
+      throw const ProfileException(
+        'Terlalu banyak percobaan. Coba lagi dalam satu menit.',
+      );
     }
-    throw ProfileException(message ??
-        'Permintaan belum berhasil dikonfirmasi server (${response.statusCode}).');
+    throw ProfileException(
+      message ??
+          'Permintaan belum berhasil dikonfirmasi server (${response.statusCode}).',
+    );
   }
 
   Future<void> _cache(
@@ -291,7 +419,9 @@ class ProfileService {
       phoneKey: profile.phone,
       usernameKey: profile.username,
       avatarUrlKey: profile.avatarUrl,
-      avatarKey: null,
+      avatarKey: profile.avatarBytes == null || profile.removeAvatar
+          ? null
+          : base64Encode(profile.avatarBytes!),
     };
     try {
       for (final entry in values.entries) {
@@ -305,7 +435,10 @@ class ProfileService {
     } catch (error) {
       // A response from a previous account must never replace a new session.
       for (final entry in previous.entries) {
-        if (_loadedToken != token || preferences.getString(_tokenKey) != token) break;
+        if (_loadedToken != token ||
+            preferences.getString(_tokenKey) != token) {
+          break;
+        }
         try {
           if (entry.value == null) {
             await preferences.remove(entry.key);
@@ -348,10 +481,15 @@ class ProfileService {
     } else if (!apiPath.endsWith('/api')) {
       apiPath = '$apiPath/api';
     }
-    return baseUri.replace(path: '$apiPath/v1/profile', query: null, fragment: null);
+    return baseUri.replace(
+      path: '$apiPath/v1/profile',
+      query: null,
+      fragment: null,
+    );
   }
 
-  Uri get _passwordUri => _profileUri.replace(path: '${_profileUri.path}/password');
+  Uri get _passwordUri =>
+      _profileUri.replace(path: '${_profileUri.path}/password');
 
   static Future<bool> replaceForSession(
     SharedPreferences preferences, {

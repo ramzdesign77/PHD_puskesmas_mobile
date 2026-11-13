@@ -55,10 +55,21 @@ class OfficerApiService {
     return OfficerDashboardData.fromJson(_decode(response));
   }
 
-  Future<List<VisitSchedule>> getTasks(String token) async {
+  Future<List<VisitSchedule>> getTasks(
+    String token, {
+    String filter = 'semua',
+    String search = '',
+  }) async {
     final response = await _requestWithFallback(
-      () =>
-          _client.get(_officerEndpoint('tasks'), headers: _authHeaders(token)),
+      () {
+        final uri = _officerEndpoint('tasks').replace(
+          queryParameters: {
+            'filter': filter,
+            if (search.trim().isNotEmpty) 'search': search.trim(),
+          },
+        );
+        return _client.get(uri, headers: _authHeaders(token));
+      },
       () => _client.get(
         _legacyEndpoint('petugas/jadwal'),
         headers: _authHeaders(token),
@@ -66,6 +77,12 @@ class OfficerApiService {
     );
     return _extractSchedules(_decode(response));
   }
+
+  Future<List<VisitSchedule>> fetchTasks({
+    required String token,
+    String filter = 'semua',
+    String search = '',
+  }) => getTasks(token, filter: filter, search: search);
 
   /// Alias untuk kompatibilitas dengan pemanggil service sebelumnya.
   Future<List<VisitSchedule>> getMySchedules(String token) => getTasks(token);
@@ -113,6 +130,8 @@ class OfficerApiService {
   Future<Map<String, dynamic>> submitInspection({
     required String token,
     required int scheduleId,
+    int? reportId,
+    String? categoryIkl,
     required String waterSource,
     required int pollutantDistance,
     required List<bool> riskIndicators,
@@ -122,15 +141,67 @@ class OfficerApiService {
     required String recommendation,
     required String officerNote,
     XFile? photo,
+    List<String>? indicatorQuestions,
   }) async {
-    RiskScore.total(riskIndicators);
+    if (riskIndicators.length == 7) {
+      RiskScore.totalDynamic(riskIndicators);
+    } else {
+      RiskScore.total(riskIndicators);
+    }
+    final isDynamic = categoryIkl != null;
+    final score = isDynamic
+        ? RiskScore.totalDynamic(riskIndicators)
+        : null;
+    final riskCategory = isDynamic
+        ? RiskScore.dynamicCategory(
+            score!,
+            urgentWaterFinding: categoryIkl == 'sumur_bor' && riskIndicators[6],
+          )
+        : null;
+    final legacyAnswers = isDynamic
+        ? switch (categoryIkl) {
+            'sumur_gali' => [
+              riskIndicators[2],
+              riskIndicators[5],
+              riskIndicators[3],
+              riskIndicators[4],
+              false,
+            ],
+            'sumur_bor' => [
+              riskIndicators[3],
+              riskIndicators[5],
+              riskIndicators[1],
+              riskIndicators[2],
+              riskIndicators[6],
+            ],
+            _ => List<bool>.filled(5, false),
+          }
+        : riskIndicators;
     final payload = <String, dynamic>{
       'id_jadwal': scheduleId,
+      if (reportId != null) 'id_laporan': reportId,
+      if (categoryIkl != null) 'kategori_ikl': categoryIkl,
       'jenis_sarana_air': waterSource,
       'jarak_sumber_pencemar': pollutantDistance,
       'tanggal_inspeksi': inspectionDate,
-      for (var index = 0; index < RiskScore.fields.length; index++)
-        RiskScore.fields[index]: riskIndicators[index],
+      if (isDynamic) ...{
+        for (var index = 0; index < 7; index++)
+          RiskScore.fields[index]: riskIndicators[index] ? 1 : 0,
+        'detail_indikator': [
+          for (var index = 0; index < 7; index++)
+            {
+              'nomor': index + 1,
+              'pertanyaan': indicatorQuestions != null && index < indicatorQuestions.length
+                  ? indicatorQuestions[index]
+                  : RiskScore.questionsFor(categoryIkl!)[index],
+              'jawaban_ya': riskIndicators[index],
+            },
+        ],
+        'total_skor_ya': score,
+        'kategori_risiko': riskCategory,
+      },
+      for (var index = 0; index < RiskScore.legacyFields.length; index++)
+        RiskScore.legacyFields[index]: legacyAnswers[index],
       'intervensi_fisik': intervention,
       'catatan_intervensi': interventionNote,
       'rekomendasi_sanitarian': recommendation,
@@ -144,22 +215,27 @@ class OfficerApiService {
         body: jsonEncode(payload),
       );
     } else {
-      final request = http.MultipartRequest('POST', _officerEndpoint('inspections'))
-        ..headers.addAll({
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        })
-        ..fields.addAll({
-          for (final entry in payload.entries)
-            entry.key: entry.value is bool
-                ? (entry.value == true ? '1' : '0')
-                : entry.value.toString(),
-        })
-        ..files.add(http.MultipartFile.fromBytes(
-          'foto_bukti',
-          await photo.readAsBytes(),
-          filename: photo.name,
-        ));
+      final request =
+          http.MultipartRequest('POST', _officerEndpoint('inspections'))
+            ..headers.addAll({
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            })
+            ..fields.addAll({
+              for (final entry in payload.entries)
+                entry.key: entry.value is bool
+                    ? (entry.value == true ? '1' : '0')
+                    : entry.value is Map || entry.value is List
+                    ? jsonEncode(entry.value)
+                    : entry.value.toString(),
+            })
+            ..files.add(
+              http.MultipartFile.fromBytes(
+                'foto_bukti',
+                await photo.readAsBytes(),
+                filename: photo.name,
+              ),
+            );
       response = await http.Response.fromStream(await _client.send(request));
     }
     final body = _decode(response);
@@ -210,19 +286,74 @@ class OfficerApiService {
   }
 
   List<VisitSchedule> _extractSchedules(Map<String, dynamic> body) {
-    final payload = body['data'] ?? body['tasks'] ?? body['jadwal'];
-    if (payload is Map) {
-      final nested = payload['tasks'] ?? payload['jadwal'] ?? payload['data'];
-      if (nested is List) return _scheduleList(nested);
+    final result = <VisitSchedule>[];
+    final seenIds = <String>{};
+    void addRows(Object? value) {
+      if (value is List) {
+        for (final row in value.whereType<Map>()) {
+          final map = Map<String, dynamic>.from(row);
+          final item = VisitSchedule.fromJson(map);
+          final key =
+              '${item.isInspection ? 'schedule' : 'report'}:${item.scheduleId ?? item.id}:${item.status}:${item.reporterName}:${item.category}';
+          if (!seenIds.add(key)) continue;
+          result.add(item);
+        }
+      }
     }
-    if (payload is List) return _scheduleList(payload);
-    return const [];
-  }
 
-  List<VisitSchedule> _scheduleList(List<dynamic> rows) => rows
-      .whereType<Map>()
-      .map((row) => VisitSchedule.fromJson(Map<String, dynamic>.from(row)))
-      .toList(growable: false);
+    addRows(body['tasks']);
+    addRows(body['jadwal']);
+    addRows(body['schedules']);
+    addRows(body['reports']);
+    addRows(body['laporan']);
+    addRows(body['recent_reports']);
+    addRows(body['today_schedules']);
+
+    final data = body['data'];
+    if (data is List) {
+      addRows(data);
+    } else if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+      for (final key in const [
+        'tasks',
+        'items',
+        'jadwal',
+        'schedules',
+        'reports',
+        'laporan',
+        'recent_reports',
+        'recentReports',
+        'today_schedules',
+        'todaySchedules',
+        'data',
+      ]) {
+        addRows(map[key]);
+        final nested = map[key];
+        if (nested is Map) {
+          final nestedMap = Map<String, dynamic>.from(nested);
+          addRows(nestedMap['data']);
+          addRows(nestedMap['items']);
+          addRows(nestedMap['tasks']);
+        }
+      }
+    }
+
+    for (final key in const [
+      'tasks',
+      'items',
+      'jadwal',
+      'schedules',
+      'reports',
+      'laporan',
+      'recent_reports',
+      'recentReports',
+      'today_schedules',
+      'todaySchedules',
+    ]) {
+      addRows(body[key]);
+    }
+    return result;
+  }
 
   Uri _officerEndpoint(String path) {
     final configuredPath = _configuredUri.path.replaceFirst(RegExp(r'/+$'), '');
@@ -283,14 +414,26 @@ class OfficerApiService {
                 .firstOrNull
           : null;
       final message = body['message'];
+      final serverMessage = firstError ?? (message is String ? message : null);
       throw ApiOfficerException(
-        firstError ??
-            (message is String ? message : 'Permintaan gagal. Coba lagi.'),
+        _userFacingErrorMessage(serverMessage),
         statusCode: response.statusCode,
       );
     }
 
     return body;
+  }
+
+  String _userFacingErrorMessage(String? message) {
+    if (message == null || message.trim().isEmpty) {
+      return 'Permintaan gagal. Coba lagi.';
+    }
+    final normalized = message.toLowerCase();
+    if (normalized.contains('sqlstate[') ||
+        normalized.contains('unknown column')) {
+      return 'Data jadwal belum dapat dimuat. Hubungi admin untuk memeriksa konfigurasi server.';
+    }
+    return message;
   }
 }
 

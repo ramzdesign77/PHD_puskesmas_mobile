@@ -101,23 +101,8 @@ class _FluidBottomNavState extends State<FluidBottomNav>
                     )! *
                     itemWidth +
                 itemWidth / 2;
-            return Container(
+            return SizedBox(
               height: navHeight,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(_fluidNavCornerRadius),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.19),
-                    blurRadius: 28,
-                    offset: const Offset(0, 10),
-                  ),
-                  BoxShadow(
-                    color: AppColors.primaryLight.withValues(alpha: 0.09),
-                    blurRadius: 12,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
               child: Stack(
                 fit: StackFit.expand,
                 clipBehavior: Clip.none,
@@ -132,11 +117,13 @@ class _FluidBottomNavState extends State<FluidBottomNav>
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.82),
+                        DecoratedBox(
+                          key: const Key('fluid_nav_surface'),
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.white, Color(0xFFEAF8FE)],
                             ),
                           ),
                         ),
@@ -197,6 +184,8 @@ class _FluidNavButton extends StatefulWidget {
 class _FluidNavButtonState extends State<_FluidNavButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _bounceController;
+  bool _isHovered = false;
+  bool _isPressed = false;
 
   @override
   void initState() {
@@ -236,9 +225,22 @@ class _FluidNavButtonState extends State<_FluidNavButton>
       button: true,
       selected: widget.selected,
       label: widget.destination.label,
-      child: InkWell(
+      child: InkResponse(
         onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(24),
+        onHover: (isHovered) {
+          if (_isHovered != isHovered) {
+            setState(() => _isHovered = isHovered);
+          }
+        },
+        onHighlightChanged: (isPressed) {
+          if (_isPressed != isPressed) {
+            setState(() => _isPressed = isPressed);
+          }
+        },
+        radius: 24,
+        highlightShape: BoxShape.circle,
+        highlightColor: Colors.transparent,
+        splashColor: AppColors.primary.withValues(alpha: 0.18),
         child: SizedBox(
           height: widget.showLabel ? _fluidNavLabeledHeight : _fluidNavHeight,
           child: AnimatedBuilder(
@@ -252,6 +254,31 @@ class _FluidNavButtonState extends State<_FluidNavButton>
                 fit: StackFit.expand,
                 clipBehavior: Clip.none,
                 children: [
+                  Align(
+                    alignment: Alignment.center,
+                    child: Transform.translate(
+                      offset: Offset(
+                        0,
+                        selected
+                            ? -(widget.showLabel
+                                      ? _fluidNavLabeledButtonOffset
+                                      : _fluidNavSelectedButtonOffset) *
+                                  bounce
+                            : 0,
+                      ),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: (_isHovered || _isPressed) && !selected
+                              ? AppColors.primary.withValues(alpha: 0.12)
+                              : Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ),
                   Align(
                     alignment: Alignment(0, 0),
                     child: Transform.translate(

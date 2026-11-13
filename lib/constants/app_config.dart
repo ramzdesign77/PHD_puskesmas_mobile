@@ -22,7 +22,7 @@ abstract final class AppConfig {
     }
 
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.10.188.166:8000/api';
+      return 'http://192.168.1.18:8000/api';
     }
 
     return 'http://127.0.0.1:8000/api';

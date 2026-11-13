@@ -57,8 +57,11 @@ Dashboard petugas menggunakan endpoint `/api/v1/officer/dashboard`,
 terautentikasi menerima token sesi pada header `Authorization: Bearer <token>`.
 Jika endpoint dashboard, tugas, verifikasi, atau data STBM mengembalikan 404
 atau 405, aplikasi mencoba endpoint lama yang sesuai. Form IKL menyimpan seluruh hasil melalui endpoint inspeksi. Jika permintaan
-gagal, aplikasi menampilkan pesan server; tidak membuat hasil resmi dari catatan
-kunjungan lama.
+gagal, aplikasi menampilkan pesan yang sesuai; detail kesalahan SQL tidak
+ditampilkan ke petugas. Error skema seperti kolom jadwal yang tidak ditemukan
+tetap harus diperbaiki pada backend dengan menyelaraskan query dan migrasi tabel;
+aplikasi tidak dapat memperbaiki skema server. Aplikasi juga tidak membuat hasil
+resmi dari catatan kunjungan lama.
 
 Respons dashboard dapat membungkus data di dalam `data` dan menyediakan
 `summary`, `officer`, serta daftar tugas. Ringkasan mendukung field
@@ -68,6 +71,24 @@ Respons dashboard dapat membungkus data di dalam `data` dan menyediakan
 bernama lengkap, `intervensi_fisik`, `catatan_intervensi`,
 `rekomendasi_sanitarian`, dan `catatan_petugas`. Foto opsional dikirim dalam
 request multipart yang sama. Backend menentukan status akhir `selesai`.
+
+## Alamat tersimpan warga
+
+Form Alamat Saya dan Lokasi Kejadian memakai endpoint profil terautentikasi
+yang sudah digunakan aplikasi: `GET /api/v1/profile` dan
+`PUT /api/v1/profile`. Respons `data.user` perlu menyertakan `id_desa`, `rt`,
+`rw`, dan `alamat_detail`; `desa` dapat disertakan sebagai objek dengan
+`id_desa` dan `nama_desa`. Update alamat memakai `PUT` profil yang juga
+menyertakan field profil terkini (`nama_lengkap`, `username`, `email`,
+`no_telepon`) agar memenuhi validasi endpoint profil yang ada. Backend harus
+memvalidasi desa dan format alamat terhadap skema yang berlaku, lalu menyimpan
+perubahan hanya pada user dari token login. Implementasi endpoint dan migration
+aditif tersedia pada backend Laravel `PHD_puskesmas`:
+`database/migrations/2026_11_10_000000_add_saved_address_to_app_users_table.php`.
+Jalankan migration dari root backend sebelum menggunakan fitur pada deployment
+lain. Pengiriman laporan tetap menggunakan API laporan yang ada dan mengirim
+lokasi yang dipilih pada form; memilih lokasi lain tidak memperbarui alamat
+profil.
 
 ## Struktur kode
 
