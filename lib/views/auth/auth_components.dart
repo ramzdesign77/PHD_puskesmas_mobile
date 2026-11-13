@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
@@ -266,11 +268,13 @@ class AuthPrimaryButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.isLoading = false,
   });
 
   final String label;
   final VoidCallback onPressed;
   final IconData? icon;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -309,7 +313,10 @@ class AuthPrimaryButton extends StatelessWidget {
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                if (icon != null) ...[
+                if (isLoading) ...[
+                  const SizedBox(width: 10),
+                  const _WaterLoadingIndicator(),
+                ] else if (icon != null) ...[
                   const SizedBox(width: 8),
                   Icon(icon, color: Colors.white, size: 18),
                 ],
@@ -320,6 +327,77 @@ class AuthPrimaryButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _WaterLoadingIndicator extends StatefulWidget {
+  const _WaterLoadingIndicator();
+
+  @override
+  State<_WaterLoadingIndicator> createState() => _WaterLoadingIndicatorState();
+}
+
+class _WaterLoadingIndicatorState extends State<_WaterLoadingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => Transform.rotate(
+        angle: _controller.value * 2 * math.pi,
+        child: child,
+      ),
+      child: const SizedBox(
+        width: 22,
+        height: 22,
+        child: CustomPaint(
+          key: Key('water_loading_spinner'),
+          painter: _WaterSpinnerPainter(),
+        ),
+      ),
+    );
+  }
+}
+
+class _WaterSpinnerPainter extends CustomPainter {
+  const _WaterSpinnerPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 2;
+    final bounds = Rect.fromCircle(center: center, radius: radius);
+    final trackPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final waterPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(center, radius, trackPaint);
+    canvas.drawArc(bounds, -math.pi / 2, math.pi * 1.35, false, waterPaint);
+    canvas.drawCircle(
+      Offset(center.dx, center.dy - radius),
+      2,
+      Paint()..color = AppColors.primaryLight,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaterSpinnerPainter oldDelegate) => false;
 }
 
 class AuthSecurityNote extends StatelessWidget {

@@ -110,21 +110,53 @@ class _LoginViewState extends State<LoginView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: AppColors.softBlue,
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: const Icon(
+                    Icons.lock_open_rounded,
+                    color: AppColors.primary,
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                const Text(
+                  'PORTAL PENGGUNA',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 13),
             Text(
               'Masuk ke Akun',
               style: const TextStyle(
                 fontFamily: AppTheme.headlineFontFamily,
                 color: AppColors.ink,
-                fontSize: 23,
-                fontWeight: FontWeight.w400,
+                fontSize: 25,
+                fontWeight: FontWeight.w700,
               ).asHeading,
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 6),
             const Text(
-              'Portal Resmi E-Klinik Sanitasi Puskesmas',
-              style: TextStyle(color: AppColors.muted, fontSize: 12),
+              'Masuk untuk melanjutkan ke layanan sanitasi Puskesmas.',
+              style: TextStyle(
+                color: AppColors.muted,
+                fontSize: 12,
+                height: 1.5,
+              ),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 23),
             AuthFormField(
               label: 'Username atau Email',
               hint: 'Masukkan username atau email',
@@ -150,7 +182,8 @@ class _LoginViewState extends State<LoginView> {
             const SizedBox(height: 20),
             AuthPrimaryButton(
               label: _isSubmitting ? 'Memproses...' : 'Login',
-              icon: _isSubmitting ? Icons.hourglass_top : Icons.arrow_forward,
+              icon: _isSubmitting ? null : Icons.arrow_forward,
+              isLoading: _isSubmitting,
               onPressed: () {
                 if (!_isSubmitting) _submit();
               },

@@ -6,6 +6,8 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -158,6 +160,36 @@ void main() {
     expect(find.text('Halo, Petugas Contoh, SKM'), findsOneWidget);
   });
 
+  testWidgets('login shows a water spinner while authentication is pending', (
+    WidgetTester tester,
+  ) async {
+    final loginResult = Completer<UserModel>();
+    await tester.pumpWidget(
+      MyApp(
+        apiService: _FakeApiService(),
+        authService: _PendingAuthService(loginResult.future),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byType(TextFormField).at(0),
+      'warga@example.com',
+    );
+    await tester.enterText(find.byType(TextFormField).at(1), 'password123');
+    await tester.tap(find.text('Login'));
+    await tester.pump();
+
+    expect(find.text('Memproses...'), findsOneWidget);
+    expect(find.byKey(const Key('water_loading_spinner')), findsOneWidget);
+
+    loginResult.complete(
+      UserModel(token: 'test-token', roles: const ['unknown']),
+    );
+    await tester.pump();
+  });
+
   testWidgets('warga role opens the existing public home', (
     WidgetTester tester,
   ) async {
@@ -292,4 +324,16 @@ class _FakeAuthService extends AuthService {
     required String password,
   }) async =>
       UserModel(token: 'test-token', roles: roles, name: 'Petugas Contoh');
+}
+
+class _PendingAuthService extends AuthService {
+  _PendingAuthService(this.result);
+
+  final Future<UserModel> result;
+
+  @override
+  Future<UserModel> login({
+    required String identifier,
+    required String password,
+  }) => result;
 }

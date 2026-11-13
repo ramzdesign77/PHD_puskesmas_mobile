@@ -6,12 +6,12 @@ import '../constants/app_colors.dart';
 
 const _fluidAnimationDuration = Duration(milliseconds: 420);
 const _fluidNavHeight = 64.0;
-const _fluidNavLabeledHeight = 82.0;
+const _fluidNavLabeledHeight = 82.0 ;
 const _fluidNavSelectedButtonSize = 50.0;
 const _fluidNavSelectedButtonOffset = 18.0;
 const _fluidNavNotchMargin = 8.0;
 const _fluidNavCornerRadius = 32.0;
-const _fluidNavLabeledButtonSize = 40.0;
+const _fluidNavLabeledButtonSize = .0;
 const _fluidNavLabeledButtonOffset = 13.0;
 const _fluidNavLabeledBarTop = 28.0;
 const _fluidNavLabeledCornerRadius = 20.0;
