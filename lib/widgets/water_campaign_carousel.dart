@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-const _campaignBodyFontFamily = 'Montserrat';
+const _campaignBodyFontFamily = AppTheme.bodyFontFamily;
 const _pilarThemes = <_PilarTheme>[
   (
     colors: [Color(0xFF0284C7), Color(0xFF06B6D4)],

@@ -339,21 +339,6 @@ class _ProfileViewState extends State<ProfileView> {
                             ),
                           ],
                         ),
-                        const ProfileSettingsGroup(
-                          label: 'Preferensi',
-                          children: [
-                            ProfileSettingsRow(
-                              icon: Icons.palette_outlined,
-                              label: 'Tampilan',
-                              value: 'Biru laut',
-                            ),
-                            ProfileSettingsRow(
-                              icon: Icons.translate_rounded,
-                              label: 'Bahasa',
-                              value: 'Indonesia',
-                            ),
-                          ],
-                        ),
                         ProfileSettingsGroup(
                           label: 'Bantuan & informasi',
                           children: [

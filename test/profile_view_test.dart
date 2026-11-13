@@ -207,6 +207,9 @@ void main() {
     expect(find.text('Pengaturan'), findsNothing);
     expect(find.text('Kelola akun dan preferensi aplikasi.'), findsNothing);
     expect(find.text('Muat ulang profil'), findsNothing);
+    expect(find.text('Preferensi'), findsNothing);
+    expect(find.text('Tampilan'), findsNothing);
+    expect(find.text('Bahasa'), findsNothing);
     expect(find.byType(ProfileAvatar), findsOneWidget);
     final avatarCenter = tester.getCenter(find.byType(ProfileAvatar));
     final waterHeaderRect = tester.getRect(

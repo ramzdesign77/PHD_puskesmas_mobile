@@ -17,7 +17,7 @@ const _oceanBlue = AppColors.primary;
 const _deepOceanBlue = AppColors.primaryDark;
 const _paleBlue = AppColors.softBlue;
 const _offWhiteBlue = Color(0xFFF8FAFC);
-const _homeBodyFontFamily = 'Montserrat';
+const _homeBodyFontFamily = AppTheme.bodyFontFamily;
 
 class HomeView extends StatefulWidget {
   const HomeView({

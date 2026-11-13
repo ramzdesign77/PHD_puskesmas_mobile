@@ -4,7 +4,7 @@ import '../constants/app_colors.dart';
 
 abstract final class AppTheme {
   static const headlineFontFamily = 'Poppins';
-  static const bodyFontFamily = 'Montserrat';
+  static const bodyFontFamily = 'Poppins';
 
   static TextTheme _appTextTheme() {
     final baseTextTheme = ThemeData().textTheme;
