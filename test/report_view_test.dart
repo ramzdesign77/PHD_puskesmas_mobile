@@ -127,6 +127,10 @@ void main() {
   testWidgets('saved account address is selected and can be overridden', (
     tester,
   ) async {
+    final previousPlatform = GeolocatorPlatform.instance;
+    GeolocatorPlatform.instance = _FakeGeolocatorPlatform();
+    addTearDown(() => GeolocatorPlatform.instance = previousPlatform);
+
     final profileService = _SavedAddressProfileService(
       const SavedAddress(
         villageId: 2,
@@ -157,9 +161,25 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(DropdownButtonFormField<Village>), findsNothing);
-    expect(find.text('Gunakan Lokasi Saat Ini'), findsNothing);
+    expect(find.text('Gunakan Lokasi Saat Ini'), findsOneWidget);
     expect(find.byKey(const Key('report_address_detail_true')), findsNothing);
     expect(find.textContaining('RT 03 / RW 02'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Gunakan Lokasi Saat Ini'));
+    await tester.tap(find.text('Gunakan Lokasi Saat Ini'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('report_location_map')), findsOneWidget);
+    expect(
+      find.byKey(const Key('report_account_address_summary')),
+      findsOneWidget,
+    );
+
+    final cancelButton = find.byKey(
+      const Key('report_cancel_location_selection'),
+    );
+    await tester.ensureVisible(cancelButton);
+    await tester.tap(cancelButton);
+    await tester.pumpAndSettle();
 
     final otherAddressOption = find.byKey(
       const Key('report_use_other_address'),

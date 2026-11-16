@@ -12,6 +12,7 @@ import '../../services/api_service.dart';
 import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ocean_widgets.dart';
+import '../../widgets/osm_tile_map.dart';
 
 const _reportAreaNumbers = [
   '01',
@@ -1130,6 +1131,8 @@ class _ReportViewState extends State<ReportView> {
                                         height: 1.4,
                                       ),
                                     ),
+                                    const SizedBox(height: 12),
+                                    _buildLocationPicker(),
                                   ],
                                 ),
                               ),
@@ -1620,24 +1623,10 @@ class _LocationMiniMap extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onRefresh;
 
-  static const _zoom = 16;
-  static const _tileSize = 256.0;
-
   @override
   Widget build(BuildContext context) {
     final latitude = position.latitude.clamp(-85.0511, 85.0511);
     final longitude = position.longitude;
-    final worldTileCount = 1 << _zoom;
-    final latitudeRadians = latitude * math.pi / 180;
-    final centerTileX = (longitude + 180) / 360 * worldTileCount;
-    final centerTileY =
-        (1 -
-            math.log(
-                  math.tan(latitudeRadians) + 1 / math.cos(latitudeRadians),
-                ) /
-                math.pi) /
-        2 *
-        worldTileCount;
 
     return ClipRRect(
       key: const Key('report_location_map'),
@@ -1649,72 +1638,15 @@ class _LocationMiniMap extends StatelessWidget {
           children: [
             Positioned.fill(
               child: IgnorePointer(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final centerPixelX = centerTileX * _tileSize;
-                    final centerPixelY = centerTileY * _tileSize;
-                    final mapLeft = centerPixelX - constraints.maxWidth / 2;
-                    final mapTop = centerPixelY - constraints.maxHeight / 2;
-                    final firstTileX = (mapLeft / _tileSize).floor();
-                    final lastTileX =
-                        ((mapLeft + constraints.maxWidth) / _tileSize).floor();
-                    final firstTileY = (mapTop / _tileSize).floor();
-                    final lastTileY =
-                        ((mapTop + constraints.maxHeight) / _tileSize).floor();
-                    final tiles = <Widget>[];
-
-                    for (var tileX = firstTileX; tileX <= lastTileX; tileX++) {
-                      for (
-                        var tileY = firstTileY;
-                        tileY <= lastTileY;
-                        tileY++
-                      ) {
-                        if (tileY < 0 || tileY >= worldTileCount) continue;
-                        final wrappedTileX = tileX % worldTileCount;
-                        tiles.add(
-                          Positioned(
-                            left: tileX * _tileSize - mapLeft,
-                            top: tileY * _tileSize - mapTop,
-                            width: _tileSize,
-                            height: _tileSize,
-                            child: Image.network(
-                              Uri.https(
-                                'tile.openstreetmap.org',
-                                '/$_zoom/$wrappedTileX/$tileY.png',
-                              ).toString(),
-                              fit: BoxFit.cover,
-                              headers: const {
-                                'User-Agent': 'PHD-Puskesmas-Mobile/1.0',
-                              },
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const ColoredBox(color: Color(0xFFE7ECEF)),
-                            ),
-                          ),
-                        );
-                      }
-                    }
-
-                    return Stack(
-                      clipBehavior: Clip.hardEdge,
-                      children: [
-                        const Positioned.fill(
-                          child: ColoredBox(color: Color(0xFFE7ECEF)),
-                        ),
-                        ...tiles,
-                        Align(
-                          alignment: Alignment.center,
-                          child: Transform.translate(
-                            offset: const Offset(0, -18),
-                            child: const Icon(
-                              Icons.location_on,
-                              color: Color(0xFFDC2626),
-                              size: 36,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                child: OsmTileMap(
+                  latitude: latitude,
+                  longitude: longitude,
+                  marker: const Icon(
+                    Icons.location_on,
+                    color: Color(0xFFDC2626),
+                    size: 36,
+                  ),
+                  showAttribution: false,
                 ),
               ),
             ),
@@ -1742,7 +1674,7 @@ class _LocationMiniMap extends StatelessWidget {
               right: 7,
               bottom: 7,
               child: Text(
-                '© OpenStreetMap',
+                '© OpenStreetMap contributors',
                 style: TextStyle(
                   color: AppColors.ink,
                   fontSize: 8,

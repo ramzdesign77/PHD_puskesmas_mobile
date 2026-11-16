@@ -19,6 +19,11 @@ class VisitSchedule {
     this.photoUrl,
     this.isInspection = false,
     this.riskCategory,
+    this.alamatDetail = '',
+    this.latitude,
+    this.longitude,
+    this.mapsUrl,
+    this.reporterPhone = '',
   });
 
   final int id;
@@ -40,6 +45,29 @@ class VisitSchedule {
   final String? photoUrl;
   final bool isInspection;
   final String? riskCategory;
+  final String alamatDetail;
+  final double? latitude;
+  final double? longitude;
+  final String? mapsUrl;
+  final String reporterPhone;
+
+  bool get hasCoordinates => latitude != null && longitude != null;
+
+  String get googleMapsNavigationUrl {
+    if (hasCoordinates) {
+      return 'https://www.google.com/maps/dir/?api=1&destination=${latitude!.toStringAsFixed(6)},${longitude!.toStringAsFixed(6)}&travelmode=driving';
+    }
+
+    final villageName = village.replaceFirst(
+      RegExp(r'^(desa|kelurahan)\s+', caseSensitive: false),
+      '',
+    );
+    final query =
+        'Desa $villageName RT $rt RW $rw '
+        '${alamatDetail.trim().isNotEmpty ? alamatDetail.trim() : address.trim()} '
+        'Sumbersari Jember';
+    return 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(query)}';
+  }
 
   /// Parsing dari respons JSON API Laravel
   factory VisitSchedule.fromJson(Map<String, dynamic> json) {
@@ -94,6 +122,16 @@ class VisitSchedule {
         : const <String, dynamic>{};
     final nestedLocation = _map(report['lokasi']) ?? location;
     final nestedPelapor = _map(report['pelapor']) ?? reporterMap;
+    final alamatDetail = _stringValue(
+      json['alamat_detail'] ??
+          json['patokan_alamat'] ??
+          report['alamat_detail'] ??
+          report['patokan_alamat'] ??
+          nestedLocation['alamat_detail'] ??
+          nestedLocation['patokan_alamat'] ??
+          '',
+      fallback: '',
+    );
     final id =
         json['id_laporan'] ??
         json['laporan_id'] ??
@@ -176,13 +214,44 @@ class VisitSchedule {
       id: id is int ? id : int.tryParse(id?.toString() ?? '') ?? 0,
       reporterName: _stringValue(reporterName, fallback: 'Warga Pelapor'),
       address: _stringValue(
-        json['alamat_detail'] ??
-            json['patokan_alamat'] ??
-            json['alamat'] ??
-            json['address'] ??
-            report['alamat_detail'] ??
-            report['alamat'] ??
-            nestedLocation['alamat_detail'] ??
+        alamatDetail.isNotEmpty
+            ? alamatDetail
+            : json['alamat'] ?? json['address'] ?? report['alamat'] ?? '',
+        fallback: '',
+      ),
+      alamatDetail: alamatDetail,
+      latitude: _toDouble(
+        json['latitude'] ?? report['latitude'] ?? nestedLocation['latitude'],
+      ),
+      longitude: _toDouble(
+        json['longitude'] ?? report['longitude'] ?? nestedLocation['longitude'],
+      ),
+      mapsUrl: _optionalString(
+        json['maps_url'] ??
+            json['mapsUrl'] ??
+            json['google_maps_url'] ??
+            report['maps_url'] ??
+            report['google_maps_url'],
+      ),
+      reporterPhone: _stringValue(
+        json['no_wa'] ??
+            json['no_hp'] ??
+            json['no_telepon'] ??
+            json['phone'] ??
+            json['phone_number'] ??
+            reporterMap['no_wa'] ??
+            reporterMap['no_hp'] ??
+            reporterMap['no_telepon'] ??
+            reporterMap['phone'] ??
+            reporterMap['phone_number'] ??
+            nestedPelapor['no_wa'] ??
+            nestedPelapor['no_hp'] ??
+            nestedPelapor['no_telepon'] ??
+            nestedPelapor['phone'] ??
+            nestedPelapor['phone_number'] ??
+            report['no_wa'] ??
+            report['no_hp'] ??
+            report['no_telepon'] ??
             '',
         fallback: '',
       ),
@@ -261,6 +330,11 @@ class VisitSchedule {
       photoUrl: photoUrl,
       isInspection: isInspection,
       riskCategory: riskCategory,
+      alamatDetail: alamatDetail,
+      latitude: latitude,
+      longitude: longitude,
+      mapsUrl: mapsUrl,
+      reporterPhone: reporterPhone,
     );
   }
 }
@@ -270,6 +344,13 @@ String _stringValue(Object? value, {String fallback = '-'}) =>
 
 String? _optionalString(Object? value) =>
     value is String && value.trim().isNotEmpty ? value.trim() : null;
+
+double? _toDouble(Object? value) {
+  final parsed = value is num
+      ? value.toDouble()
+      : double.tryParse(value?.toString().trim() ?? '');
+  return parsed != null && parsed.isFinite ? parsed : null;
+}
 
 Map<String, dynamic>? _map(Object? value) {
   if (value is Map<String, dynamic>) return value;

@@ -81,4 +81,40 @@ void main() {
       isNull,
     );
   });
+
+  test('schedule parses coordinates, address, and reporter WhatsApp safely', () {
+    final task = VisitSchedule.fromJson({
+      'id': 42,
+      'nama_desa': 'Sumbersari',
+      'alamat_detail': 'Dekat balai desa',
+      'latitude': '-8.198997',
+      'longitude': 113.643575,
+      'no_wa': '081234567890',
+    });
+
+    expect(task.alamatDetail, 'Dekat balai desa');
+    expect(task.latitude, -8.198997);
+    expect(task.longitude, 113.643575);
+    expect(task.hasCoordinates, isTrue);
+    expect(task.reporterPhone, '081234567890');
+    expect(
+      task.googleMapsNavigationUrl,
+      'https://www.google.com/maps/dir/?api=1&destination=-8.198997,113.643575&travelmode=driving',
+    );
+
+    final incomplete = VisitSchedule.fromJson({
+      'id': 43,
+      'desa': 'Desa Sumbersari',
+      'latitude': 'invalid',
+      'rt': '03',
+      'rw': '02',
+      'patokan_alamat': 'Dekat puskesmas',
+    });
+    expect(incomplete.hasCoordinates, isFalse);
+    expect(incomplete.latitude, isNull);
+    expect(
+      incomplete.googleMapsNavigationUrl,
+      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent('Desa Sumbersari RT 03 RW 02 Dekat puskesmas Sumbersari Jember')}',
+    );
+  });
 }

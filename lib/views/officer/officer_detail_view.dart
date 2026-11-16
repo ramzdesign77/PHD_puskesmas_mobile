@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../constants/app_colors.dart';
 import '../../models/risk_score.dart';
 import '../../models/visit_schedule.dart';
 import '../../services/officer_api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/osm_tile_map.dart';
 
 class OfficerDetailView extends StatefulWidget {
   const OfficerDetailView({
@@ -25,6 +27,11 @@ class OfficerDetailView extends StatefulWidget {
 }
 
 class _OfficerDetailViewState extends State<OfficerDetailView> {
+  static const _fallbackMapLatitude = -8.1725597;
+  static const _fallbackMapLongitude = 113.7188119;
+  static const _fallbackKebonsariLatitude = -8.2614329;
+  static const _fallbackKebonsariLongitude = 113.4478685;
+
   final _formKey = GlobalKey<FormState>();
   final _distanceController = TextEditingController();
   final _interventionNoteController = TextEditingController();
@@ -40,6 +47,8 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
   Uint8List? _photoBytes;
   XFile? _pickedPhoto;
   bool _isSubmitting = false;
+  late bool _hasArrivedAtLocation;
+  bool _showLocationAgain = false;
 
   static const _waterSources = {
     'sumur_gali': 'Sumur Gali',
@@ -89,16 +98,22 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
     _categoryIkl = _detectIklCategory(widget.schedule);
     _waterSource = _categoryIkl == 'sumur_bor' ? 'sumur_bor' : 'sumur_gali';
     _legacyNoteController.text = widget.schedule.officerNote;
+    _hasArrivedAtLocation = widget.schedule.status.toLowerCase() == 'selesai';
   }
 
   String _detectIklCategory(VisitSchedule schedule) {
-    final raw = '${schedule.categoryCode ?? ''} ${schedule.category} ${schedule.description}'
-        .toLowerCase()
-        .replaceAll('_', ' ');
-    if (raw.contains('dbd') || raw.contains('nyamuk') || raw.contains('jentik')) {
+    final raw =
+        '${schedule.categoryCode ?? ''} ${schedule.category} ${schedule.description}'
+            .toLowerCase()
+            .replaceAll('_', ' ');
+    if (raw.contains('dbd') ||
+        raw.contains('nyamuk') ||
+        raw.contains('jentik')) {
       return 'sarang_nyamuk_dbd';
     }
-    if (raw.contains('jamban') || raw.contains('limbah') || raw.contains('stbm')) {
+    if (raw.contains('jamban') ||
+        raw.contains('limbah') ||
+        raw.contains('stbm')) {
       return 'jamban_limbah_stbm';
     }
     if (raw.contains('sampah')) return 'tumpukan_sampah';
@@ -210,6 +225,56 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
     );
   }
 
+  Future<void> _openGoogleMaps() async {
+    final schedule = widget.schedule;
+    final mapsUrl = Uri.parse(schedule.googleMapsNavigationUrl);
+    final destination = schedule.hasCoordinates
+        ? '${schedule.latitude},${schedule.longitude}'
+        : mapsUrl.queryParameters['query'] ?? '';
+    Object? launchError;
+
+    Future<bool> tryLaunch(Uri uri) async {
+      try {
+        return await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } on Exception catch (error) {
+        launchError = error;
+        return false;
+      }
+    }
+
+    try {
+      if (Theme.of(context).platform == TargetPlatform.android) {
+        final nativeNavigation = Uri.parse(
+          'google.navigation:q=${Uri.encodeComponent(destination)}&mode=d',
+        );
+        if (await tryLaunch(nativeNavigation)) return;
+
+        final geoSearch = Uri.parse(
+          'geo:0,0?q=${Uri.encodeComponent(destination)}',
+        );
+        if (await tryLaunch(geoSearch)) return;
+      }
+
+      if (await tryLaunch(mapsUrl)) return;
+
+      await Clipboard.setData(ClipboardData(text: mapsUrl.toString()));
+      if (mounted) {
+        _showMessage(
+          launchError == null
+              ? 'Google Maps tidak dapat dibuka. Link rute berhasil disalin.'
+              : 'Google Maps gagal dibuka. Link rute berhasil disalin.',
+        );
+      }
+    } on Exception catch (error) {
+      if (mounted) {
+        _showMessage(
+          'Gagal membuka Google Maps atau menyalin link rute. $error',
+          isError: true,
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final schedule = widget.schedule;
@@ -241,78 +306,433 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
       ),
       body: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-          children: [
-            _sectionTitle('Informasi Laporan / Jadwal'),
-            const SizedBox(height: 10),
-            _buildScheduleCard(schedule),
-            const SizedBox(height: 22),
-            _sectionTitle('Kuesioner Inspeksi Kesehatan Lingkungan'),
-            const SizedBox(height: 10),
-            _buildWaterSourceCard(),
-            const SizedBox(height: 14),
-            _buildRiskIndicators(),
-            const SizedBox(height: 14),
-            _buildRiskScore(),
-            const SizedBox(height: 22),
-            _sectionTitle('Intervensi dan Rekomendasi'),
-            const SizedBox(height: 10),
-            _buildInterventionFields(),
-            const SizedBox(height: 14),
-            _buildLegacyVisitFields(),
-            const SizedBox(height: 22),
-            AnimatedOpacity(
-              duration: const Duration(milliseconds: 180),
-              opacity: _canSubmit ? 1 : 0.55,
-              child: Container(
-                height: 54,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [AppColors.primary, AppColors.primaryLight],
-                  ),
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.28),
-                      blurRadius: 18,
-                      offset: const Offset(0, 7),
-                    ),
-                  ],
-                ),
-                child: FilledButton.icon(
-                  key: const Key('officer_submit_button'),
-                  onPressed: _canSubmit ? _submit : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    disabledBackgroundColor: Colors.transparent,
-                    foregroundColor: Colors.white,
-                    disabledForegroundColor: Colors.white,
-                    shadowColor: Colors.transparent,
-                    shape: const StadiumBorder(),
-                  ),
-                  icon: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.save_outlined),
-                  label: Text(
-                    _isSubmitting ? 'Menyimpan...' : 'Simpan Hasil IKL',
-                    style: const TextStyle(fontWeight: FontWeight.w500),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 320),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.03, 0),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          ),
+          child: ListView(
+            key: ValueKey(_hasArrivedAtLocation),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+            children: _hasArrivedAtLocation
+                ? _buildInspectionContent(schedule)
+                : _buildLocationContent(schedule),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildLocationContent(VisitSchedule schedule) => [
+    _buildVisitHeader(schedule),
+    const SizedBox(height: 20),
+    _sectionTitle('Peta Lokasi Warga'),
+    const SizedBox(height: 10),
+    _buildLocationCard(schedule),
+    const SizedBox(height: 14),
+    Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.softBlue,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.16)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Formulir pemeriksaan IKL akan terbuka setelah Anda tiba di lokasi warga.',
+              style: TextStyle(
+                color: AppColors.ink,
+                fontSize: 12,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+    const SizedBox(height: 12),
+    SizedBox(
+      height: 56,
+      child: FilledButton.icon(
+        key: const Key('officer_arrived_button'),
+        onPressed: () => setState(() {
+          _hasArrivedAtLocation = true;
+          _showLocationAgain = false;
+        }),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.green,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        icon: const Icon(Icons.location_on_rounded),
+        label: const Text(
+          'Saya Sudah Sampai di Lokasi (Isi Formulir IKL)',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        ),
+      ),
+    ),
+  ];
+
+  List<Widget> _buildInspectionContent(VisitSchedule schedule) => [
+    Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5EE),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.green.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.green,
+                size: 22,
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Petugas Telah Tiba di Lokasi — Silakan Isi Formulir Pemeriksaan',
+                  style: TextStyle(
+                    color: AppColors.green,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
                   ),
                 ),
               ),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              key: const Key('officer_toggle_location_preview'),
+              onPressed: () =>
+                  setState(() => _showLocationAgain = !_showLocationAgain),
+              icon: Icon(
+                _showLocationAgain
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.map_outlined,
+                size: 17,
+              ),
+              label: Text(
+                _showLocationAgain ? 'Tutup Peta' : 'Lihat Peta Lagi',
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.green,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+    if (_showLocationAgain) ...[
+      const SizedBox(height: 14),
+      _buildLocationCard(schedule),
+    ],
+    const SizedBox(height: 20),
+    _sectionTitle('Informasi Laporan / Jadwal'),
+    const SizedBox(height: 10),
+    _buildScheduleCard(schedule),
+    const SizedBox(height: 22),
+    _sectionTitle('Kuesioner Inspeksi Kesehatan Lingkungan'),
+    const SizedBox(height: 10),
+    _buildWaterSourceCard(),
+    const SizedBox(height: 14),
+    _buildRiskIndicators(),
+    const SizedBox(height: 14),
+    _buildRiskScore(),
+    const SizedBox(height: 22),
+    _sectionTitle('Intervensi dan Rekomendasi'),
+    const SizedBox(height: 10),
+    _buildInterventionFields(),
+    const SizedBox(height: 14),
+    _buildLegacyVisitFields(),
+    const SizedBox(height: 22),
+    AnimatedOpacity(
+      duration: const Duration(milliseconds: 180),
+      opacity: _canSubmit ? 1 : 0.55,
+      child: Container(
+        height: 54,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [AppColors.primary, AppColors.primaryLight],
+          ),
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.28),
+              blurRadius: 18,
+              offset: const Offset(0, 7),
             ),
           ],
         ),
+        child: FilledButton.icon(
+          key: const Key('officer_submit_button'),
+          onPressed: _canSubmit ? _submit : null,
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            disabledBackgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            disabledForegroundColor: Colors.white,
+            shadowColor: Colors.transparent,
+            shape: const StadiumBorder(),
+          ),
+          icon: _isSubmitting
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.save_outlined),
+          label: Text(
+            _isSubmitting ? 'Menyimpan...' : 'Simpan Hasil IKL',
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+        ),
       ),
+    ),
+  ];
+
+  Widget _buildVisitHeader(VisitSchedule schedule) {
+    final phone = schedule.reporterPhone.trim().isEmpty
+        ? 'Nomor WA tidak tersedia'
+        : schedule.reporterPhone;
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.line),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.assignment_outlined,
+                color: AppColors.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  schedule.ticketCode,
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _InfoRow(label: 'Jadwal', value: schedule.visitDate),
+          _InfoRow(label: 'Kategori', value: schedule.category),
+          _InfoRow(
+            label: 'Pelapor',
+            value: '${schedule.reporterName} • WA $phone',
+            isLast: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationCard(VisitSchedule schedule) {
+    final villageName = _displayVillageName(schedule.village);
+    final detail = schedule.alamatDetail.trim().isNotEmpty
+        ? schedule.alamatDetail.trim()
+        : schedule.address.trim().isNotEmpty
+        ? schedule.address.trim()
+        : 'Sesuai titik lokasi laporan warga';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.line),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildMapPreview(schedule),
+          const SizedBox(height: 14),
+          _LocationDetailRow(
+            icon: Icons.location_on_outlined,
+            label: 'Desa / Kelurahan & RT/RW',
+            value: 'Desa $villageName • RT ${schedule.rt} / RW ${schedule.rw}',
+          ),
+          const SizedBox(height: 10),
+          _LocationDetailRow(
+            icon: Icons.signpost_outlined,
+            label: 'Patokan / Detail Alamat',
+            value: detail,
+          ),
+          const SizedBox(height: 10),
+          _LocationDetailRow(
+            icon: Icons.chat_bubble_outline_rounded,
+            label: 'Keluhan Warga',
+            value: schedule.description,
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              key: const Key('officer_google_maps_button'),
+              onPressed: _openGoogleMaps,
+              icon: const Icon(Icons.map_outlined),
+              label: const Text('Buka Rute di Google Maps'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapPreview(VisitSchedule schedule) {
+    final center = _mapCenter(schedule);
+    final locationLabel = schedule.hasCoordinates
+        ? '${center.latitude.toStringAsFixed(6)}, '
+              '${center.longitude.toStringAsFixed(6)}'
+        : 'Lokasi perkiraan area ${_fallbackAreaName(schedule)}, Jember';
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Material(
+        color: const Color(0xFFE7ECEF),
+        child: InkWell(
+          key: const Key('officer_location_map'),
+          onTap: _openGoogleMaps,
+          child: SizedBox(
+            height: 210,
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                OsmTileMap(
+                  latitude: center.latitude,
+                  longitude: center.longitude,
+                  marker: const Icon(
+                    Icons.location_on_rounded,
+                    color: Color(0xFFDC2626),
+                    size: 48,
+                    shadows: [
+                      Shadow(
+                        color: Colors.white,
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  markerOffset: const Offset(0, -22),
+                ),
+                Positioned(
+                  left: 10,
+                  bottom: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.94),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      locationLabel,
+                      style: const TextStyle(
+                        color: AppColors.ink,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  ({double latitude, double longitude}) _mapCenter(VisitSchedule schedule) {
+    if (schedule.hasCoordinates) {
+      return (latitude: schedule.latitude!, longitude: schedule.longitude!);
+    }
+    if (schedule.village.toLowerCase().contains('kebonsari')) {
+      return (
+        latitude: _fallbackKebonsariLatitude,
+        longitude: _fallbackKebonsariLongitude,
+      );
+    }
+    return (latitude: _fallbackMapLatitude, longitude: _fallbackMapLongitude);
+  }
+
+  String _fallbackAreaName(VisitSchedule schedule) =>
+      schedule.village.toLowerCase().contains('kebonsari')
+      ? 'Kebonsari'
+      : 'Sumbersari';
+
+  String _displayVillageName(String value) {
+    final trimmed = value.trim();
+    if (trimmed == '-' || trimmed.isEmpty) return 'belum tersedia';
+    return trimmed.replaceFirst(
+      RegExp(r'^(desa|kelurahan)\s+', caseSensitive: false),
+      '',
     );
   }
 
@@ -452,7 +872,7 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _FieldLabel(text: '7 Indikator Risiko — ${_riskTitle}'),
+          _FieldLabel(text: '7 Indikator Risiko — $_riskTitle'),
           const SizedBox(height: 4),
           const Text(
             'Jawab Ya jika kondisi berisiko ditemukan; setiap Ya bernilai 1 poin.',
@@ -531,7 +951,11 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
                 const SizedBox(height: 4),
                 Text(
                   _riskDescription,
-                  style: TextStyle(color: _riskColor, fontSize: 10, height: 1.3),
+                  style: TextStyle(
+                    color: _riskColor,
+                    fontSize: 10,
+                    height: 1.3,
+                  ),
                 ),
               ],
             ),
@@ -751,6 +1175,53 @@ class _FormCard extends StatelessWidget {
         ],
       ),
       child: child,
+    );
+  }
+}
+
+class _LocationDetailRow extends StatelessWidget {
+  const _LocationDetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 17, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
