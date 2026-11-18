@@ -12,10 +12,15 @@ import '../models/village.dart';
 import 'profile_service.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(
+    this.message, {
+    this.statusCode,
+    this.fieldErrors = const {},
+  });
 
   final String message;
   final int? statusCode;
+  final Map<String, String> fieldErrors;
 
   @override
   String toString() => message;
@@ -70,14 +75,16 @@ class ApiService {
     required String password,
     required String phone,
   }) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    final normalizedPhone = phone.replaceAll(RegExp(r'[\s()-]'), '');
     final requestBody = {
       'nama_lengkap': namaLengkap.trim(),
       'username': username.trim(),
-      'email': email.trim(),
+      'email': normalizedEmail,
       'password': password,
       'password_confirmation': password,
-      'no_telepon': phone.trim(),
-      'no_hp': phone.trim(),
+      'no_telepon': normalizedPhone,
+      'no_hp': normalizedPhone,
     };
     final response = await _client.post(
       _endpoint('auth/register'),
@@ -92,8 +99,8 @@ class ApiService {
       fallbackRole: 'warga',
       fallbackName: namaLengkap,
       fallbackUsername: username,
-      fallbackEmail: email,
-      fallbackPhone: phone,
+      fallbackEmail: normalizedEmail,
+      fallbackPhone: normalizedPhone,
     );
   }
 
@@ -549,17 +556,30 @@ class ApiService {
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final errors = body['errors'] as Map<String, dynamic>?;
-      final firstError = errors?.values
-          .whereType<List<dynamic>>()
-          .expand((messages) => messages)
-          .whereType<String>()
-          .firstOrNull;
+      final fieldErrors = <String, String>{};
+      final rawErrors = body['errors'];
+      if (rawErrors is Map) {
+        for (final entry in rawErrors.entries) {
+          final rawMessages = entry.value;
+          final message = rawMessages is Iterable
+              ? rawMessages
+                    .whereType<String>()
+                    .map((value) => value.trim())
+                    .firstWhere((value) => value.isNotEmpty, orElse: () => '')
+              : rawMessages is String
+              ? rawMessages.trim()
+              : '';
+          if (message.isNotEmpty) {
+            fieldErrors[entry.key.toString()] = message;
+          }
+        }
+      }
       throw ApiException(
-        firstError ??
+        fieldErrors.values.firstOrNull ??
             body['message'] as String? ??
             'Permintaan gagal. Coba lagi.',
         statusCode: response.statusCode,
+        fieldErrors: Map.unmodifiable(fieldErrors),
       );
     }
 

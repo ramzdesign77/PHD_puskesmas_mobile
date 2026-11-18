@@ -25,6 +25,7 @@ void main() {
         'password': 'secret123',
         'password_confirmation': 'secret123',
         'no_telepon': '081234567890',
+        'no_hp': '081234567890',
       });
 
       return http.Response(

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../constants/app_colors.dart';
 import '../../theme/app_theme.dart';
@@ -170,6 +171,8 @@ class AuthFormField extends StatelessWidget {
     this.autofillHints,
     this.obscureText = false,
     this.onToggleVisibility,
+    this.onChanged,
+    this.inputFormatters,
   });
 
   final Key? fieldKey;
@@ -183,6 +186,8 @@ class AuthFormField extends StatelessWidget {
   final Iterable<String>? autofillHints;
   final bool obscureText;
   final VoidCallback? onToggleVisibility;
+  final ValueChanged<String>? onChanged;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -203,9 +208,11 @@ class AuthFormField extends StatelessWidget {
           controller: controller,
           validator: validator,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           textInputAction: textInputAction,
           autofillHints: autofillHints,
           obscureText: obscureText,
+          onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(color: AppColors.muted, fontSize: 13),
