@@ -5,6 +5,7 @@ import '../../models/saved_address.dart';
 import '../../models/village.dart';
 import '../../services/api_service.dart';
 import '../../services/profile_service.dart';
+import '../../widgets/app_page_header.dart';
 
 class AccountInfoView extends StatefulWidget {
   const AccountInfoView({
@@ -145,6 +146,7 @@ class _AccountInfoViewState extends State<AccountInfoView> {
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: SafeArea(
+        top: false,
         bottom: false,
         child: Column(
           children: [
@@ -174,89 +176,68 @@ class _AccountInfoViewState extends State<AccountInfoView> {
   }
 
   Widget _buildHeader() {
-    final textScale = MediaQuery.textScalerOf(context).scale(1);
-    return SizedBox(
-      height: textScale > 1.15 ? 190 : 170,
-      child: Stack(
-        clipBehavior: Clip.hardEdge,
+    return AppPageHeader(
+      key: const Key('account_info_page_header'),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        MediaQuery.viewPaddingOf(context).top + 4,
+        20,
+        18,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.primaryLight, AppColors.primary],
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Kembali',
+                onPressed: () => Navigator.of(context).pop(),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white.withValues(alpha: 0.16),
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.28)),
                 ),
-                borderRadius: BorderRadius.vertical(
-                  bottom: Radius.circular(30),
-                ),
+                icon: const Icon(Icons.arrow_back_rounded),
               ),
+              const Spacer(),
+              IconButton(
+                tooltip: 'Muat ulang alamat',
+                onPressed: _isLoadingAddress ? null : _loadAddress,
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white.withValues(alpha: 0.16),
+                  foregroundColor: Colors.white,
+                ),
+                icon: _isLoadingAddress
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+          const Spacer(),
+          const Text(
+            'Alamat',
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Poppins',
+              fontSize: 25,
+              fontWeight: FontWeight.w500,
+              height: 1.2,
             ),
           ),
-          Positioned(top: -50, right: -28, child: _HeaderBubble(size: 152)),
-          Positioned(bottom: -72, left: 34, child: _HeaderBubble(size: 118)),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      tooltip: 'Kembali',
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withValues(alpha: 0.16),
-                        foregroundColor: Colors.white,
-                        side: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.28),
-                        ),
-                      ),
-                      icon: const Icon(Icons.arrow_back_rounded),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      tooltip: 'Muat ulang alamat',
-                      onPressed: _isLoadingAddress ? null : _loadAddress,
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withValues(alpha: 0.16),
-                        foregroundColor: Colors.white,
-                      ),
-                      icon: _isLoadingAddress
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.refresh_rounded),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                const Text(
-                  'Alamat',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'Poppins',
-                    fontSize: 25,
-                    fontWeight: FontWeight.w500,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  'Atur alamat rumah untuk laporan lebih cepat',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 3),
+          Text(
+            'Atur alamat rumah untuk laporan lebih cepat',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.9),
+              fontSize: 12,
+              height: 1.4,
             ),
           ),
         ],
@@ -641,23 +622,6 @@ class _AccountInfoViewState extends State<AccountInfoView> {
           ),
         ),
       ],
-    ),
-  );
-}
-
-class _HeaderBubble extends StatelessWidget {
-  const _HeaderBubble({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      border: Border.all(color: Colors.white.withValues(alpha: 0.16), width: 1),
-      color: Colors.white.withValues(alpha: 0.05),
     ),
   );
 }

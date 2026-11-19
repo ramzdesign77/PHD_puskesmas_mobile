@@ -246,6 +246,7 @@ class _ProfileViewState extends State<ProfileView> {
   Widget build(BuildContext context) {
     if (!widget.isActive) return const SizedBox.shrink();
     return SafeArea(
+      top: false,
       bottom: false,
       child: FutureBuilder<LocalProfile>(
         future: _profile,

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/ocean_widgets.dart';
+import '../../widgets/app_page_header.dart';
 
 class ProfilePageHeader extends StatelessWidget {
   const ProfilePageHeader({
@@ -36,14 +36,18 @@ class ProfilePageHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     if (waterStyle) {
       return SizedBox(
-        height: centeredAvatar == null ? 165 : 218,
+        height: AppPageHeader.height,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            DynamicWaterHeader(
+            AppPageHeader(
               key: const Key('profile_water_header'),
-              height: centeredAvatar == null ? 165 : 145,
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 30),
+              padding: EdgeInsets.fromLTRB(
+                12,
+                MediaQuery.viewPaddingOf(context).top + 4,
+                12,
+                30,
+              ),
               child: Align(
                 alignment: Alignment.topLeft,
                 child: Row(
@@ -77,7 +81,7 @@ class ProfilePageHeader extends StatelessWidget {
             ),
             if (centeredAvatar != null)
               Positioned(
-                top: 78,
+                top: 100,
                 left: 0,
                 right: 0,
                 child: Center(
@@ -163,7 +167,7 @@ class ProfilePageHeader extends StatelessWidget {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                        color: AppColors.ink,
+                                        color: Colors.white,
                                         fontSize: 15,
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -173,7 +177,7 @@ class ProfilePageHeader extends StatelessWidget {
                                       centeredSubtitle!,
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
-                                        color: AppColors.muted,
+                                        color: Colors.white70,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w400,
                                       ),

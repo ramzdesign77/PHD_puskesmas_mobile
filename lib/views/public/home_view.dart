@@ -16,7 +16,6 @@ const _heroHeaderRadius = 28.0;
 const _oceanBlue = AppColors.primary;
 const _deepOceanBlue = AppColors.primaryDark;
 const _paleBlue = AppColors.softBlue;
-const _offWhiteBlue = Color(0xFFF8FAFC);
 const _homeBodyFontFamily = AppTheme.bodyFontFamily;
 
 class HomeView extends StatefulWidget {
@@ -51,6 +50,7 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.sizeOf(context).width < 380;
     final inheritedTheme = Theme.of(context);
     return Theme(
       data: inheritedTheme.copyWith(
@@ -62,13 +62,18 @@ class _HomeViewState extends State<HomeView> {
         ),
       ),
       child: Scaffold(
-        backgroundColor: _offWhiteBlue,
+        backgroundColor: AppColors.canvas,
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
+              constraints: const BoxConstraints(maxWidth: 720),
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
+                padding: EdgeInsets.fromLTRB(
+                  isCompact ? 12 : 18,
+                  12,
+                  isCompact ? 12 : 18,
+                  28,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -295,7 +300,12 @@ class _HomeViewState extends State<HomeView> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+              padding: EdgeInsets.fromLTRB(
+                MediaQuery.sizeOf(context).width < 380 ? 16 : 22,
+                20,
+                MediaQuery.sizeOf(context).width < 380 ? 16 : 22,
+                20,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

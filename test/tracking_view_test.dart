@@ -98,6 +98,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final headerRect = tester.getRect(
+      find.byKey(const Key('tracking_detail_header')),
+    );
+    expect(headerRect.left, 0);
+    expect(headerRect.top, 0);
+    expect(headerRect.width, 390);
+    expect(headerRect.height, 250);
     expect(apiService.requestCount, 1);
     expect(apiService.requestedCodes.single, 'TK-20261030-0001');
     expect(find.text('Laporan Sedang Dijadwalkan'), findsOneWidget);

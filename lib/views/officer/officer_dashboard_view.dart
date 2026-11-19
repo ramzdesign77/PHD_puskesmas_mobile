@@ -306,6 +306,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
     ];
     return Scaffold(
       backgroundColor: _canvasWhite,
+      extendBody: true,
       body: SafeArea(
         bottom: false,
         child: IndexedStack(

@@ -5,7 +5,7 @@ import '../../constants/app_colors.dart';
 import '../../models/ticket_status.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/ocean_widgets.dart';
+import '../../widgets/app_page_header.dart';
 
 class TrackingView extends StatefulWidget {
   const TrackingView({
@@ -231,9 +231,15 @@ class _TrackingViewState extends State<TrackingView> {
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: SafeArea(
-        child: selectedTicket != null || _selectedCode != null
-            ? _buildTicketDetail(selectedTicket)
-            : _buildHistory(),
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: selectedTicket != null || _selectedCode != null
+                ? _buildTicketDetail(selectedTicket)
+                : _buildHistory(),
+          ),
+        ),
       ),
     );
   }
@@ -246,6 +252,9 @@ class _TrackingViewState extends State<TrackingView> {
   }
 
   Widget _buildHistory() {
+    final horizontalPadding = MediaQuery.sizeOf(context).width < 380
+        ? 12.0
+        : 18.0;
     final visibleTickets = _tickets
         .where((ticket) => ticket.isCompleted == _showCompleted)
         .toList();
@@ -254,65 +263,89 @@ class _TrackingViewState extends State<TrackingView> {
       onRefresh: _refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
+        padding: const EdgeInsets.only(bottom: 32),
         children: [
-          DynamicWaterHeader(
-            height: 158,
-            padding: const EdgeInsets.fromLTRB(20, 26, 20, 34),
-            child: Align(
-              alignment: Alignment.bottomLeft,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Lacak laporan',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w400,
-                    ),
+          AppPageHeader(
+            key: const Key('tracking_history_header'),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              MediaQuery.viewPaddingOf(context).top + 4,
+              20,
+              30,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 26),
+                const SizedBox(height: 14),
+                Text(
+                  'Lacak laporan',
+                  style: TextStyle(
+                    fontFamily: AppTheme.headlineFontFamily,
+                    color: Colors.white,
+                    fontSize: 26,
+                    height: 1.25,
+                    fontWeight: FontWeight.w500,
                   ),
-                  const SizedBox(height: 5),
-                  const Text(
-                    'Pantau perkembangan laporan sanitasi Anda.',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Pantau perkembangan laporan sanitasi Anda.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    height: 1.35,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 18),
-          _buildSearchBar(),
-          if (_error != null) ...[
-            const SizedBox(height: 14),
-            _MessagePanel(
-              icon: Icons.info_outline,
-              message: _error!,
-              color: AppColors.primary,
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              18,
+              horizontalPadding,
+              0,
             ),
-          ],
-          const SizedBox(height: 20),
-          _buildHistoryFilters(),
-          const SizedBox(height: 14),
-          if (_isLoading && _tickets.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 40),
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              ),
-            )
-          else if (visibleTickets.isEmpty)
-            _EmptyTrackingState(hasHistory: _tickets.isNotEmpty)
-          else
-            for (final ticket in visibleTickets)
-              _OrderHistoryCard(
-                ticket: ticket,
-                onTap: () => setState(() {
-                  _selectedCode = ticket.code;
-                  _ticketController.text = ticket.code;
-                  _error = null;
-                }),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildSearchBar(),
+                if (_error != null) ...[
+                  const SizedBox(height: 14),
+                  _MessagePanel(
+                    icon: Icons.info_outline,
+                    message: _error!,
+                    color: AppColors.primary,
+                  ),
+                ],
+                const SizedBox(height: 20),
+                _buildHistoryFilters(),
+                const SizedBox(height: 14),
+                if (_isLoading && _tickets.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 40),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  )
+                else if (visibleTickets.isEmpty)
+                  _EmptyTrackingState(hasHistory: _tickets.isNotEmpty)
+                else
+                  for (final ticket in visibleTickets)
+                    _OrderHistoryCard(
+                      ticket: ticket,
+                      onTap: () => setState(() {
+                        _selectedCode = ticket.code;
+                        _ticketController.text = ticket.code;
+                        _error = null;
+                      }),
+                    ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -344,58 +377,100 @@ class _TrackingViewState extends State<TrackingView> {
   }
 
   Widget _buildTicketDetail(TicketStatus? ticket) {
+    final horizontalPadding = MediaQuery.sizeOf(context).width < 380
+        ? 12.0
+        : 18.0;
     return RefreshIndicator(
       color: AppColors.primary,
       onRefresh: _refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(18, 8, 18, 32),
+        padding: const EdgeInsets.only(bottom: 32),
         children: [
-          Row(
-            children: [
-              IconButton(
-                tooltip: 'Kembali ke riwayat',
-                onPressed: () => setState(() {
-                  _selectedCode = null;
-                  _error = null;
-                }),
-                icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-              ),
-              Expanded(
-                child: Text(
-                  'Status Laporan',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppColors.ink,
-                    fontWeight: FontWeight.w400,
+          AppPageHeader(
+            key: const Key('tracking_detail_header'),
+            padding: EdgeInsets.fromLTRB(
+              10,
+              MediaQuery.viewPaddingOf(context).top + 4,
+              10,
+              26,
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: 'Kembali ke riwayat',
+                  onPressed: () => setState(() {
+                    _selectedCode = null;
+                    _error = null;
+                  }),
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                ),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Status Laporan',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      if (_selectedCode != null)
+                        Text(
+                          _selectedCode!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
-              IconButton(
-                tooltip: 'Perbarui status',
-                onPressed: _isLoading ? null : _refresh,
-                icon: const Icon(Icons.refresh, color: AppColors.primary),
-              ),
-            ],
+                IconButton(
+                  tooltip: 'Perbarui status',
+                  onPressed: _isLoading ? null : _refresh,
+                  icon: const Icon(Icons.refresh, color: Colors.white),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 6),
-          if (ticket != null) ...[
-            _TicketDetails(ticket: ticket),
-          ] else if (_isLoading) ...[
-            const Padding(
-              padding: EdgeInsets.only(top: 80),
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              12,
+              horizontalPadding,
+              0,
             ),
-          ],
-          if (_error != null) ...[
-            const SizedBox(height: 14),
-            _MessagePanel(
-              icon: Icons.info_outline,
-              message: _error!,
-              color: AppColors.primary,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (ticket != null) ...[
+                  _TicketDetails(ticket: ticket),
+                ] else if (_isLoading) ...[
+                  const Padding(
+                    padding: EdgeInsets.only(top: 80),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+                if (_error != null) ...[
+                  const SizedBox(height: 14),
+                  _MessagePanel(
+                    icon: Icons.info_outline,
+                    message: _error!,
+                    color: AppColors.primary,
+                  ),
+                ],
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );

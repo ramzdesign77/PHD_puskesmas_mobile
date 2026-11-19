@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:klinik_sanitasi_mobile/services/profile_service.dart';
 import 'package:klinik_sanitasi_mobile/theme/app_theme.dart';
+import 'package:klinik_sanitasi_mobile/widgets/app_page_header.dart';
 import 'package:klinik_sanitasi_mobile/views/profile/change_password_view.dart';
 import 'package:klinik_sanitasi_mobile/views/profile/edit_profile_view.dart';
 import 'package:klinik_sanitasi_mobile/views/profile/profile_view.dart';
@@ -215,6 +216,7 @@ void main() {
     final waterHeaderRect = tester.getRect(
       find.byKey(const Key('profile_water_header')),
     );
+    expect(waterHeaderRect.top, 0);
     expect(
       avatarCenter.dx,
       closeTo(
@@ -224,6 +226,7 @@ void main() {
     );
     expect(avatarCenter.dy, greaterThan(waterHeaderRect.top + 100));
     expect(avatarCenter.dy, lessThan(waterHeaderRect.bottom));
+    expect(waterHeaderRect.height, AppPageHeader.height);
     expect(tester.takeException(), isNull);
   });
 
@@ -240,6 +243,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Alamat'), findsOneWidget);
+    expect(find.byType(AppPageHeader), findsOneWidget);
     expect(find.text('Alamat Saya'), findsOneWidget);
     expect(find.text('Nama lengkap'), findsNothing);
     expect(find.text('Nomor telepon'), findsNothing);

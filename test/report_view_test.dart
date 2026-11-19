@@ -71,6 +71,10 @@ void main() {
   testWidgets(
     'ReportView renders header, form groups, and submit button precisely',
     (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
       final fakeApi = _FakeReportApiService();
 
       await tester.pumpWidget(
@@ -79,6 +83,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify Header
+      expect(
+        tester.getSize(find.byKey(const Key('report_page_header'))).height,
+        250,
+      );
       expect(find.text('Buat Laporan'), findsOneWidget);
       expect(
         find.text('Sampaikan masalah air atau sanitasi\ndi lingkungan Anda.'),

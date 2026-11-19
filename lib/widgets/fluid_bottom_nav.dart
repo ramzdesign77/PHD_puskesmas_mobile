@@ -122,13 +122,6 @@ class _FluidBottomNavState extends State<FluidBottomNav>
                           key: const Key('fluid_nav_surface'),
                           decoration: const BoxDecoration(color: Colors.white),
                         ),
-                        CustomPaint(
-                          painter: _FluidNavBorderPainter(
-                            activePosition,
-                            progress,
-                            showLabels: widget.showLabels,
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -438,38 +431,4 @@ class _FluidNavClipper extends CustomClipper<Path> {
       oldClipper.notchCenter != notchCenter ||
       oldClipper.selectionProgress != selectionProgress ||
       oldClipper.showLabels != showLabels;
-}
-
-class _FluidNavBorderPainter extends CustomPainter {
-  const _FluidNavBorderPainter(
-    this.notchCenter,
-    this.selectionProgress, {
-    this.showLabels = false,
-  });
-
-  final double notchCenter;
-  final double selectionProgress;
-  final bool showLabels;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = _FluidNavClipper(
-      notchCenter,
-      selectionProgress,
-      showLabels: showLabels,
-    ).getClip(size);
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = AppColors.primary.withValues(alpha: 0.08)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _FluidNavBorderPainter oldDelegate) =>
-      oldDelegate.notchCenter != notchCenter ||
-      oldDelegate.selectionProgress != selectionProgress ||
-      oldDelegate.showLabels != showLabels;
 }

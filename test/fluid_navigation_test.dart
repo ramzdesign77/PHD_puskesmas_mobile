@@ -114,7 +114,7 @@ void main() {
 
     expect(find.text('Halaman Beranda'), findsOneWidget);
     expect(find.byType(FluidBottomNav), findsOneWidget);
-    expect(tester.widget<Scaffold>(find.byType(Scaffold)).extendBody, isFalse);
+    expect(tester.widget<Scaffold>(find.byType(Scaffold)).extendBody, isTrue);
     expect(tester.getSize(find.byType(FluidBottomNav)).height, 64);
     final navSurface = tester.widget<DecoratedBox>(
       find.byKey(const Key('fluid_nav_surface')),

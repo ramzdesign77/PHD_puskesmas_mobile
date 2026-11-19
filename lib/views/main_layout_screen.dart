@@ -26,6 +26,7 @@ class MainLayoutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
+      extendBody: true,
       body: bodySafeArea
           ? SafeArea(
               bottom: false,

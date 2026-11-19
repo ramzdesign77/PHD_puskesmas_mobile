@@ -11,7 +11,7 @@ import '../../models/village.dart';
 import '../../services/api_service.dart';
 import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/ocean_widgets.dart';
+import '../../widgets/app_page_header.dart';
 import '../../widgets/osm_tile_map.dart';
 
 const _reportAreaNumbers = [
@@ -833,14 +833,18 @@ class _ReportViewState extends State<ReportView> {
           child: Icon(icon, color: AppColors.primary, size: 18),
         ),
         const SizedBox(width: 12),
-        Text(
-          title,
-          style: TextStyle(
-            fontFamily: AppTheme.bodyFontFamily,
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
-            color: AppColors.primary,
-          ).asHeading,
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: AppTheme.bodyFontFamily,
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              color: AppColors.primary,
+            ).asHeading,
+          ),
         ),
       ],
     );
@@ -863,6 +867,7 @@ class _ReportViewState extends State<ReportView> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.sizeOf(context).width < 380;
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: SingleChildScrollView(
@@ -870,8 +875,8 @@ class _ReportViewState extends State<ReportView> {
           clipBehavior: Clip.none,
           children: [
             // Header Curved Maroon Background
-            DynamicWaterHeader(
-              height: 250,
+            AppPageHeader(
+              key: const Key('report_page_header'),
               child: Stack(
                 children: [
                   Positioned(
@@ -941,7 +946,12 @@ class _ReportViewState extends State<ReportView> {
 
                   // Overlapping White Card
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    padding: EdgeInsets.fromLTRB(
+                      isCompact ? 12 : 16,
+                      0,
+                      isCompact ? 12 : 16,
+                      24,
+                    ),
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -954,7 +964,7 @@ class _ReportViewState extends State<ReportView> {
                           ),
                         ],
                       ),
-                      padding: const EdgeInsets.all(20),
+                      padding: EdgeInsets.all(isCompact ? 16 : 20),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -1196,6 +1206,7 @@ class _ReportViewState extends State<ReportView> {
                                   }
 
                                   return DropdownButtonFormField<Village>(
+                                    isExpanded: true,
                                     key: ValueKey(
                                       'report_village_${_selectedVillage?.id ?? 'none'}_$_useAccountAddress',
                                     ),
@@ -1222,6 +1233,8 @@ class _ReportViewState extends State<ReportView> {
                                         value: village,
                                         child: Text(
                                           village.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                             fontFamily: AppTheme.bodyFontFamily,
                                             fontSize: 14,
@@ -1254,6 +1267,7 @@ class _ReportViewState extends State<ReportView> {
                                 children: [
                                   Expanded(
                                     child: DropdownButtonFormField<String>(
+                                      isExpanded: true,
                                       key: ValueKey(
                                         'report_rt_${_selectedRt}_$_useAccountAddress',
                                       ),
@@ -1269,11 +1283,6 @@ class _ReportViewState extends State<ReportView> {
                                       ),
                                       decoration: _fieldDecoration(
                                         hintText: 'RT',
-                                        prefixIcon: const Icon(
-                                          Icons.location_on_outlined,
-                                          color: AppColors.muted,
-                                          size: 20,
-                                        ),
                                       ),
                                       hint: Text(
                                         'RT',
@@ -1311,6 +1320,7 @@ class _ReportViewState extends State<ReportView> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: DropdownButtonFormField<String>(
+                                      isExpanded: true,
                                       key: ValueKey(
                                         'report_rw_${_selectedRw}_$_useAccountAddress',
                                       ),
@@ -1326,11 +1336,6 @@ class _ReportViewState extends State<ReportView> {
                                       ),
                                       decoration: _fieldDecoration(
                                         hintText: 'RW',
-                                        prefixIcon: const Icon(
-                                          Icons.home_outlined,
-                                          color: AppColors.muted,
-                                          size: 20,
-                                        ),
                                       ),
                                       hint: Text(
                                         'RW',
@@ -1583,14 +1588,19 @@ class _ReportViewState extends State<ReportView> {
                                             ),
                                           ),
                                           const SizedBox(width: 8),
-                                          Text(
-                                            'KIRIM LAPORAN PENGADUAN',
-                                            style: TextStyle(
-                                              fontFamily:
-                                                  AppTheme.bodyFontFamily,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w400,
-                                              color: Colors.white,
+                                          Flexible(
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Text(
+                                                'KIRIM LAPORAN PENGADUAN',
+                                                style: TextStyle(
+                                                  fontFamily:
+                                                      AppTheme.bodyFontFamily,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w400,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ],
