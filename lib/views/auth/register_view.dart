@@ -166,6 +166,9 @@ class _RegisterViewState extends State<RegisterView> {
     if (value!.trim().runes.length < 2) {
       return 'Nama lengkap minimal 2 karakter.';
     }
+    if (!RegExp(r'^[\p{L} ]+$', unicode: true).hasMatch(value.trim())) {
+      return 'Nama lengkap hanya boleh berisi huruf dan spasi.';
+    }
     return null;
   }
 
@@ -215,9 +218,9 @@ class _RegisterViewState extends State<RegisterView> {
     final phone = value?.trim() ?? '';
     if (phone.isEmpty) return 'Nomor telepon wajib diisi.';
     final compact = _normalizePhone(phone);
-    return RegExp(r'^\+?[0-9]{8,15}$').hasMatch(compact)
+    return RegExp(r'^(?:08[0-9]{8,11}|628[0-9]{8,11})$').hasMatch(compact)
         ? null
-        : 'Nomor telepon tidak valid.';
+        : 'Gunakan format nomor Indonesia: 08... atau +62 8...';
   }
 
   String? _validateConfirmation(String? value) {
