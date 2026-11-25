@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -28,6 +29,8 @@ class ApiException implements Exception {
 
 class ApiService {
   ApiService({http.Client? client}) : _client = client ?? http.Client();
+
+  static const int maxSavedTickets = 15;
 
   final http.Client _client;
   static const _tokenKey = 'auth_token';
@@ -86,7 +89,7 @@ class ApiService {
       'no_telepon': normalizedPhone,
       'no_hp': normalizedPhone,
     };
-    final response = await _client.post(
+    final response = await _post(
       _endpoint('auth/register'),
       headers: {
         'Accept': 'application/json',
@@ -108,15 +111,66 @@ class ApiService {
     String path, {
     required String identifier,
     required String password,
-  }) {
-    return _client.post(
-      _endpoint(path),
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({'identifier': identifier.trim(), 'password': password}),
-    );
+  }) => _post(
+    _endpoint(path),
+    headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+    body: jsonEncode({'identifier': identifier.trim(), 'password': password}),
+  );
+
+  Future<http.Response> _get(Uri uri, {Map<String, String>? headers}) async {
+    try {
+      return await _client
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      throw const ApiException('Server terlalu lama merespons. Coba lagi.');
+    } on SocketException {
+      throw const ApiException(
+        'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+      );
+    }
+  }
+
+  Future<http.Response> _post(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      return await _client
+          .post(uri, headers: headers, body: body)
+          .timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      throw const ApiException('Server terlalu lama merespons. Coba lagi.');
+    } on SocketException {
+      throw const ApiException(
+        'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+      );
+    }
+  }
+
+  Future<http.StreamedResponse> _send(http.BaseRequest request) async {
+    try {
+      return await _client.send(request).timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      throw const ApiException('Server terlalu lama merespons. Coba lagi.');
+    } on SocketException {
+      throw const ApiException(
+        'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+      );
+    }
   }
 
   Future<Map<String, dynamic>> _saveSession(
@@ -266,7 +320,7 @@ class ApiService {
   }
 
   Future<void> logout(String token) async {
-    final response = await _client.post(
+    final response = await _post(
       _endpoint('auth/logout'),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
@@ -274,7 +328,7 @@ class ApiService {
   }
 
   Future<List<EducationArticle>> getArticles() async {
-    final response = await _client.get(
+    final response = await _get(
       _endpoint('edukasi'),
       headers: {'Accept': 'application/json'},
     );
@@ -290,7 +344,7 @@ class ApiService {
   }
 
   Future<List<Village>> getVillages() async {
-    final response = await _client.get(
+    final response = await _get(
       _endpoint('desa'),
       headers: {'Accept': 'application/json'},
     );
@@ -330,10 +384,22 @@ class ApiService {
       );
     }
 
-    final streamedResponse = await _client
-        .send(request)
-        .timeout(const Duration(seconds: 30));
-    final response = await http.Response.fromStream(streamedResponse);
+    final streamedResponse = await _send(request);
+    late final http.Response response;
+    try {
+      response = await http.Response.fromStream(streamedResponse)
+          .timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      throw const ApiException('Server terlalu lama merespons. Coba lagi.');
+    } on SocketException {
+      throw const ApiException(
+        'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+      );
+    }
     final body = _decode(response);
     final ticketCode = body['kode_tiket'];
     if (ticketCode is! String || ticketCode.trim().isEmpty) {
@@ -369,7 +435,7 @@ class ApiService {
   }
 
   Future<TicketStatus> getTicket(String code) async {
-    final response = await _client.get(
+    final response = await _get(
       _endpoint('laporan/${Uri.encodeComponent(code)}'),
       headers: {'Accept': 'application/json'},
     );
@@ -388,55 +454,106 @@ class ApiService {
 
   Future<List<String>> getSavedCitizenTicketCodes() async {
     final preferences = await SharedPreferences.getInstance();
-    return preferences.getStringList(_savedCitizenTicketsKey) ?? [];
+    final stored = preferences.get(_savedCitizenTicketsKey);
+    if (stored == null) return const [];
+    if (stored is! List) {
+      await preferences.remove(_savedCitizenTicketsKey);
+      return const [];
+    }
+
+    final codes = stored
+        .whereType<String>()
+        .map((code) => code.trim())
+        .where((code) => code.isNotEmpty)
+        .take(maxSavedTickets)
+        .toList();
+    if (stored.length > maxSavedTickets &&
+        !await preferences.setStringList(_savedCitizenTicketsKey, codes)) {
+      throw const ApiException('Riwayat tiket tidak dapat dirapikan.');
+    }
+    return codes;
   }
 
   Future<List<String>> getSavedCitizenTickets() => getSavedCitizenTicketCodes();
 
   Future<List<TicketStatus>> getCachedCitizenTicketStatuses() async {
     final preferences = await SharedPreferences.getInstance();
-    final raw = preferences.getString(_cachedCitizenTicketStatusesKey);
-    if (raw == null || raw.isEmpty) {
+    final stored = preferences.get(_cachedCitizenTicketStatusesKey);
+    if (stored is! String || stored.isEmpty) {
+      if (stored != null) {
+        await preferences.remove(_cachedCitizenTicketStatusesKey);
+      }
       final codes = await getSavedCitizenTicketCodes();
       final statuses = <TicketStatus>[];
       for (final code in codes) {
-        final status = await getCachedTicketStatus(code);
-        if (status != null) statuses.add(status);
+        try {
+          final status = await getCachedTicketStatus(code);
+          if (status != null && !statuses.any((item) => item.code == code)) {
+            statuses.add(status);
+          }
+        } on ApiException {
+          continue;
+        }
       }
-      return statuses;
+      return statuses.take(maxSavedTickets).toList(growable: false);
     }
+
+    dynamic decoded;
     try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return const [];
-      return decoded
-          .whereType<Map>()
-          .map((item) => TicketStatus.fromJson(Map<String, dynamic>.from(item)))
-          .toList(growable: false);
+      decoded = jsonDecode(stored);
     } on FormatException {
+      await preferences.remove(_cachedCitizenTicketStatusesKey);
       return const [];
     }
+    if (decoded is! List) {
+      await preferences.remove(_cachedCitizenTicketStatusesKey);
+      return const [];
+    }
+
+    final statuses = <TicketStatus>[];
+    for (final item in decoded.take(maxSavedTickets)) {
+      if (item is! Map) continue;
+      final json = <String, dynamic>{
+        for (final entry in item.entries)
+          if (entry.key is String) entry.key as String: entry.value,
+      };
+      final status = TicketStatus.fromJson(json);
+      if (status.code.trim().isNotEmpty) statuses.add(status);
+    }
+    final boundedStatuses = statuses.take(maxSavedTickets).toList();
+    if (decoded.length > maxSavedTickets) {
+      final saved = await preferences.setString(
+        _cachedCitizenTicketStatusesKey,
+        jsonEncode(boundedStatuses.map((status) => status.toJson()).toList()),
+      );
+      if (!saved) {
+        throw const ApiException('Cache riwayat tiket tidak dapat dirapikan.');
+      }
+    }
+    return boundedStatuses;
   }
 
   Future<List<String>> syncCitizenTicketsHistory() async {
     final preferences = await SharedPreferences.getInstance();
-    final localCodes = preferences.getStringList(_savedCitizenTicketsKey) ?? [];
+    final localCodes = await getSavedCitizenTicketCodes();
+    final requestedCodes = localCodes.take(10).toList(growable: false);
     final token = preferences.getString(_tokenKey)?.trim();
-    var uri = _endpoint('v1/laporan/history');
-    if (localCodes.isNotEmpty) {
-      uri = uri.replace(queryParameters: {'codes': localCodes.join(',')});
-    }
+    final uri = _endpoint('v1/laporan/history').replace(
+      queryParameters: {
+        'limit': '$maxSavedTickets',
+        if (requestedCodes.isNotEmpty) 'codes': requestedCodes.join(','),
+      },
+    );
 
     try {
-      final response = await _client
-          .get(
-            uri,
-            headers: {
-              'Accept': 'application/json',
-              if (token != null && token.isNotEmpty)
-                'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(const Duration(seconds: 4));
+      final response = await _get(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          if (token != null && token.isNotEmpty)
+            'Authorization': 'Bearer $token',
+        },
+      );
       final body = _decode(response);
       final payload = body['data'] ?? body['history'] ?? body['laporan'];
       final rows = payload is List
@@ -447,36 +564,52 @@ class ApiService {
                 : <dynamic>[])
           : <dynamic>[];
 
-      final serverCodes = <String>[];
       final serverStatuses = <TicketStatus>[];
-      for (final row in rows) {
+      for (final row in rows.take(maxSavedTickets)) {
         if (row is! Map) continue;
         final map = Map<String, dynamic>.from(row);
         final ticket = TicketStatus.fromJson(map);
         final code = ticket.code.trim();
         if (code.isNotEmpty) {
-          serverCodes.add(code);
           serverStatuses.add(ticket);
-          await cacheTicketStatus(ticket);
         }
       }
 
+      final cachedStatuses = await getCachedCitizenTicketStatuses();
+      final statusesByCode = <String, TicketStatus>{
+        for (final ticket in cachedStatuses) ticket.code: ticket,
+        for (final ticket in serverStatuses) ticket.code: ticket,
+      };
+      final orderedCodes = <String>{
+        ...serverStatuses.map((ticket) => ticket.code),
+        ...cachedStatuses.map((ticket) => ticket.code),
+      }.take(maxSavedTickets);
+      final boundedStatuses = [
+        for (final code in orderedCodes)
+          if (statusesByCode[code] != null) statusesByCode[code]!,
+      ];
       final merged = <String>{
-        for (final code in [...serverCodes, ...localCodes])
-          if (code.trim().isNotEmpty) code.trim(),
-      }.toList();
-      await preferences.setStringList(_savedCitizenTicketsKey, merged);
-      await preferences.setString(
-        _cachedCitizenTicketStatusesKey,
-        jsonEncode(serverStatuses.map((ticket) => ticket.toJson()).toList()),
+        ...serverStatuses.map((ticket) => ticket.code),
+        ...localCodes,
+      }.take(maxSavedTickets).toList(growable: false);
+      final savedCodes = await preferences.setStringList(
+        _savedCitizenTicketsKey,
+        merged,
       );
+      final savedStatuses = await preferences.setString(
+        _cachedCitizenTicketStatusesKey,
+        jsonEncode(boundedStatuses.map((ticket) => ticket.toJson()).toList()),
+      );
+      if (!savedCodes || !savedStatuses) {
+        throw const ApiException(
+          'Riwayat tiket tidak dapat disimpan ke cache.',
+        );
+      }
       return merged;
     } on ApiException {
-      return localCodes;
-    } on http.ClientException {
-      return localCodes;
-    } on Exception {
-      return localCodes;
+      rethrow;
+    } on Exception catch (error) {
+      throw ApiException('Riwayat laporan tidak dapat dimuat: $error');
     }
   }
 
@@ -487,13 +620,13 @@ class ApiService {
     }
 
     final preferences = await SharedPreferences.getInstance();
-    final savedCodes = preferences.getStringList(_savedCitizenTicketsKey) ?? [];
+    final savedCodes = await getSavedCitizenTicketCodes();
     final updatedCodes = [
       normalizedCode,
       ...savedCodes.where(
         (savedCode) => savedCode.toLowerCase() != normalizedCode.toLowerCase(),
       ),
-    ];
+    ].take(maxSavedTickets).toList(growable: false);
     if (!await preferences.setStringList(
       _savedCitizenTicketsKey,
       updatedCodes,
@@ -504,17 +637,28 @@ class ApiService {
 
   Future<TicketStatus?> getCachedTicketStatus(String code) async {
     final preferences = await SharedPreferences.getInstance();
-    final cachedJson = preferences.getString(_ticketCacheKey(code));
-    if (cachedJson == null) return null;
+    final cacheKey = _ticketCacheKey(code);
+    final stored = preferences.get(cacheKey);
+    if (stored == null) return null;
+    if (stored is! String) {
+      await preferences.remove(cacheKey);
+      return null;
+    }
 
     try {
-      final decoded = jsonDecode(cachedJson);
-      if (decoded is! Map<String, dynamic>) {
-        throw const FormatException('Cache tiket bukan objek JSON.');
+      final decoded = jsonDecode(stored);
+      if (decoded is! Map) {
+        await preferences.remove(cacheKey);
+        return null;
       }
-      return TicketStatus.fromJson(decoded);
-    } on FormatException catch (error) {
-      throw ApiException('Cache tiket tidak dapat dibaca: $error');
+      final ticket = TicketStatus.fromJson({
+        for (final entry in decoded.entries)
+          if (entry.key is String) entry.key as String: entry.value,
+      });
+      return ticket.code.trim().isEmpty ? null : ticket;
+    } on FormatException {
+      await preferences.remove(cacheKey);
+      return null;
     }
   }
 
@@ -532,11 +676,14 @@ class ApiService {
     final updated = [
       ticket,
       ...statuses.where((status) => status.code != ticket.code),
-    ];
-    await preferences.setString(
+    ].take(maxSavedTickets).toList(growable: false);
+    final savedStatuses = await preferences.setString(
       _cachedCitizenTicketStatusesKey,
       jsonEncode(updated.map((status) => status.toJson()).toList()),
     );
+    if (!savedStatuses) {
+      throw const ApiException('Status tiket tidak dapat disimpan ke cache.');
+    }
   }
 
   String _ticketCacheKey(String code) =>

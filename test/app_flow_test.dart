@@ -19,6 +19,7 @@ import 'package:klinik_sanitasi_mobile/models/user_model.dart';
 import 'package:klinik_sanitasi_mobile/models/village.dart';
 import 'package:klinik_sanitasi_mobile/services/api_service.dart';
 import 'package:klinik_sanitasi_mobile/services/auth_service.dart';
+import 'package:klinik_sanitasi_mobile/views/public/tracking_view.dart';
 
 void main() {
   setUp(() {
@@ -91,6 +92,26 @@ void main() {
     await tester.tap(find.text('Profil'));
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.text('Sesi pengguna tidak ditemukan.'), findsOneWidget);
+  });
+
+  testWidgets('Warga can open the tracking tab from the main shell', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'auth_token': 'test-token',
+      'auth_role': 'warga',
+      'auth_user_name': 'Warga Contoh',
+    });
+    await tester.pumpWidget(MyApp(apiService: _FakeApiService()));
+    await tester.pump(const Duration(seconds: 2));
+    await _pumpUntilVisible(tester, find.text('KLINIK SANITASI'));
+
+    await tester.tap(find.text('Lacak'));
+    await tester.pump(const Duration(milliseconds: 600));
+
+    expect(find.text('Lacak laporan'), findsOneWidget);
+    expect(find.byType(TrackingView), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('profile logout clears the session and returns to login', (
@@ -290,6 +311,12 @@ Future<void> _pumpUntilVisible(WidgetTester tester, Finder finder) async {
 }
 
 class _FakeApiService extends ApiService {
+  @override
+  Future<List<String>> syncCitizenTicketsHistory() async => [];
+
+  @override
+  Future<List<String>> getSavedCitizenTicketCodes() async => [];
+
   @override
   Future<Map<String, dynamic>> register({
     required String namaLengkap,

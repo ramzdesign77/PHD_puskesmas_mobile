@@ -13,11 +13,13 @@ class TrackingView extends StatefulWidget {
     required this.apiService,
     this.initialTicketCode,
     this.isActive = true,
+    this.onOpenReport,
   });
 
   final ApiService apiService;
   final String? initialTicketCode;
   final bool isActive;
+  final VoidCallback? onOpenReport;
 
   @override
   State<TrackingView> createState() => _TrackingViewState();
@@ -29,6 +31,8 @@ class _TrackingViewState extends State<TrackingView> {
   String? _selectedCode;
   bool _showCompleted = false;
   bool _isLoading = true;
+  bool _isRefreshing = false;
+  bool _isSearching = false;
   String? _error;
   int _requestId = 0;
 
@@ -70,86 +74,149 @@ class _TrackingViewState extends State<TrackingView> {
   Future<void> _loadHistory({String? preferredCode}) async {
     final requestId = ++_requestId;
     setState(() {
-      _isLoading = true;
+      if (_tickets.isEmpty) _isLoading = true;
+      _isRefreshing = false;
+      _isSearching = false;
       _error = null;
     });
 
+    final cachedTicketsByCode = <String, TicketStatus>{};
+    var savedCodes = <String>[];
+    String? cacheError;
     try {
-      await widget.apiService.syncCitizenTicketsHistory();
-      final savedCodes = await widget.apiService.getSavedCitizenTicketCodes();
-      if (preferredCode != null && !savedCodes.contains(preferredCode)) {
-        await widget.apiService.saveCitizenTicketCode(preferredCode);
-        savedCodes.insert(0, preferredCode);
-      }
-      final preferredCodes = preferredCode == null
-          ? <String>[]
-          : <String>[preferredCode];
-      final codes = <String>[
-        ...preferredCodes,
-        ...savedCodes.where((code) => code != preferredCode),
+      savedCodes = [
+        ...(await widget.apiService.getSavedCitizenTickets()).take(
+          ApiService.maxSavedTickets,
+        ),
       ];
-
-      final cachedTickets = <TicketStatus>[];
-      String? cacheError;
-      for (final code in codes) {
+    } catch (error) {
+      cacheError = error.toString();
+    }
+    if (preferredCode != null && !savedCodes.contains(preferredCode)) {
+      savedCodes.insert(0, preferredCode);
+      try {
+        await widget.apiService.saveCitizenTicketCode(preferredCode);
+      } catch (error) {
+        cacheError ??= error.toString();
+      }
+    }
+    try {
+      final cachedStatuses = await widget.apiService
+          .getCachedCitizenTicketStatuses();
+      for (final ticket in cachedStatuses) {
+        if (ticket.code.trim().isNotEmpty) {
+          cachedTicketsByCode[ticket.code] = ticket;
+        }
+      }
+    } catch (error) {
+      cacheError ??= error.toString();
+    }
+    if (cachedTicketsByCode.isEmpty) {
+      for (final code in savedCodes) {
         try {
           final cached = await widget.apiService.getCachedTicketStatus(code);
-          if (cached != null) cachedTickets.add(cached);
-        } on ApiException catch (error) {
-          cacheError ??= error.message;
+          if (cached != null) cachedTicketsByCode[code] = cached;
+        } catch (error) {
+          cacheError ??= error.toString();
         }
       }
-      if (!mounted || requestId != _requestId) return;
-      setState(() {
-        _tickets = cachedTickets;
-        _error = cacheError;
-      });
+    }
 
-      final refreshedTickets = <TicketStatus>[];
-      final refreshErrors = <String>[];
-      for (final code in codes) {
+    if (preferredCode != null &&
+        !cachedTicketsByCode.containsKey(preferredCode)) {
+      try {
+        final cached = await widget.apiService.getCachedTicketStatus(
+          preferredCode,
+        );
+        if (cached != null) cachedTicketsByCode[preferredCode] = cached;
+      } catch (error) {
+        cacheError ??= error.toString();
+      }
+    }
+
+    if (!mounted || requestId != _requestId) return;
+    setState(() {
+      _tickets = cachedTicketsByCode.values
+          .take(ApiService.maxSavedTickets)
+          .toList(growable: false);
+      _isLoading = false;
+      _isRefreshing = true;
+      _error = cacheError;
+    });
+
+    try {
+      final syncedCodes = await widget.apiService.syncCitizenTicketsHistory();
+      savedCodes = [
+        ...(await widget.apiService.getSavedCitizenTickets()).take(
+          ApiService.maxSavedTickets,
+        ),
+      ];
+      final refreshedStatuses = await widget.apiService
+          .getCachedCitizenTicketStatuses();
+      final ticketsByCode = <String, TicketStatus>{
+        for (final ticket in cachedTicketsByCode.values) ticket.code: ticket,
+        for (final ticket in refreshedStatuses) ticket.code: ticket,
+      };
+      final refreshErrors = <Object>[];
+      if (preferredCode != null && !ticketsByCode.containsKey(preferredCode)) {
         try {
-          refreshedTickets.add(await widget.apiService.getTicket(code));
-        } on ApiException catch (error) {
-          refreshErrors.add(error.message);
-        } on Exception catch (error) {
-          refreshErrors.add(error.toString());
+          final ticket = await widget.apiService.getTicket(preferredCode);
+          ticketsByCode[ticket.code] = ticket;
+          if (!savedCodes.contains(preferredCode)) {
+            savedCodes.insert(0, preferredCode);
+          }
+        } catch (error) {
+          refreshErrors.add(error);
         }
       }
-      if (!mounted || requestId != _requestId) return;
 
-      final refreshedByCode = {
-        for (final ticket in refreshedTickets) ticket.code: ticket,
-      };
-      final ticketsByCode = {
-        for (final ticket in cachedTickets) ticket.code: ticket,
-        ...refreshedByCode,
-      };
+      if (!mounted || requestId != _requestId) return;
+      final orderedCodes = <String>{
+        ...syncedCodes,
+        ...savedCodes,
+        ...ticketsByCode.keys,
+      }.take(ApiService.maxSavedTickets);
       setState(() {
         _tickets = [
-          for (final code in codes)
+          for (final code in orderedCodes)
             if (ticketsByCode[code] != null) ticketsByCode[code]!,
         ];
         _error = refreshErrors.isEmpty
             ? null
-            : 'Sebagian status belum dapat diperbarui: ${refreshErrors.first}';
+            : _loadErrorMessage(
+                refreshErrors.first,
+                hasCachedData: ticketsByCode.isNotEmpty,
+              );
       });
-    } on ApiException catch (error) {
+    } catch (error) {
       if (mounted && requestId == _requestId) {
-        setState(() => _error = error.message);
-      }
-    } on Exception catch (error) {
-      if (mounted && requestId == _requestId) {
-        setState(() => _error = 'Riwayat laporan tidak dapat dimuat: $error');
+        setState(
+          () => _error = _loadErrorMessage(
+            error,
+            hasCachedData: _tickets.isNotEmpty,
+          ),
+        );
       }
     } finally {
       if (mounted && requestId == _requestId) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isRefreshing = false;
+        });
       }
     }
   }
 
+  String _loadErrorMessage(Object error, {required bool hasCachedData}) {
+    if (!hasCachedData) {
+      return 'Gagal memuat data dari server. Periksa koneksi Wi-Fi Anda.';
+    }
+    final detail = error is ApiException ? error.message : error.toString();
+    return 'Sebagian status belum dapat diperbarui: $detail';
+  }
+
   Future<void> _searchTicket() async {
+    if (_isSearching) return;
     final code = _normalizedCode(_ticketController.text);
     if (code == null) {
       setState(() => _error = 'Masukkan kode tiket laporan.');
@@ -161,25 +228,38 @@ class _TrackingViewState extends State<TrackingView> {
       _error = null;
       _selectedCode = code;
       _ticketController.text = code;
-      _isLoading = true;
+      _isLoading = !_tickets.any((ticket) => ticket.code == code);
+      _isRefreshing = false;
+      _isSearching = true;
     });
 
     try {
+      final cachedTicket = await widget.apiService.getCachedTicketStatus(code);
+      if (cachedTicket != null && mounted && requestId == _requestId) {
+        setState(() {
+          _upsertTicket(cachedTicket);
+          _isLoading = false;
+        });
+      }
       final ticket = await widget.apiService.getTicket(code);
       if (!mounted || requestId != _requestId) return;
       setState(() => _upsertTicket(ticket));
       await widget.apiService.saveCitizenTicketCode(code);
-    } on ApiException catch (error) {
+    } catch (error) {
       if (mounted && requestId == _requestId) {
-        setState(() => _error = error.message);
-      }
-    } on Exception catch (error) {
-      if (mounted && requestId == _requestId) {
-        setState(() => _error = 'Status tiket tidak dapat dimuat: $error');
+        setState(
+          () => _error = _loadErrorMessage(
+            error,
+            hasCachedData: _ticketForCode(code) != null,
+          ),
+        );
       }
     } finally {
       if (mounted && requestId == _requestId) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isSearching = false;
+        });
       }
     }
   }
@@ -200,7 +280,9 @@ class _TrackingViewState extends State<TrackingView> {
     final code = _selectedCode!;
     final requestId = ++_requestId;
     setState(() {
-      _isLoading = true;
+      _isLoading = _ticketForCode(code) == null;
+      _isRefreshing = true;
+      _isSearching = false;
       _error = null;
     });
     try {
@@ -208,17 +290,21 @@ class _TrackingViewState extends State<TrackingView> {
       if (mounted && requestId == _requestId) {
         setState(() => _upsertTicket(ticket));
       }
-    } on ApiException catch (error) {
+    } catch (error) {
       if (mounted && requestId == _requestId) {
-        setState(() => _error = error.message);
-      }
-    } on Exception catch (error) {
-      if (mounted && requestId == _requestId) {
-        setState(() => _error = 'Status tiket tidak dapat diperbarui: $error');
+        setState(
+          () => _error = _loadErrorMessage(
+            error,
+            hasCachedData: _ticketForCode(code) != null,
+          ),
+        );
       }
     } finally {
       if (mounted && requestId == _requestId) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isRefreshing = false;
+        });
       }
     }
   }
@@ -257,96 +343,112 @@ class _TrackingViewState extends State<TrackingView> {
         : 18.0;
     final visibleTickets = _tickets
         .where((ticket) => ticket.isCompleted == _showCompleted)
+        .take(ApiService.maxSavedTickets)
         .toList();
+    final header = <Widget>[
+      AppPageHeader(
+        key: const Key('tracking_history_header'),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          MediaQuery.viewPaddingOf(context).top + 4,
+          20,
+          30,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 26),
+            const SizedBox(height: 14),
+            Text(
+              'Lacak laporan',
+              style: TextStyle(
+                fontFamily: AppTheme.headlineFontFamily,
+                color: Colors.white,
+                fontSize: 26,
+                height: 1.25,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Pantau perkembangan laporan sanitasi Anda.',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                height: 1.35,
+              ),
+            ),
+          ],
+        ),
+      ),
+      if (_isRefreshing)
+        const LinearProgressIndicator(
+          key: Key('tracking_refresh_indicator'),
+          minHeight: 2,
+          color: AppColors.primary,
+        ),
+      Padding(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          18,
+          horizontalPadding,
+          0,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildSearchBar(),
+            if (_error != null && _tickets.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _MessagePanel(
+                icon: Icons.info_outline,
+                message: _error!,
+                color: AppColors.primary,
+                onRetry: _loadHistory,
+              ),
+            ],
+            const SizedBox(height: 20),
+            _buildHistoryFilters(),
+            const SizedBox(height: 14),
+          ],
+        ),
+      ),
+    ];
+    final emptyState = _error != null && _tickets.isEmpty
+        ? _TrackingNetworkError(onRetry: _loadHistory)
+        : _EmptyTrackingState(
+            hasHistory: _tickets.isNotEmpty,
+            onOpenReport: widget.onOpenReport,
+          );
+    final ticketCount = visibleTickets.isEmpty ? 1 : visibleTickets.length;
     return RefreshIndicator(
       color: AppColors.primary,
       onRefresh: _refresh,
-      child: ListView(
+      child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 32),
-        children: [
-          AppPageHeader(
-            key: const Key('tracking_history_header'),
-            padding: EdgeInsets.fromLTRB(
-              20,
-              MediaQuery.viewPaddingOf(context).top + 4,
-              20,
-              30,
+        itemCount: header.length + ticketCount,
+        itemBuilder: (context, index) {
+          if (index < header.length) return header[index];
+          if (visibleTickets.isEmpty) {
+            return Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: emptyState,
+            );
+          }
+          final ticket = visibleTickets[index - header.length];
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            child: _OrderHistoryCard(
+              ticket: ticket,
+              onTap: () => setState(() {
+                _selectedCode = ticket.code;
+                _ticketController.text = ticket.code;
+                _error = null;
+              }),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 26),
-                const SizedBox(height: 14),
-                Text(
-                  'Lacak laporan',
-                  style: TextStyle(
-                    fontFamily: AppTheme.headlineFontFamily,
-                    color: Colors.white,
-                    fontSize: 26,
-                    height: 1.25,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Pantau perkembangan laporan sanitasi Anda.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              horizontalPadding,
-              18,
-              horizontalPadding,
-              0,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildSearchBar(),
-                if (_error != null) ...[
-                  const SizedBox(height: 14),
-                  _MessagePanel(
-                    icon: Icons.info_outline,
-                    message: _error!,
-                    color: AppColors.primary,
-                  ),
-                ],
-                const SizedBox(height: 20),
-                _buildHistoryFilters(),
-                const SizedBox(height: 14),
-                if (_isLoading && _tickets.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 40),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  )
-                else if (visibleTickets.isEmpty)
-                  _EmptyTrackingState(hasHistory: _tickets.isNotEmpty)
-                else
-                  for (final ticket in visibleTickets)
-                    _OrderHistoryCard(
-                      ticket: ticket,
-                      onTap: () => setState(() {
-                        _selectedCode = ticket.code;
-                        _ticketController.text = ticket.code;
-                        _error = null;
-                      }),
-                    ),
-              ],
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -438,6 +540,12 @@ class _TrackingViewState extends State<TrackingView> {
               ],
             ),
           ),
+          if (_isRefreshing)
+            const LinearProgressIndicator(
+              key: Key('tracking_refresh_indicator'),
+              minHeight: 2,
+              color: AppColors.primary,
+            ),
           Padding(
             padding: EdgeInsets.fromLTRB(
               horizontalPadding,
@@ -466,6 +574,7 @@ class _TrackingViewState extends State<TrackingView> {
                     icon: Icons.info_outline,
                     message: _error!,
                     color: AppColors.primary,
+                    onRetry: _refresh,
                   ),
                 ],
               ],
@@ -504,8 +613,8 @@ class _TrackingViewState extends State<TrackingView> {
           ),
           suffixIcon: IconButton(
             tooltip: 'Cari tiket',
-            onPressed: _isLoading ? null : _searchTicket,
-            icon: _isLoading
+            onPressed: _isSearching ? null : _searchTicket,
+            icon: _isSearching
                 ? const SizedBox(
                     width: 19,
                     height: 19,
@@ -1682,11 +1791,13 @@ class _MessagePanel extends StatelessWidget {
     required this.icon,
     required this.message,
     required this.color,
+    required this.onRetry,
   });
 
   final IconData icon;
   final String message;
   final Color color;
+  final Future<void> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -1701,7 +1812,22 @@ class _MessagePanel extends StatelessWidget {
           Icon(icon, color: color),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(message, style: TextStyle(color: color)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(message, style: TextStyle(color: color)),
+                TextButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Coba Lagi'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: color,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1710,9 +1836,10 @@ class _MessagePanel extends StatelessWidget {
 }
 
 class _EmptyTrackingState extends StatelessWidget {
-  const _EmptyTrackingState({this.hasHistory = false});
+  const _EmptyTrackingState({this.hasHistory = false, this.onOpenReport});
 
   final bool hasHistory;
+  final VoidCallback? onOpenReport;
 
   @override
   Widget build(BuildContext context) {
@@ -1750,6 +1877,45 @@ class _EmptyTrackingState extends StatelessWidget {
           description,
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.muted, fontSize: 12, height: 1.4),
+        ),
+        if (!hasHistory && onOpenReport != null) ...[
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: onOpenReport,
+            icon: const Icon(Icons.add_location_alt_outlined),
+            label: const Text('Lapor Sekarang'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _TrackingNetworkError extends StatelessWidget {
+  const _TrackingNetworkError({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const Icon(Icons.cloud_off_outlined, color: AppColors.muted, size: 44),
+        const SizedBox(height: 12),
+        const Text(
+          'Gagal memuat data dari server. Periksa koneksi Wi-Fi Anda.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.4),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Coba Lagi'),
         ),
       ],
     );

@@ -127,6 +127,7 @@ class _MainShellState extends State<MainShell> {
         apiService: widget.apiService,
         initialTicketCode: _activeTrackingTicketCode,
         isActive: _currentIndex == 2,
+        onOpenReport: () => _selectTab(1),
       ),
       _ProfileTab(
         isActive: _currentIndex == 3,

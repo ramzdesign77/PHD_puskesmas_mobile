@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,88 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
+
+  test('tracking requests report offline socket failures clearly', () async {
+    final apiService = ApiService(
+      client: MockClient((_) async {
+        throw const SocketException('network unavailable');
+      }),
+    );
+
+    await expectLater(
+      apiService.getTicket('TK-TEST'),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.message,
+          'message',
+          contains('Periksa koneksi internet'),
+        ),
+      ),
+    );
+    await expectLater(
+      apiService.syncCitizenTicketsHistory(),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.message,
+          'message',
+          contains('Periksa koneksi internet'),
+        ),
+      ),
+    );
+  });
+
+  test('saved ticket and cached status lists are pruned to fifteen', () async {
+    final savedCodes = List.generate(20, (index) => 'TK-$index');
+    final statuses = [
+      for (final code in savedCodes) {'kode_tiket': code},
+    ];
+    SharedPreferences.setMockInitialValues({
+      'saved_citizen_tickets': savedCodes,
+      'cached_citizen_ticket_statuses': jsonEncode(statuses),
+    });
+    final apiService = ApiService();
+
+    final restoredCodes = await apiService.getSavedCitizenTicketCodes();
+    final restoredStatuses = await apiService.getCachedCitizenTicketStatuses();
+    final preferences = await SharedPreferences.getInstance();
+
+    expect(restoredCodes, hasLength(ApiService.maxSavedTickets));
+    expect(restoredCodes.first, 'TK-0');
+    expect(
+      preferences.getStringList('saved_citizen_tickets'),
+      hasLength(ApiService.maxSavedTickets),
+    );
+    expect(restoredStatuses, hasLength(ApiService.maxSavedTickets));
+    expect(
+      (jsonDecode(preferences.getString('cached_citizen_ticket_statuses')!)
+          as List),
+      hasLength(ApiService.maxSavedTickets),
+    );
+  });
+
+  test(
+    'history sync requests fifteen rows and at most ten local codes',
+    () async {
+      final savedCodes = List.generate(20, (index) => 'TK-$index');
+      final client = MockClient((request) async {
+        expect(request.url.queryParameters['limit'], '15');
+        expect(
+          request.url.queryParameters['codes']!.split(','),
+          savedCodes.take(10).toList(),
+        );
+        return http.Response(jsonEncode({'data': []}), 200);
+      });
+      SharedPreferences.setMockInitialValues({
+        'saved_citizen_tickets': savedCodes,
+      });
+      final apiService = ApiService(client: client);
+
+      final merged = await apiService.syncCitizenTicketsHistory();
+
+      expect(merged, hasLength(ApiService.maxSavedTickets));
+      client.close();
+    },
+  );
 
   test('registers with the phone field expected by the API', () async {
     final client = MockClient((request) async {
@@ -266,5 +349,46 @@ void main() {
       expect(restored.recommendation, ticket.recommendation);
       expect(restored.isCompleted, isTrue);
     });
+
+    test('ignores malformed fields and nested payloads', () {
+      final ticket = TicketStatus.fromJson({
+        'kode_tiket': 42,
+        'status_laporan': {'unexpected': 'object'},
+        'kategori_laporan': [],
+        'deskripsi': null,
+        'rt': 7,
+        'jadwal': 'unexpected',
+        'hasil_ikl': ['unexpected'],
+        'total_skor_ya': {'unexpected': 3},
+      });
+
+      expect(ticket.code, '42');
+      expect(ticket.status, '');
+      expect(ticket.category, '');
+      expect(ticket.description, '');
+      expect(ticket.rt, '7');
+      expect(ticket.visitDate, isNull);
+      expect(ticket.riskCategory, isNull);
+      expect(ticket.riskScore, isNull);
+    });
+  });
+
+  test('skips corrupt cached ticket entries and saved-code values', () async {
+    SharedPreferences.setMockInitialValues({
+      'saved_citizen_tickets': 'legacy-invalid-value',
+      'cached_citizen_ticket_statuses': jsonEncode([
+        null,
+        {
+          'status_laporan': ['invalid'],
+        },
+        {'kode_tiket': 'TK-VALID', 'status_laporan': 'dikirim'},
+      ]),
+    });
+    final apiService = ApiService();
+
+    expect(await apiService.getSavedCitizenTicketCodes(), isEmpty);
+    final cachedStatuses = await apiService.getCachedCitizenTicketStatuses();
+    expect(cachedStatuses, hasLength(1));
+    expect(cachedStatuses.single.code, 'TK-VALID');
   });
 }

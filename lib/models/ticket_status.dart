@@ -43,7 +43,8 @@ class TicketStatus {
 
   bool get hasInspectionResult =>
       (riskCategory?.trim().isNotEmpty ?? false) ||
-      riskScore != null || inspectionDate != null;
+      riskScore != null ||
+      inspectionDate != null;
 
   String get riskLabel => RiskScore.label(riskCategory);
 
@@ -85,51 +86,68 @@ class TicketStatus {
   };
 
   factory TicketStatus.fromJson(Map<String, dynamic> json) {
-    final schedule = json['jadwal'] as Map<String, dynamic>?;
+    final schedule = _jsonMap(json['jadwal']);
     final inspection =
-        json['hasil_inspeksi'] as Map<String, dynamic>? ??
-        json['hasil_ikl'] as Map<String, dynamic>?;
+        _jsonMap(json['hasil_inspeksi']) ?? _jsonMap(json['hasil_ikl']);
 
     return TicketStatus(
-      code: json['kode_tiket'] as String? ?? '',
-      status: json['status_laporan'] as String? ?? '',
-      category: json['kategori_laporan'] as String? ?? '',
-      description: json['deskripsi'] as String? ?? '',
-      reporterName: json['nama_pelapor'] as String?,
-      village: json['desa'] as String?,
-      rt: json['rt'] as String? ?? '-',
-      rw: json['rw'] as String? ?? '-',
-      createdAt: json['created_at'] as String?,
+      code: _stringValue(json['kode_tiket']) ?? '',
+      status: _stringValue(json['status_laporan']) ?? '',
+      category: _stringValue(json['kategori_laporan']) ?? '',
+      description: _stringValue(json['deskripsi']) ?? '',
+      reporterName: _stringValue(json['nama_pelapor']),
+      village: _stringValue(json['desa']),
+      rt: _stringValue(json['rt']) ?? '-',
+      rw: _stringValue(json['rw']) ?? '-',
+      createdAt: _stringValue(json['created_at']),
       visitDate:
-          schedule?['tanggal_kunjungan'] as String? ??
-          json['tanggal_kunjungan'] as String?,
-      officer: schedule?['petugas'] as String? ?? json['petugas'] as String?,
+          _stringValue(schedule?['tanggal_kunjungan']) ??
+          _stringValue(json['tanggal_kunjungan']),
+      officer:
+          _stringValue(schedule?['petugas']) ?? _stringValue(json['petugas']),
       visitStatus:
-          schedule?['status_kunjungan'] as String? ??
-          json['status_kunjungan'] as String?,
+          _stringValue(schedule?['status_kunjungan']) ??
+          _stringValue(json['status_kunjungan']),
       intervention:
-          inspection?['intervensi_fisik'] as String? ??
-          schedule?['intervensi_fisik'] as String? ??
-          json['intervensi_fisik'] as String? ??
-          json['jenis_intervensi'] as String?,
+          _stringValue(inspection?['intervensi_fisik']) ??
+          _stringValue(schedule?['intervensi_fisik']) ??
+          _stringValue(json['intervensi_fisik']) ??
+          _stringValue(json['jenis_intervensi']),
       riskCategory:
-          inspection?['kategori_risiko'] as String? ??
-          inspection?['kategori_risiko_air'] as String? ??
-          inspection?['risiko_air'] as String? ??
-          json['kategori_risiko'] as String? ??
-          json['kategori_risiko_air'] as String? ??
-          json['risiko_air'] as String?,
-      riskScore: _parseRiskScore(inspection?['total_skor_ya'] ?? json['total_skor_ya']),
-      inspectionDate: inspection?['tanggal_inspeksi'] as String? ??
-          json['tanggal_inspeksi'] as String?,
+          _stringValue(inspection?['kategori_risiko']) ??
+          _stringValue(inspection?['kategori_risiko_air']) ??
+          _stringValue(inspection?['risiko_air']) ??
+          _stringValue(json['kategori_risiko']) ??
+          _stringValue(json['kategori_risiko_air']) ??
+          _stringValue(json['risiko_air']),
+      riskScore: _parseRiskScore(
+        inspection?['total_skor_ya'] ?? json['total_skor_ya'],
+      ),
+      inspectionDate:
+          _stringValue(inspection?['tanggal_inspeksi']) ??
+          _stringValue(json['tanggal_inspeksi']),
       recommendation:
-          inspection?['rekomendasi_sanitarian'] as String? ??
-          json['rekomendasi_sanitarian'] as String?,
+          _stringValue(inspection?['rekomendasi_sanitarian']) ??
+          _stringValue(json['rekomendasi_sanitarian']),
       rejectionReason:
-          json['alasan_penolakan'] as String? ??
-          json['catatan_penolakan'] as String?,
+          _stringValue(json['alasan_penolakan']) ??
+          _stringValue(json['catatan_penolakan']),
     );
   }
+}
+
+Map<String, dynamic>? _jsonMap(Object? value) {
+  if (value is! Map) return null;
+  return {
+    for (final entry in value.entries)
+      if (entry.key is String) entry.key as String: entry.value,
+  };
+}
+
+String? _stringValue(Object? value) {
+  if (value is String) return value;
+  if (value is num) return value.toString();
+  return null;
 }
 
 int? _parseRiskScore(Object? value) {
