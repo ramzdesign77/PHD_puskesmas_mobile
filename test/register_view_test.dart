@@ -99,7 +99,91 @@ void main() {
       find.text('Gunakan huruf, angka, titik, garis bawah, atau tanda hubung.'),
       findsOneWidget,
     );
-    expect(find.text('Nomor telepon tidak valid.'), findsOneWidget);
+    expect(
+      find.text('Gunakan format nomor Indonesia: 08... atau +62 8...'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('registration rejects phone numbers outside Indonesia', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 900);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final client = MockClient((_) async {
+      fail('Registration API should not be called for an invalid phone.');
+    });
+    addTearDown(client.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: RegisterView(apiService: ApiService(client: client)),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final phone = find.byKey(const Key('register_phone_field'));
+    await tester.ensureVisible(phone);
+    await tester.enterText(phone, '12345678901');
+    await tester.ensureVisible(find.text('Daftar'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Daftar'));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.text('Gunakan format nomor Indonesia: 08... atau +62 8...'),
+      findsOneWidget,
+    );
+
+    await tester.enterText(phone, '+62 812 3456 7890');
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      tester.widget<TextFormField>(phone).controller!.text,
+      '6281234567890',
+    );
+    expect(
+      find.text('Gunakan format nomor Indonesia: 08... atau +62 8...'),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('registration rejects numbers in the full name', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 900);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final client = MockClient((_) async {
+      fail('Registration API should not be called for an invalid name.');
+    });
+    addTearDown(client.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: RegisterView(apiService: ApiService(client: client)),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final name = find.byKey(const Key('register_name_field'));
+    await tester.ensureVisible(name);
+    await tester.enterText(name, 'Budi2 Santoso');
+    await tester.ensureVisible(find.text('Daftar'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Daftar'));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.text('Nama lengkap hanya boleh berisi huruf dan spasi.'),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
