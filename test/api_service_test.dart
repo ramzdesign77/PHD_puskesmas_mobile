@@ -44,6 +44,73 @@ void main() {
     );
   });
 
+  test('requests authenticated citizen report pages with combined filters', () async {
+    SharedPreferences.setMockInitialValues({'auth_token': 'citizen-token'});
+    final client = MockClient((request) async {
+      expect(request.method, 'GET');
+      expect(request.url.path, '/api/v1/laporan/history');
+      expect(request.url.queryParameters, {
+        'page': '2',
+        'per_page': '10',
+        'status': 'diproses',
+        'start_date': '2026-11-01',
+        'end_date': '2026-11-07',
+      });
+      expect(request.headers['Authorization'], 'Bearer citizen-token');
+      return http.Response(
+        jsonEncode({
+          'data': [
+            {
+              'kode_tiket': 'IKL-20261101-0001',
+              'status_laporan': 'diproses',
+              'kategori_laporan': 'air_masalah',
+              'deskripsi': 'Air keruh.',
+            },
+          ],
+          'meta': {'current_page': 2, 'last_page': 4, 'per_page': 10},
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final apiService = ApiService(client: client);
+
+    final result = await apiService.getCitizenReportsPage(
+      page: 2,
+      perPage: 10,
+      status: 'diproses',
+      startDate: '2026-11-01',
+      endDate: '2026-11-07',
+    );
+
+    expect(result.currentPage, 2);
+    expect(result.lastPage, 4);
+    expect(result.reports, hasLength(1));
+    expect(result.reports.single.code, 'IKL-20261101-0001');
+    expect(result.reports.single.status, 'diproses');
+    client.close();
+  });
+
+  test('rejects citizen report pages without pagination data', () async {
+    SharedPreferences.setMockInitialValues({'auth_token': 'citizen-token'});
+    final apiService = ApiService(
+      client: MockClient(
+        (_) async => http.Response(jsonEncode({'message': 'Invalid'}), 200),
+      ),
+    );
+
+    await expectLater(
+      apiService.getCitizenReportsPage(page: 1),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.message,
+          'message',
+          'Format daftar laporan dari server tidak valid.',
+        ),
+      ),
+    );
+  });
+
   test('saved ticket and cached status lists are pruned to fifteen', () async {
     final savedCodes = List.generate(20, (index) => 'TK-$index');
     final statuses = [

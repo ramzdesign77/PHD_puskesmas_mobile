@@ -27,6 +27,12 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+typedef CitizenReportPage = ({
+  List<TicketStatus> reports,
+  int currentPage,
+  int lastPage,
+});
+
 class ApiService {
   ApiService({http.Client? client}) : _client = client ?? http.Client();
 
@@ -450,6 +456,99 @@ class ApiService {
     });
     await cacheTicketStatus(ticket);
     return ticket;
+  }
+
+  Future<CitizenReportPage> getCitizenReportsPage({
+    required int page,
+    int perPage = 10,
+    String? status,
+    String? startDate,
+    String? endDate,
+  }) async {
+    if (page < 1 || perPage < 1) {
+      throw const ApiException('Halaman laporan tidak valid.');
+    }
+
+    final preferences = await SharedPreferences.getInstance();
+    final token = preferences.getString(_tokenKey)?.trim();
+    if (token == null || token.isEmpty) {
+      throw const ApiException('Sesi pengguna tidak ditemukan. Silakan masuk kembali.');
+    }
+
+    final uri = _endpoint('v1/laporan/history').replace(
+      queryParameters: {
+        'page': '$page',
+        'per_page': '$perPage',
+        if (status != null && status.trim().isNotEmpty) 'status': status.trim(),
+        if (startDate != null && startDate.isNotEmpty) 'start_date': startDate,
+        if (endDate != null && endDate.isNotEmpty) 'end_date': endDate,
+      },
+    );
+    final response = await _get(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    final body = _decode(response);
+    final payload = body['data'];
+    final nestedPayload = payload is Map ? payload : null;
+    final rows = payload is List
+        ? payload
+        : nestedPayload?['data'] is List
+        ? nestedPayload!['data'] as List
+        : null;
+    if (rows == null) {
+      throw ApiException(
+        'Format daftar laporan dari server tidak valid.',
+        statusCode: response.statusCode,
+      );
+    }
+
+    final reports = <TicketStatus>[];
+    for (final row in rows) {
+      if (row is! Map) {
+        throw ApiException(
+          'Data laporan dari server tidak valid.',
+          statusCode: response.statusCode,
+        );
+      }
+      final report = TicketStatus.fromJson(Map<String, dynamic>.from(row));
+      if (report.code.trim().isNotEmpty) reports.add(report);
+    }
+
+    final meta = body['meta'] is Map
+        ? body['meta'] as Map
+        : nestedPayload?['meta'] is Map
+        ? nestedPayload!['meta'] as Map
+        : nestedPayload;
+    final links = body['links'] is Map
+        ? body['links'] as Map
+        : nestedPayload?['links'] is Map
+        ? nestedPayload!['links'] as Map
+        : null;
+    final currentPage =
+        _paginationInt(meta?['current_page']) ??
+        _paginationInt(body['current_page']) ??
+        page;
+    final lastPage =
+        _paginationInt(meta?['last_page']) ??
+        _paginationInt(body['last_page']) ??
+        (links?['next'] != null || rows.length >= perPage
+            ? currentPage + 1
+            : currentPage);
+
+    return (
+      reports: reports,
+      currentPage: currentPage,
+      lastPage: lastPage < currentPage ? currentPage : lastPage,
+    );
+  }
+
+  int? _paginationInt(Object? value) {
+    if (value is int) return value;
+    return value is String ? int.tryParse(value) : null;
   }
 
   Future<List<String>> getSavedCitizenTicketCodes() async {

@@ -25,20 +25,43 @@ class TrackingView extends StatefulWidget {
   State<TrackingView> createState() => _TrackingViewState();
 }
 
+String _reportCodeKey(String code) => code.trim().toUpperCase();
+
+enum _ReportDateFilter { all, today, last7Days, last30Days, custom }
+
 class _TrackingViewState extends State<TrackingView> {
   final _ticketController = TextEditingController();
+  final _scrollController = ScrollController();
   List<TicketStatus> _tickets = [];
   String? _selectedCode;
-  bool _showCompleted = false;
+  String? _selectedStatus;
+  _ReportDateFilter _selectedDateFilter = _ReportDateFilter.all;
+  DateTimeRange? _customDateRange;
   bool _isLoading = true;
   bool _isRefreshing = false;
   bool _isSearching = false;
+  bool _isLoadingMore = false;
   String? _error;
+  String? _loadMoreError;
+  int _currentPage = 1;
+  int _lastPage = 1;
   int _requestId = 0;
+  static const _perPage = 10;
+
+  static const _reportStatuses = <(String, String)>[
+    ('dikirim', 'Dikirim'),
+    ('menunggu', 'Menunggu'),
+    ('diproses', 'Diproses'),
+    ('dijadwalkan', 'Dijadwalkan'),
+    ('ditindaklanjuti', 'Ditindaklanjuti'),
+    ('selesai', 'Selesai'),
+    ('ditolak', 'Ditolak'),
+  ];
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_handleScroll);
     _selectedCode = _normalizedCode(widget.initialTicketCode);
     if (_selectedCode != null) _ticketController.text = _selectedCode!;
     if (widget.isActive) _loadHistory(preferredCode: _selectedCode);
@@ -67,6 +90,9 @@ class _TrackingViewState extends State<TrackingView> {
 
   @override
   void dispose() {
+    _scrollController
+      ..removeListener(_handleScroll)
+      ..dispose();
     _ticketController.dispose();
     super.dispose();
   }
@@ -74,137 +100,195 @@ class _TrackingViewState extends State<TrackingView> {
   Future<void> _loadHistory({String? preferredCode}) async {
     final requestId = ++_requestId;
     setState(() {
-      if (_tickets.isEmpty) _isLoading = true;
+      _isLoading = true;
       _isRefreshing = false;
       _isSearching = false;
+      _isLoadingMore = false;
+      _tickets = [];
+      _currentPage = 1;
+      _lastPage = 1;
       _error = null;
+      _loadMoreError = null;
     });
 
-    final cachedTicketsByCode = <String, TicketStatus>{};
-    var savedCodes = <String>[];
-    String? cacheError;
     try {
-      savedCodes = [
-        ...(await widget.apiService.getSavedCitizenTickets()).take(
-          ApiService.maxSavedTickets,
-        ),
-      ];
-    } catch (error) {
-      cacheError = error.toString();
-    }
-    if (preferredCode != null && !savedCodes.contains(preferredCode)) {
-      savedCodes.insert(0, preferredCode);
-      try {
-        await widget.apiService.saveCitizenTicketCode(preferredCode);
-      } catch (error) {
-        cacheError ??= error.toString();
-      }
-    }
-    try {
-      final cachedStatuses = await widget.apiService
-          .getCachedCitizenTicketStatuses();
-      for (final ticket in cachedStatuses) {
-        if (ticket.code.trim().isNotEmpty) {
-          cachedTicketsByCode[ticket.code] = ticket;
-        }
-      }
-    } catch (error) {
-      cacheError ??= error.toString();
-    }
-    if (cachedTicketsByCode.isEmpty) {
-      for (final code in savedCodes) {
-        try {
-          final cached = await widget.apiService.getCachedTicketStatus(code);
-          if (cached != null) cachedTicketsByCode[code] = cached;
-        } catch (error) {
-          cacheError ??= error.toString();
-        }
-      }
-    }
-
-    if (preferredCode != null &&
-        !cachedTicketsByCode.containsKey(preferredCode)) {
-      try {
-        final cached = await widget.apiService.getCachedTicketStatus(
-          preferredCode,
+      final dateRange = _selectedDateRange;
+      if (dateRange != null && dateRange.start.isAfter(dateRange.end)) {
+        throw const ApiException(
+          'Tanggal mulai tidak boleh melebihi tanggal akhir.',
         );
-        if (cached != null) cachedTicketsByCode[preferredCode] = cached;
-      } catch (error) {
-        cacheError ??= error.toString();
       }
-    }
 
-    if (!mounted || requestId != _requestId) return;
-    setState(() {
-      _tickets = cachedTicketsByCode.values
-          .take(ApiService.maxSavedTickets)
-          .toList(growable: false);
-      _isLoading = false;
-      _isRefreshing = true;
-      _error = cacheError;
-    });
-
-    try {
-      final syncedCodes = await widget.apiService.syncCitizenTicketsHistory();
-      savedCodes = [
-        ...(await widget.apiService.getSavedCitizenTickets()).take(
-          ApiService.maxSavedTickets,
-        ),
-      ];
-      final refreshedStatuses = await widget.apiService
-          .getCachedCitizenTicketStatuses();
-      final ticketsByCode = <String, TicketStatus>{
-        for (final ticket in cachedTicketsByCode.values) ticket.code: ticket,
-        for (final ticket in refreshedStatuses) ticket.code: ticket,
+      final page = await widget.apiService.getCitizenReportsPage(
+        page: 1,
+        perPage: _perPage,
+        status: _selectedStatus,
+        startDate: dateRange == null ? null : _formatDate(dateRange.start),
+        endDate: dateRange == null ? null : _formatDate(dateRange.end),
+      );
+      final reportsByCode = <String, TicketStatus>{
+        for (final report in page.reports) _reportCodeKey(report.code): report,
       };
-      final refreshErrors = <Object>[];
-      if (preferredCode != null && !ticketsByCode.containsKey(preferredCode)) {
-        try {
-          final ticket = await widget.apiService.getTicket(preferredCode);
-          ticketsByCode[ticket.code] = ticket;
-          if (!savedCodes.contains(preferredCode)) {
-            savedCodes.insert(0, preferredCode);
-          }
-        } catch (error) {
-          refreshErrors.add(error);
-        }
+      if (preferredCode != null &&
+          !reportsByCode.containsKey(_reportCodeKey(preferredCode))) {
+        final ticket = await widget.apiService.getTicket(preferredCode);
+        reportsByCode[_reportCodeKey(ticket.code)] = ticket;
       }
-
       if (!mounted || requestId != _requestId) return;
-      final orderedCodes = <String>{
-        ...syncedCodes,
-        ...savedCodes,
-        ...ticketsByCode.keys,
-      }.take(ApiService.maxSavedTickets);
       setState(() {
-        _tickets = [
-          for (final code in orderedCodes)
-            if (ticketsByCode[code] != null) ticketsByCode[code]!,
-        ];
-        _error = refreshErrors.isEmpty
-            ? null
-            : _loadErrorMessage(
-                refreshErrors.first,
-                hasCachedData: ticketsByCode.isNotEmpty,
-              );
+        _tickets = reportsByCode.values.toList(growable: false);
+        _currentPage = page.currentPage;
+        _lastPage = page.lastPage;
       });
+      _scheduleLoadIfNearBottom();
     } catch (error) {
       if (mounted && requestId == _requestId) {
-        setState(
-          () => _error = _loadErrorMessage(
-            error,
-            hasCachedData: _tickets.isNotEmpty,
-          ),
-        );
+        setState(() => _error = _loadErrorMessage(error, hasCachedData: false));
       }
     } finally {
       if (mounted && requestId == _requestId) {
-        setState(() {
-          _isLoading = false;
-          _isRefreshing = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
+  }
+
+  DateTimeRange? get _selectedDateRange {
+    final today = DateUtils.dateOnly(DateTime.now());
+    return switch (_selectedDateFilter) {
+      _ReportDateFilter.all => null,
+      _ReportDateFilter.today => DateTimeRange(start: today, end: today),
+      _ReportDateFilter.last7Days => DateTimeRange(
+        start: today.subtract(const Duration(days: 6)),
+        end: today,
+      ),
+      _ReportDateFilter.last30Days => DateTimeRange(
+        start: today.subtract(const Duration(days: 29)),
+        end: today,
+      ),
+      _ReportDateFilter.custom => _customDateRange,
+    };
+  }
+
+  String _formatDate(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+
+  void _handleScroll() {
+    if (_selectedCode != null ||
+        !_scrollController.hasClients ||
+        _scrollController.position.extentAfter > 300) {
+      return;
+    }
+    _loadNextPage();
+  }
+
+  void _scheduleLoadIfNearBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          _selectedCode == null &&
+          _scrollController.hasClients &&
+          _scrollController.position.extentAfter <= 300) {
+        _loadNextPage();
+      }
+    });
+  }
+
+  Future<void> _loadNextPage() async {
+    if (_isLoading ||
+        _isLoadingMore ||
+        _currentPage >= _lastPage ||
+        _selectedCode != null) {
+      return;
+    }
+    final requestId = _requestId;
+    final nextPage = _currentPage + 1;
+    final dateRange = _selectedDateRange;
+    setState(() {
+      _isLoadingMore = true;
+      _loadMoreError = null;
+    });
+    try {
+      final page = await widget.apiService.getCitizenReportsPage(
+        page: nextPage,
+        perPage: _perPage,
+        status: _selectedStatus,
+        startDate: dateRange == null ? null : _formatDate(dateRange.start),
+        endDate: dateRange == null ? null : _formatDate(dateRange.end),
+      );
+      if (!mounted || requestId != _requestId) return;
+      final knownCodes = _tickets
+          .map((ticket) => _reportCodeKey(ticket.code))
+          .toSet();
+      setState(() {
+        _tickets = [
+          ..._tickets,
+          for (final report in page.reports)
+            if (knownCodes.add(_reportCodeKey(report.code))) report,
+        ];
+        _currentPage = page.currentPage;
+        _lastPage = page.lastPage;
+      });
+      _scheduleLoadIfNearBottom();
+    } catch (error) {
+      if (mounted && requestId == _requestId) {
+        setState(() => _loadMoreError = error.toString());
+      }
+    } finally {
+      if (mounted && requestId == _requestId) {
+        setState(() => _isLoadingMore = false);
+      }
+    }
+  }
+
+  Future<void> _selectDateFilter(_ReportDateFilter filter) async {
+    if (filter != _ReportDateFilter.custom) {
+      setState(() => _selectedDateFilter = filter);
+      await _loadHistory();
+      return;
+    }
+
+    final today = DateUtils.dateOnly(DateTime.now());
+    final initial =
+        _customDateRange ??
+        DateTimeRange(
+          start: today.subtract(const Duration(days: 6)),
+          end: today,
+        );
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2000),
+      lastDate: today,
+      initialDateRange: initial,
+      helpText: 'Pilih rentang tanggal laporan',
+      saveText: 'Terapkan',
+      cancelText: 'Batal',
+    );
+    if (range == null || !mounted) return;
+    final start = DateUtils.dateOnly(range.start);
+    final end = DateUtils.dateOnly(range.end);
+    if (start.isAfter(end)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tanggal mulai tidak boleh melebihi tanggal akhir.'),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _customDateRange = DateTimeRange(start: start, end: end);
+      _selectedDateFilter = _ReportDateFilter.custom;
+    });
+    await _loadHistory();
+  }
+
+  Future<void> _resetFilters() async {
+    setState(() {
+      _selectedStatus = null;
+      _selectedDateFilter = _ReportDateFilter.all;
+      _customDateRange = null;
+    });
+    await _loadHistory();
   }
 
   String _loadErrorMessage(Object error, {required bool hasCachedData}) {
@@ -228,7 +312,7 @@ class _TrackingViewState extends State<TrackingView> {
       _error = null;
       _selectedCode = code;
       _ticketController.text = code;
-      _isLoading = !_tickets.any((ticket) => ticket.code == code);
+      _isLoading = _ticketForCode(code) == null;
       _isRefreshing = false;
       _isSearching = true;
     });
@@ -267,7 +351,10 @@ class _TrackingViewState extends State<TrackingView> {
   void _upsertTicket(TicketStatus ticket) {
     _tickets = [
       ticket,
-      ..._tickets.where((savedTicket) => savedTicket.code != ticket.code),
+      ..._tickets.where(
+        (savedTicket) =>
+            _reportCodeKey(savedTicket.code) != _reportCodeKey(ticket.code),
+      ),
     ];
   }
 
@@ -332,7 +419,7 @@ class _TrackingViewState extends State<TrackingView> {
 
   TicketStatus? _ticketForCode(String code) {
     for (final ticket in _tickets) {
-      if (ticket.code == code) return ticket;
+      if (_reportCodeKey(ticket.code) == _reportCodeKey(code)) return ticket;
     }
     return null;
   }
@@ -341,10 +428,6 @@ class _TrackingViewState extends State<TrackingView> {
     final horizontalPadding = MediaQuery.sizeOf(context).width < 380
         ? 12.0
         : 18.0;
-    final visibleTickets = _tickets
-        .where((ticket) => ticket.isCompleted == _showCompleted)
-        .take(ApiService.maxSavedTickets)
-        .toList();
     final header = <Widget>[
       AppPageHeader(
         key: const Key('tracking_history_header'),
@@ -416,27 +499,65 @@ class _TrackingViewState extends State<TrackingView> {
     ];
     final emptyState = _error != null && _tickets.isEmpty
         ? _TrackingNetworkError(onRetry: _loadHistory)
+        : _isLoading
+        ? const Padding(
+            padding: EdgeInsets.symmetric(vertical: 36),
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          )
         : _EmptyTrackingState(
             hasHistory: _tickets.isNotEmpty,
             onOpenReport: widget.onOpenReport,
           );
-    final ticketCount = visibleTickets.isEmpty ? 1 : visibleTickets.length;
+    final hasFooter =
+        _tickets.isNotEmpty &&
+        (_currentPage < _lastPage || _isLoadingMore || _loadMoreError != null);
+    final contentCount = _tickets.isEmpty
+        ? 1
+        : _tickets.length + (hasFooter ? 1 : 0);
     return RefreshIndicator(
       color: AppColors.primary,
       onRefresh: _refresh,
       child: ListView.builder(
+        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 32),
-        itemCount: header.length + ticketCount,
+        itemCount: header.length + contentCount,
         itemBuilder: (context, index) {
           if (index < header.length) return header[index];
-          if (visibleTickets.isEmpty) {
+          if (_tickets.isEmpty) {
             return Padding(
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
               child: emptyState,
             );
           }
-          final ticket = visibleTickets[index - header.length];
+          final itemIndex = index - header.length;
+          if (itemIndex == _tickets.length) {
+            if (_loadMoreError != null) {
+              return Center(
+                child: TextButton.icon(
+                  key: const Key('tracking_load_more_retry'),
+                  onPressed: _loadNextPage,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Gagal memuat. Coba lagi'),
+                ),
+              );
+            }
+            if (_isLoadingMore) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 18),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    key: Key('tracking_load_more_indicator'),
+                    color: AppColors.primary,
+                  ),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          }
+          final ticket = _tickets[itemIndex];
           return Padding(
             padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: _OrderHistoryCard(
@@ -454,29 +575,125 @@ class _TrackingViewState extends State<TrackingView> {
   }
 
   Widget _buildHistoryFilters() {
+    final dateRange = _selectedDateRange;
+    final hasActiveFilters =
+        _selectedStatus != null || _selectedDateFilter != _ReportDateFilter.all;
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: AppColors.line),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Row(
+      child: Column(
         children: [
-          _HistoryFilter(
-            title: 'Dalam Proses',
-            selected: !_showCompleted,
-            onTap: () => setState(() => _showCompleted = false),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButton<String>(
+                  key: const Key('tracking_status_filter'),
+                  value: _selectedStatus ?? '',
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  icon: const Icon(Icons.expand_more_rounded),
+                  style: const TextStyle(color: AppColors.ink, fontSize: 13),
+                  items: [
+                    const DropdownMenuItem(
+                      value: '',
+                      child: Text('Semua status'),
+                    ),
+                    for (final (value, label) in _reportStatuses)
+                      DropdownMenuItem(value: value, child: Text(label)),
+                  ],
+                  onChanged: (value) async {
+                    setState(
+                      () => _selectedStatus = value == null || value.isEmpty
+                          ? null
+                          : value,
+                    );
+                    await _loadHistory();
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButton<String>(
+                  key: const Key('tracking_date_filter'),
+                  value: _selectedDateFilter.name,
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  icon: const Icon(Icons.expand_more_rounded),
+                  style: const TextStyle(color: AppColors.ink, fontSize: 13),
+                  items: [
+                    for (final filter in _ReportDateFilter.values)
+                      DropdownMenuItem(
+                        value: filter.name,
+                        child: Text(
+                          _dateFilterLabel(filter, dateRange),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    _selectDateFilter(
+                      _ReportDateFilter.values.firstWhere(
+                        (filter) => filter.name == value,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-          _HistoryFilter(
-            title: 'Selesai / Riwayat',
-            selected: _showCompleted,
-            onTap: () => setState(() => _showCompleted = true),
-          ),
+          if (hasActiveFilters)
+            Row(
+              children: [
+                const Icon(
+                  Icons.filter_alt_rounded,
+                  color: AppColors.primary,
+                  size: 16,
+                ),
+                const SizedBox(width: 5),
+                const Expanded(
+                  child: Text(
+                    'Filter aktif',
+                    style: TextStyle(color: AppColors.primary, fontSize: 12),
+                  ),
+                ),
+                TextButton(
+                  key: const Key('tracking_reset_filters'),
+                  onPressed: _resetFilters,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: AppColors.primary,
+                  ),
+                  child: const Text('Reset filter'),
+                ),
+              ],
+            ),
         ],
       ),
     );
   }
+
+  String _dateFilterLabel(_ReportDateFilter filter, DateTimeRange? dateRange) {
+    return switch (filter) {
+      _ReportDateFilter.all => 'Semua tanggal',
+      _ReportDateFilter.today => 'Hari ini',
+      _ReportDateFilter.last7Days => '7 hari terakhir',
+      _ReportDateFilter.last30Days => '30 hari terakhir',
+      _ReportDateFilter.custom when dateRange != null =>
+        '${_formatShortDate(dateRange.start)} - '
+            '${_formatShortDate(dateRange.end)}',
+      _ReportDateFilter.custom => 'Rentang khusus',
+    };
+  }
+
+  String _formatShortDate(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')}/'
+      '${date.month.toString().padLeft(2, '0')}/'
+      '${date.year}';
 
   Widget _buildTicketDetail(TicketStatus? ticket) {
     final horizontalPadding = MediaQuery.sizeOf(context).width < 380
@@ -627,48 +844,6 @@ class _TrackingViewState extends State<TrackingView> {
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-      ),
-    );
-  }
-}
-
-class _HistoryFilter extends StatelessWidget {
-  const _HistoryFilter({
-    required this.title,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Semantics(
-        button: true,
-        selected: selected,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(11),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 5),
-            decoration: BoxDecoration(
-              color: selected ? AppColors.primary : Colors.transparent,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: selected ? Colors.white : AppColors.muted,
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
         ),
       ),
     );
@@ -1847,7 +2022,7 @@ class _EmptyTrackingState extends StatelessWidget {
         ? 'Tidak ada laporan di kategori ini'
         : 'Belum ada riwayat laporan';
     const description =
-        'Kode tiket laporan yang pernah dikirim akan tersimpan dan tampil di sini.';
+        'Laporan yang dikirim dari akun ini akan tampil di sini.';
     return Column(
       children: [
         Container(

@@ -122,6 +122,10 @@ petugas, intervensi, dan rekomendasi dari `GET /api/laporan/{kode_tiket}`.
 Tanpa hasil, kartu menampilkan pesan menunggu (tidak diasumsikan Aman).
 Data diperbarui saat tab pelacakan dibuka atau halaman ditarik untuk refresh.
 Hasil terakhir ikut tersimpan di cache; kegagalan refresh tetap diberitahukan.
+Daftar laporan dimuat 10 data per halaman melalui `GET /api/v1/laporan/history`
+dengan filter server-side `status`, `start_date`, dan `end_date`. Gulir ke
+bawah untuk memuat halaman selanjutnya; filter status dan tanggal dapat
+digabungkan, termasuk rentang khusus dari date picker.
 Belum menggunakan push notification atau pembaruan WebSocket.
 
 ### Pemasangan

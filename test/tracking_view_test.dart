@@ -10,6 +10,40 @@ import 'package:shared_preferences/shared_preferences.dart';
 class _FakeTrackingApiService extends ApiService {
   int requestCount = 0;
   final List<String> requestedCodes = [];
+  final List<
+    ({
+      int page,
+      int perPage,
+      String? status,
+      String? startDate,
+      String? endDate,
+    })
+  >
+  pageRequests = [];
+  final Map<int, CitizenReportPage> pages = {};
+  Object? pageError;
+  Completer<CitizenReportPage>? pageCompleter;
+
+  @override
+  Future<CitizenReportPage> getCitizenReportsPage({
+    required int page,
+    int perPage = 10,
+    String? status,
+    String? startDate,
+    String? endDate,
+  }) async {
+    pageRequests.add((
+      page: page,
+      perPage: perPage,
+      status: status,
+      startDate: startDate,
+      endDate: endDate,
+    ));
+    if (pageCompleter != null) return pageCompleter!.future;
+    if (pageError != null) throw pageError!;
+    return pages[page] ??
+        (reports: const <TicketStatus>[], currentPage: page, lastPage: page);
+  }
 
   @override
   Future<List<String>> syncCitizenTicketsHistory() async =>
@@ -37,38 +71,12 @@ class _FakeTrackingApiService extends ApiService {
 }
 
 class _OfflineTrackingApiService extends _FakeTrackingApiService {
-  int syncCount = 0;
-
-  @override
-  Future<List<String>> syncCitizenTicketsHistory() async {
-    syncCount++;
-    throw const ApiException('Tidak ada koneksi internet.');
+  _OfflineTrackingApiService() {
+    pageError = const ApiException('Tidak ada koneksi internet.');
   }
-
-  @override
-  Future<TicketStatus> getTicket(String code) async {
-    requestCount++;
-    throw const ApiException('Tidak ada koneksi internet.');
-  }
-
-  @override
-  Future<TicketStatus?> getCachedTicketStatus(String code) async =>
-      const TicketStatus(
-        code: 'TK-20261030-0001',
-        status: 'dijadwalkan',
-        category: 'air_masalah',
-        description: 'Air sumur keruh.',
-        reporterName: 'Warga Contoh',
-        village: 'Desa Sehat',
-        rt: '02',
-        rw: '04',
-        createdAt: '2026-10-29 08:00',
-        visitDate: '2026-10-31 09:00',
-        officer: 'Petugas Contoh',
-      );
 }
 
-class _InspectionTrackingApiService extends ApiService {
+class _InspectionTrackingApiService extends _FakeTrackingApiService {
   bool inspected = false;
 
   @override
@@ -92,88 +100,55 @@ class _InspectionTrackingApiService extends ApiService {
   });
 }
 
-class _AggregateCacheTrackingApiService extends ApiService {
-  @override
-  Future<List<String>> syncCitizenTicketsHistory() async => [];
-
-  @override
-  Future<List<String>> getSavedCitizenTicketCodes() async => [];
-
-  @override
-  Future<List<TicketStatus>> getCachedCitizenTicketStatuses() async => [
-    const TicketStatus(
-      code: 'TK-CACHED-ONLY',
-      status: 'dikirim',
-      category: 'air_masalah',
-      description: 'Laporan dari cache.',
-      village: 'Desa Sehat',
-      rt: '02',
-      rw: '04',
-      createdAt: '2026-10-29',
-    ),
-  ];
-}
-
-class _CacheFirstTrackingApiService extends ApiService {
-  final syncCompleter = Completer<List<String>>();
-  static const cachedTicket = TicketStatus(
-    code: 'TK-CACHE-FIRST',
-    status: 'dikirim',
-    category: 'air_masalah',
-    description: 'Data lokal tersedia.',
-    village: 'Desa Sehat',
-    rt: '02',
-    rw: '04',
-    createdAt: '2026-10-29',
-  );
-
-  @override
-  Future<List<String>> syncCitizenTicketsHistory() => syncCompleter.future;
-
-  @override
-  Future<List<String>> getSavedCitizenTicketCodes() async => [
-    cachedTicket.code,
-  ];
-
-  @override
-  Future<List<TicketStatus>> getCachedCitizenTicketStatuses() async => [
-    cachedTicket,
-  ];
-
-  @override
-  Future<TicketStatus?> getCachedTicketStatus(String code) async =>
-      cachedTicket;
-
-  @override
-  Future<TicketStatus> getTicket(String code) async => cachedTicket;
+class _PageTrackingApiService extends _FakeTrackingApiService {
+  _PageTrackingApiService() {
+    pages[1] = (
+      reports: [
+        const TicketStatus(
+          code: 'TK-CACHED-ONLY',
+          status: 'dikirim',
+          category: 'air_masalah',
+          description: 'Laporan dari cache.',
+          village: 'Desa Sehat',
+          rt: '02',
+          rw: '04',
+          createdAt: '2026-10-29',
+        ),
+      ],
+      currentPage: 1,
+      lastPage: 1,
+    );
+  }
 }
 
 class _UnavailableTrackingApiService extends ApiService {
   int syncCount = 0;
 
   @override
-  Future<List<String>> syncCitizenTicketsHistory() async {
+  Future<CitizenReportPage> getCitizenReportsPage({
+    required int page,
+    int perPage = 10,
+    String? status,
+    String? startDate,
+    String? endDate,
+  }) async {
     syncCount++;
     throw const ApiException('Tidak dapat terhubung ke server.');
   }
-
-  @override
-  Future<List<String>> getSavedCitizenTicketCodes() async => [];
-
-  @override
-  Future<List<TicketStatus>> getCachedCitizenTicketStatuses() async => [];
 }
 
-class _EmptyTrackingApiService extends ApiService {
-  @override
-  Future<List<String>> syncCitizenTicketsHistory() async => [];
+class _EmptyTrackingApiService extends _FakeTrackingApiService {}
 
-  @override
-  Future<List<String>> getSavedCitizenTicketCodes() async => [];
-
-  @override
-  Future<List<TicketStatus>> getCachedCitizenTicketStatuses() async => [];
-}
+TicketStatus _ticket(int index) => TicketStatus(
+  code: 'TK-${index.toString().padLeft(2, '0')}',
+  status: 'diproses',
+  category: 'air_masalah',
+  description: 'Laporan $index',
+  village: 'Desa Sehat',
+  rt: '02',
+  rw: '04',
+  createdAt: '2026-10-29',
+);
 
 void main() {
   setUp(() {
@@ -222,7 +197,7 @@ void main() {
   });
 
   testWidgets(
-    'history shows cached tickets while offline and filters completed',
+    'history reports server errors and retries without using local placeholders',
     (WidgetTester tester) async {
       SharedPreferences.setMockInitialValues({
         'saved_citizen_tickets': ['TK-20261030-0001'],
@@ -237,28 +212,25 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Lacak laporan'), findsOneWidget);
-      expect(find.text('TK-20261030-0001'), findsOneWidget);
+      expect(find.text('TK-20261030-0001'), findsNothing);
       expect(
-        find.textContaining('Sebagian status belum dapat diperbarui'),
+        find.textContaining('Gagal memuat data dari server'),
         findsOneWidget,
       );
       expect(find.text('Coba Lagi'), findsOneWidget);
+      apiService.pageError = null;
       await tester.tap(find.text('Coba Lagi'));
       await tester.pumpAndSettle();
-      expect(apiService.syncCount, 2);
-      expect(apiService.requestCount, 0);
-
-      await tester.tap(find.text('Selesai / Riwayat'));
-      await tester.pumpAndSettle();
-      expect(find.text('Tidak ada laporan di kategori ini'), findsOneWidget);
+      expect(apiService.pageRequests, hasLength(2));
+      expect(find.text('Belum ada riwayat laporan'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'history shows aggregate cache when saved codes are unavailable',
+    'history renders server reports using the existing ticket model',
     (WidgetTester tester) async {
-      final apiService = _AggregateCacheTrackingApiService();
+      final apiService = _PageTrackingApiService();
 
       await tester.pumpWidget(
         MaterialApp(
@@ -269,38 +241,90 @@ void main() {
 
       expect(find.text('TK-CACHED-ONLY'), findsOneWidget);
       expect(find.text('Laporan dari cache.'), findsNothing);
+      expect(apiService.pageRequests.single.perPage, 10);
       expect(tester.takeException(), isNull);
     },
   );
 
-  testWidgets('renders cached history before background refresh completes', (
+  testWidgets('scroll loads the next page without duplicate reports', (
     WidgetTester tester,
   ) async {
-    final apiService = _CacheFirstTrackingApiService();
+    final apiService = _FakeTrackingApiService()
+      ..pages[1] = (
+        reports: List.generate(10, (index) => _ticket(index)),
+        currentPage: 1,
+        lastPage: 2,
+      )
+      ..pages[2] = (
+        reports: [
+          TicketStatus(
+            code: _ticket(0).code,
+            status: 'diproses',
+            category: 'air_masalah',
+            description: 'DUPLICATE',
+            village: 'Desa Sehat',
+            rt: '02',
+            rw: '04',
+            createdAt: '2026-10-29',
+          ),
+          _ticket(10),
+        ],
+        currentPage: 2,
+        lastPage: 2,
+      );
 
     await tester.pumpWidget(
       MaterialApp(home: TrackingView(apiService: apiService)),
     );
-    for (
-      var frame = 0;
-      frame < 10 && find.text('TK-CACHE-FIRST').evaluate().isEmpty;
-      frame++
-    ) {
-      await tester.pump(const Duration(milliseconds: 20));
-    }
-
-    expect(find.text('TK-CACHE-FIRST'), findsOneWidget);
-    expect(find.byKey(const Key('tracking_refresh_indicator')), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.byIcon(Icons.search), findsOneWidget);
-
-    apiService.syncCompleter.complete([
-      _CacheFirstTrackingApiService.cachedTicket.code,
-    ]);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -1800));
     await tester.pumpAndSettle();
 
+    expect(apiService.pageRequests.map((request) => request.page), [1, 2]);
+    expect(find.text('TK-10'), findsOneWidget);
+    expect(find.text('DUPLICATE'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('status and date filters combine and reset to the first page', (
+    WidgetTester tester,
+  ) async {
+    final apiService = _FakeTrackingApiService()
+      ..pages[1] = (reports: [_ticket(1)], currentPage: 1, lastPage: 1);
+
+    await tester.pumpWidget(
+      MaterialApp(home: TrackingView(apiService: apiService)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('tracking_status_filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Diproses').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('tracking_date_filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hari ini').last);
+    await tester.pumpAndSettle();
+
+    expect(apiService.pageRequests, hasLength(3));
+    expect(apiService.pageRequests.last.page, 1);
+    expect(apiService.pageRequests.last.perPage, 10);
+    expect(apiService.pageRequests.last.status, 'diproses');
+    expect(apiService.pageRequests.last.startDate, isNotNull);
+    expect(
+      apiService.pageRequests.last.startDate,
+      apiService.pageRequests.last.endDate,
+    );
+    expect(find.text('Filter aktif'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('tracking_reset_filters')));
+    await tester.pumpAndSettle();
+    expect(apiService.pageRequests, hasLength(4));
+    expect(apiService.pageRequests.last.page, 1);
+    expect(apiService.pageRequests.last.status, isNull);
+    expect(apiService.pageRequests.last.startDate, isNull);
+    expect(apiService.pageRequests.last.endDate, isNull);
+    expect(find.text('Filter aktif'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
