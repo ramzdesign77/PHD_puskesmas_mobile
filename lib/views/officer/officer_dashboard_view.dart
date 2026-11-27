@@ -35,9 +35,13 @@ class OfficerDashboardView extends StatefulWidget {
 
 class _OfficerDashboardViewState extends State<OfficerDashboardView> {
   int _selectedTab = 0;
-  String _taskFilter = 'semua';
+  String _taskFilter = 'semua_aktif';
   final TextEditingController _taskSearchController = TextEditingController();
   String _taskSearch = '';
+  final TextEditingController _historySearchController =
+      TextEditingController();
+  String _historySearch = '';
+  String _riskFilter = 'semua';
   List<VisitSchedule> _schedules = const [];
   OfficerDashboardData? _dashboard;
   bool _isLoading = true;
@@ -54,6 +58,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
   @override
   void dispose() {
     _taskSearchController.dispose();
+    _historySearchController.dispose();
     super.dispose();
   }
 
@@ -78,8 +83,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
     try {
       schedules = await widget.apiService.fetchTasks(
         token: widget.token,
-        filter: _taskFilter,
-        search: _taskSearch,
+        filter: 'semua',
       );
     } catch (error) {
       taskError = error;
@@ -121,7 +125,14 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
 
   List<VisitSchedule> get _activeTasks => _schedules
       .where((schedule) => !_isFinished(schedule.status))
-      .where((schedule) => schedule.isInspection)
+      .toList(growable: false);
+
+  List<VisitSchedule> get _completedTasks => _schedules
+      .where(
+        (schedule) =>
+            schedule.isInspection &&
+            schedule.status.trim().toLowerCase() == 'selesai',
+      )
       .toList(growable: false);
 
   List<VisitSchedule> get _todayInspections => _schedules
@@ -129,22 +140,17 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
         (schedule) =>
             schedule.isInspection &&
             !_isFinished(schedule.status) &&
+            _isScheduledTask(schedule) &&
             schedule.visitDate.startsWith(_todayDate),
       )
       .toList(growable: false);
 
   String get _todayDate => DateTime.now().toIso8601String().substring(0, 10);
 
-  int get _pendingTaskCount =>
-      _dashboard?.summary.activeTasksCount ??
-      _schedules.where((schedule) => !_isFinished(schedule.status)).length;
-
   int get _pendingReportCount =>
       _dashboard?.summary.newReportsCount ??
       _schedules
-          .where(
-            (schedule) => !schedule.isInspection && _isPending(schedule.status),
-          )
+          .where((schedule) => !schedule.isInspection && _isNewReport(schedule))
           .length;
 
   int get _todayInspectionCount =>
@@ -161,27 +167,41 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
           )
           .length;
 
-  int get _totalInspectionCount =>
-      _schedules.where((schedule) => schedule.isInspection).length;
-
   List<VisitSchedule> get _upcomingInspections {
-    final tasks = [..._activeTasks]
-      ..sort((first, second) {
-        final firstDate = first.visitDate;
-        final secondDate = second.visitDate;
-        if (firstDate == '-') return 1;
-        if (secondDate == '-') return -1;
-        return firstDate.compareTo(secondDate);
-      });
-    return tasks.take(8).toList(growable: false);
+    final tasks =
+        _activeTasks
+            .where(
+              (schedule) => schedule.isInspection && _isScheduledTask(schedule),
+            )
+            .toList()
+          ..sort((first, second) {
+            final firstDate = first.visitDate;
+            final secondDate = second.visitDate;
+            final firstRank = firstDate.startsWith(_todayDate)
+                ? 0
+                : firstDate.compareTo(_todayDate) > 0
+                ? 1
+                : 2;
+            final secondRank = secondDate.startsWith(_todayDate)
+                ? 0
+                : secondDate.compareTo(_todayDate) > 0
+                ? 1
+                : 2;
+            final rankComparison = firstRank.compareTo(secondRank);
+            if (rankComparison != 0) return rankComparison;
+            if (firstDate == '-') return 1;
+            if (secondDate == '-') return -1;
+            return firstDate.compareTo(secondDate);
+          });
+    return tasks.take(5).toList(growable: false);
   }
 
   List<VisitSchedule> get _recentReports {
     final reports =
         _schedules.where((schedule) => !schedule.isInspection).toList()
           ..sort((first, second) {
-            final firstPending = _isPending(first.status) ? 0 : 1;
-            final secondPending = _isPending(second.status) ? 0 : 1;
+            final firstPending = _isNewReport(first) ? 0 : 1;
+            final secondPending = _isNewReport(second) ? 0 : 1;
             return firstPending.compareTo(secondPending);
           });
     return reports.take(5).toList(growable: false);
@@ -219,6 +239,42 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
       final index = _schedules.indexWhere((item) => item.id == updated.id);
       if (index >= 0) _schedules[index] = updated;
     });
+  }
+
+  Future<void> _openHistoryDetail(VisitSchedule schedule) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => OfficerDetailView(
+          schedule: schedule,
+          token: widget.token,
+          apiService: widget.apiService,
+          readOnly: true,
+        ),
+      ),
+    );
+  }
+
+  void _openTodayScheduleTab() {
+    setState(() {
+      _taskFilter = 'terjadwal_hari_ini';
+      _selectedTab = 1;
+    });
+  }
+
+  void _openNewReportsTab() {
+    setState(() {
+      _taskFilter = 'aduan_baru';
+      _selectedTab = 1;
+    });
+  }
+
+  void _startNearestVisit() {
+    final today = _todayInspections;
+    if (today.length == 1) {
+      _openDetail(today.single);
+    } else {
+      _openTodayScheduleTab();
+    }
   }
 
   Future<void> _verify(VisitSchedule schedule) async {
@@ -301,7 +357,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
     final pages = [
       _buildHome(),
       _buildTasksTab(),
-      _buildInspectionTab(),
+      _buildHistoryTab(),
       _buildProfileTab(),
     ];
     return Scaffold(
@@ -337,14 +393,14 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                 selectedIcon: Icons.home_rounded,
               ),
               FluidNavDestination(
-                label: 'Tugas Aduan',
-                icon: Icons.fact_check_outlined,
-                selectedIcon: Icons.fact_check_rounded,
+                label: 'Jadwal',
+                icon: Icons.event_note_rounded,
+                selectedIcon: Icons.assignment_rounded,
               ),
               FluidNavDestination(
-                label: 'Input IKL',
-                icon: Icons.note_add_outlined,
-                selectedIcon: Icons.note_add_rounded,
+                label: 'Riwayat',
+                icon: Icons.history_rounded,
+                selectedIcon: Icons.fact_check_rounded,
               ),
               FluidNavDestination(
                 label: 'Profil',
@@ -397,7 +453,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
             'Tugas IKL Mendatang',
             subtitle: 'Jadwal inspeksi yang perlu ditindaklanjuti.',
             actionLabel: 'Semua jadwal',
-            onAction: () => _selectTab(2),
+            onAction: _openTodayScheduleTab,
           ),
           const SizedBox(height: 12),
           _buildUpcomingCarousel(),
@@ -406,7 +462,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
             'Laporan Warga Terbaru',
             subtitle: 'Aduan yang menunggu verifikasi petugas.',
             actionLabel: 'Lihat semua',
-            onAction: () => _selectTab(1),
+            onAction: _openNewReportsTab,
           ),
           const SizedBox(height: 12),
           _buildReportHighlights(),
@@ -485,7 +541,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: Image.asset(
-                              'assets/images/logo.jpg',
+                              'assets/images/app_icon.png',
                               fit: BoxFit.contain,
                               errorBuilder: (_, _, _) => const Icon(
                                 Icons.health_and_safety_outlined,
@@ -536,15 +592,15 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                       runSpacing: 8,
                       children: [
                         _HeroActionButton(
-                          label: 'Mulai Inspeksi',
+                          label: 'Jadwal Hari Ini',
                           icon: Icons.arrow_forward_rounded,
-                          onPressed: () => _selectTab(2),
+                          onPressed: _startNearestVisit,
                         ),
                         _HeroActionButton(
                           label: 'Lihat Jadwal',
                           icon: Icons.calendar_month_outlined,
                           outlined: true,
-                          onPressed: () => _selectTab(1),
+                          onPressed: _openTodayScheduleTab,
                         ),
                       ],
                     ),
@@ -610,10 +666,9 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
 
   Widget _buildStatsCard() {
     final stats = [
-      (Icons.pending_actions_rounded, _pendingTaskCount, 'Tugas\nPending'),
-      (Icons.today_outlined, _todayInspectionCount, 'IKL Hari\nIni'),
-      (Icons.task_alt_rounded, _completedTodayCount, 'Selesai\nHari Ini'),
-      (Icons.fact_check_outlined, _totalInspectionCount, 'Total\nInspeksi'),
+      (Icons.report_gmailerrorred_rounded, _pendingReportCount, 'Aduan\nBaru'),
+      (Icons.today_outlined, _todayInspectionCount, 'Jadwal Hari\nIni'),
+      (Icons.task_alt_rounded, _completedTodayCount, 'Selesai'),
     ];
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 15, 8, 13),
@@ -682,6 +737,8 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
           return _InspectionTaskCard(
             schedule: task,
             onTap: () => _openDetail(task),
+            showQuickAction:
+                index == 0 && task.visitDate.startsWith(_todayDate),
           );
         },
       ),
@@ -701,20 +758,14 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
           if (index == 0) {
             return _ReportCalloutCard(
               reportCount: _pendingReportCount,
-              onTap: () {
-                setState(() {
-                  _taskFilter = 'aduan_baru';
-                  _selectedTab = 1;
-                });
-                _loadData();
-              },
+              onTap: _openNewReportsTab,
             );
           }
           final report = reports[index - 1];
           return _ReportSummaryCard(
             schedule: report,
             onTap: () => _openDetail(report),
-            onVerify: _isPending(report.status) ? () => _verify(report) : null,
+            onVerify: _isNewReport(report) ? () => _verify(report) : null,
           );
         },
       ),
@@ -723,37 +774,16 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
 
   Widget _buildTasksTab() {
     return _buildListPage(
-      title: 'Tugas Aduan',
-      description: 'Aduan warga dan jadwal kunjungan lapangan.',
-      tasks: _schedules,
-      emptyMessage: 'Belum ada aduan atau tugas kunjungan.',
-      isTaskList: true,
+      title: 'Jadwal',
+      description: 'Tugas aktif yang perlu ditindaklanjuti petugas.',
     );
   }
 
-  Widget _buildInspectionTab() {
-    return _buildListPage(
-      title: 'Input Form IKL',
-      description: 'Pilih jadwal aktif untuk mengisi kuesioner inspeksi.',
-      tasks: _activeTasks,
-      emptyMessage: 'Tidak ada jadwal aktif untuk diinspeksi.',
-      isTaskList: false,
-    );
-  }
-
-  Widget _buildListPage({
-    required String title,
-    required String description,
-    required List<VisitSchedule> tasks,
-    required String emptyMessage,
-    required bool isTaskList,
-  }) {
-    final visibleTasks = isTaskList
-        ? tasks
-              .where(_matchesTaskFilter)
-              .where(_matchesTaskSearch)
-              .toList(growable: false)
-        : tasks;
+  Widget _buildListPage({required String title, required String description}) {
+    final visibleTasks = _activeTasks
+        .where(_matchesTaskFilter)
+        .where(_matchesTaskSearch)
+        .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -762,88 +792,83 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
           description: description,
           onRefresh: _loadData,
         ),
-        if (isTaskList)
-          Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  child: Row(
-                    children:
-                        const [
-                              ('semua', 'Semua'),
-                              ('aduan_baru', 'Aduan Baru'),
-                              ('jadwal_ikl', 'Jadwal IKL'),
-                              ('selesai', 'Selesai'),
-                            ]
-                            .map((item) {
-                              final selected = _taskFilter == item.$1;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: ChoiceChip(
-                                  label: Text(item.$2),
-                                  selected: selected,
-                                  showCheckmark: false,
-                                  selectedColor: AppColors.primary,
-                                  backgroundColor: Colors.white,
-                                  side: BorderSide(
-                                    color: selected
-                                        ? AppColors.primary
-                                        : AppColors.line,
-                                  ),
-                                  labelStyle: TextStyle(
-                                    color: selected
-                                        ? Colors.white
-                                        : AppColors.muted,
-                                    fontFamily: AppTheme.bodyFontFamily,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  onSelected: (_) {
-                                    setState(() => _taskFilter = item.$1);
-                                    _loadData();
-                                  },
+        Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children:
+                      const [
+                            ('semua_aktif', 'Semua Aktif'),
+                            ('aduan_baru', 'Aduan Baru'),
+                            ('terjadwal_hari_ini', 'Terjadwal Hari Ini'),
+                            ('mendatang', 'Mendatang'),
+                          ]
+                          .map((item) {
+                            final selected = _taskFilter == item.$1;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(item.$2),
+                                selected: selected,
+                                showCheckmark: false,
+                                selectedColor: AppColors.primary,
+                                backgroundColor: Colors.white,
+                                side: BorderSide(
+                                  color: selected
+                                      ? AppColors.primary
+                                      : AppColors.line,
                                 ),
-                              );
-                            })
-                            .toList(growable: false),
-                  ),
+                                labelStyle: TextStyle(
+                                  color: selected
+                                      ? Colors.white
+                                      : AppColors.muted,
+                                  fontFamily: AppTheme.bodyFontFamily,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                onSelected: (_) =>
+                                    setState(() => _taskFilter = item.$1),
+                              ),
+                            );
+                          })
+                          .toList(growable: false),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                child: TextField(
-                  controller: _taskSearchController,
-                  onSubmitted: (_) => _loadData(),
-                  decoration: InputDecoration(
-                    hintText: 'Cari nama, desa, kategori, atau tiket',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _taskSearchController.text.isEmpty
-                        ? null
-                        : IconButton(
-                            onPressed: () {
-                              _taskSearchController.clear();
-                              setState(() => _taskSearch = '');
-                              _loadData();
-                            },
-                            icon: const Icon(Icons.close),
-                          ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: AppColors.line),
-                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: TextField(
+                controller: _taskSearchController,
+                decoration: InputDecoration(
+                  hintText: 'Cari nama, desa, kategori, atau tiket',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _taskSearchController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          onPressed: () {
+                            _taskSearchController.clear();
+                            setState(() => _taskSearch = '');
+                          },
+                          icon: const Icon(Icons.close),
+                        ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: AppColors.line),
                   ),
-                  onChanged: (value) => setState(() {
-                    _taskSearch = value;
-                  }),
                 ),
+                onChanged: (value) => setState(() {
+                  _taskSearch = value;
+                }),
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
         if (_isLoading)
           Expanded(
             child: Center(
@@ -853,7 +878,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                   CircularProgressIndicator(),
                   SizedBox(height: 12),
                   Text(
-                    'Memuat daftar tugas aduan...',
+                    'Memuat jadwal aktif...',
                     style: TextStyle(
                       color: AppColors.ink,
                       fontWeight: FontWeight.w600,
@@ -870,10 +895,10 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
             child: Center(
               child: WaterEmptyState(
                 icon: Icons.assignment_outlined,
-                title: 'Belum ada tugas',
-                message: isTaskList && tasks.isNotEmpty
-                    ? 'Tidak ada tugas dengan status "$_taskFilter".'
-                    : emptyMessage,
+                title: 'Belum ada jadwal aktif',
+                message: _activeTasks.isNotEmpty
+                    ? 'Tidak ada jadwal untuk filter yang dipilih.'
+                    : 'Aduan baru dan jadwal kunjungan aktif akan tampil di sini.',
               ),
             ),
           )
@@ -886,9 +911,7 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
               transitionBuilder: (child, animation) =>
                   FadeTransition(opacity: animation, child: child),
               child: RefreshIndicator(
-                key: ValueKey(
-                  '${isTaskList ? 'tasks' : 'inspections'}-$_taskFilter',
-                ),
+                key: ValueKey('tasks-$_taskFilter'),
                 color: AppColors.primary,
                 onRefresh: _loadData,
                 child: ListView.builder(
@@ -907,21 +930,15 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
                     return VisitCardWidget(
                       schedule: task,
                       onTap: () => _openDetail(task),
-                      onAction:
-                          isTaskList &&
-                              !task.isInspection &&
-                              _isPending(task.status)
+                      onAction: _isNewReport(task)
                           ? () => _verify(task)
-                          : null,
-                      actionLabel:
-                          isTaskList &&
-                              !task.isInspection &&
-                              _isPending(task.status)
+                          : () => _openDetail(task),
+                      actionLabel: _isNewReport(task)
                           ? 'Verifikasi & Jadwalkan'
-                          : task.isInspection
-                          ? 'Isi Form IKL'
-                          : 'Lihat Detail',
-                      isInspection: !isTaskList || task.isInspection,
+                          : _isScheduledTask(task)
+                          ? 'Buka Peta & Isi IKL'
+                          : 'Lihat Detail Aduan',
+                      isInspection: task.isInspection,
                     );
                   },
                 ),
@@ -949,29 +966,154 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
   }
 
   bool _matchesTaskFilter(VisitSchedule task) {
-    final status = _normalizeTaskStatus(task.status);
     return switch (_taskFilter) {
-      'aduan_baru' => const [
-        'menunggu',
-        'dikirim',
-        'diproses',
-        'pending',
-        'belum_diverifikasi',
-        'menunggu_verifikasi',
-        'terjadwal',
-        'dijadwalkan',
-      ].contains(status),
-      'jadwal_ikl' =>
-        task.isInspection &&
-            const [
-              'dijadwalkan',
-              'terjadwal',
-              'ditindaklanjuti',
-              'diproses',
-            ].contains(task.status.toLowerCase()),
-      'selesai' => _isFinished(task.status),
+      'aduan_baru' => _isNewReport(task),
+      'terjadwal_hari_ini' =>
+        _isScheduledTask(task) && task.visitDate.startsWith(_todayDate),
+      'mendatang' =>
+        _isScheduledTask(task) && task.visitDate.compareTo(_todayDate) > 0,
       _ => true,
     };
+  }
+
+  Widget _buildHistoryTab() {
+    final completed = [..._completedTasks]
+      ..sort((first, second) {
+        final firstDate = first.inspectionDate ?? first.visitDate;
+        final secondDate = second.inspectionDate ?? second.visitDate;
+        return secondDate.compareTo(firstDate);
+      });
+    final query = _historySearch.trim().toLowerCase();
+    final visibleTasks = completed
+        .where((task) {
+          final matchesRisk =
+              _riskFilter == 'semua' || _riskCategoryKey(task) == _riskFilter;
+          final searchable = [
+            task.reporterName,
+            task.ticketCode,
+            task.village,
+            task.rt,
+            task.rw,
+            task.intervention ?? '',
+            RiskScore.label(task.riskCategory),
+          ].join(' ').toLowerCase();
+          return matchesRisk && (query.isEmpty || searchable.contains(query));
+        })
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _PageHeader(
+          title: 'Riwayat Pemeriksaan',
+          description: 'Hasil IKL selesai.',
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: TextField(
+            controller: _historySearchController,
+            onChanged: (value) => setState(() => _historySearch = value),
+            decoration: InputDecoration(
+              hintText: 'Cari pelapor, tiket, desa, atau intervensi',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _historySearch.isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: () {
+                        _historySearchController.clear();
+                        setState(() => _historySearch = '');
+                      },
+                      icon: const Icon(Icons.close),
+                    ),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: AppColors.line),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 46,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            children: [
+              for (final item in const [
+                ('semua', 'Semua'),
+                ('aman', 'Aman'),
+                ('sedang', 'Sedang'),
+                ('tinggi', 'Tinggi'),
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(item.$2),
+                    selected: _riskFilter == item.$1,
+                    showCheckmark: false,
+                    selectedColor: AppColors.primary,
+                    backgroundColor: Colors.white,
+                    side: BorderSide(
+                      color: _riskFilter == item.$1
+                          ? AppColors.primary
+                          : AppColors.line,
+                    ),
+                    labelStyle: TextStyle(
+                      color: _riskFilter == item.$1
+                          ? Colors.white
+                          : AppColors.muted,
+                      fontFamily: AppTheme.bodyFontFamily,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    onSelected: (_) => setState(() => _riskFilter = item.$1),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (_isLoading)
+          const Expanded(child: Center(child: CircularProgressIndicator()))
+        else if (_errorMessage != null)
+          Expanded(child: Center(child: _buildError(_errorMessage!)))
+        else if (visibleTasks.isEmpty)
+          const Expanded(
+            child: Center(
+              child: WaterEmptyState(
+                icon: Icons.history_rounded,
+                title: 'Belum ada hasil pemeriksaan',
+                message: 'Kunjungan IKL yang selesai akan tampil di sini.',
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: _loadData,
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  10,
+                  16,
+                  120 + MediaQuery.viewPaddingOf(context).bottom,
+                ),
+                itemCount: visibleTasks.length,
+                itemBuilder: (_, index) => VisitCardWidget(
+                  schedule: visibleTasks[index],
+                  onTap: () => _openHistoryDetail(visibleTasks[index]),
+                  actionLabel: 'Lihat Hasil Pemeriksaan',
+                  isHistory: true,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _buildProfileTab() {
@@ -1039,6 +1181,39 @@ String _normalizeTaskStatus(String status) =>
 
 bool _isFinished(String status) =>
     const ['selesai', 'batal', 'ditolak'].contains(status.toLowerCase());
+
+bool _isNewReport(VisitSchedule task) =>
+    !task.isInspection &&
+    const [
+      'pending',
+      'menunggu',
+      'dikirim',
+      'belum diverifikasi',
+      'belum_diverifikasi',
+      'menunggu_verifikasi',
+      'menunggu-verifikasi',
+    ].contains(task.status.trim().toLowerCase());
+
+bool _isScheduledTask(VisitSchedule task) =>
+    const [
+      'terjadwal',
+      'dijadwalkan',
+      'ditindaklanjuti',
+    ].contains(task.status.trim().toLowerCase()) ||
+    (task.isInspection && task.status.trim().toLowerCase() == 'diproses');
+
+String _riskCategoryKey(VisitSchedule task) {
+  final risk = task.riskCategory?.trim().toLowerCase().replaceAll(' ', '_');
+  if (risk == 'aman') return 'aman';
+  if (risk == 'risiko_sedang' || risk == 'sedang') return 'sedang';
+  if (risk == 'risiko_tinggi' ||
+      risk == 'risiko_amat_tinggi' ||
+      risk == 'amat_tinggi' ||
+      risk == 'tinggi') {
+    return 'tinggi';
+  }
+  return 'lainnya';
+}
 
 String formatKategoriLaporan(String raw) {
   final normalized = raw.trim().toLowerCase();
@@ -1192,10 +1367,15 @@ class _HeroActionButton extends StatelessWidget {
 }
 
 class _InspectionTaskCard extends StatelessWidget {
-  const _InspectionTaskCard({required this.schedule, required this.onTap});
+  const _InspectionTaskCard({
+    required this.schedule,
+    required this.onTap,
+    this.showQuickAction = false,
+  });
 
   final VisitSchedule schedule;
   final VoidCallback onTap;
+  final bool showQuickAction;
 
   @override
   Widget build(BuildContext context) {
@@ -1339,6 +1519,33 @@ class _InspectionTaskCard extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (showQuickAction) ...[
+                          const SizedBox(height: 4),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: onTap,
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.navigation_rounded,
+                                size: 14,
+                              ),
+                              label: const Text(
+                                'Mulai Kunjungan Terdekat',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1723,7 +1930,7 @@ class _PageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DynamicWaterHeader(
-      height: 138,
+      height: 154,
       padding: const EdgeInsets.fromLTRB(20, 12, 12, 34),
       child: Row(
         children: [

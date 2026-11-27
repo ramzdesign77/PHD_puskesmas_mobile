@@ -22,7 +22,10 @@ abstract final class AppConfig {
     }
 
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://192.168.18.39:8000/api';
+      // With `adb reverse tcp:8000 tcp:8000`, Android's localhost is forwarded
+      // to the development machine. This also works when the computer's LAN IP
+      // changes between networks.
+      return 'http://127.0.0.1:8000/api';
     }
 
     return 'http://127.0.0.1:8000/api';

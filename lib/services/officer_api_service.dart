@@ -179,8 +179,8 @@ class OfficerApiService {
         : riskIndicators;
     final payload = <String, dynamic>{
       'id_jadwal': scheduleId,
-      if (reportId != null) 'id_laporan': reportId,
-      if (categoryIkl != null) 'kategori_ikl': categoryIkl,
+      'id_laporan': ?reportId,
+      'kategori_ikl': ?categoryIkl,
       'jenis_sarana_air': waterSource,
       'jarak_sumber_pencemar': pollutantDistance,
       'tanggal_inspeksi': inspectionDate,
@@ -193,7 +193,7 @@ class OfficerApiService {
               'nomor': index + 1,
               'pertanyaan': indicatorQuestions != null && index < indicatorQuestions.length
                   ? indicatorQuestions[index]
-                  : RiskScore.questionsFor(categoryIkl!)[index],
+                  : RiskScore.questionsFor(categoryIkl)[index],
               'jawaban_ya': riskIndicators[index],
             },
         ],

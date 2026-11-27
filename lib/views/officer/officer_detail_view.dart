@@ -16,11 +16,13 @@ class OfficerDetailView extends StatefulWidget {
     required this.schedule,
     required this.token,
     required this.apiService,
+    this.readOnly = false,
   });
 
   final VisitSchedule schedule;
   final String token;
   final OfficerApiService apiService;
+  final bool readOnly;
 
   @override
   State<OfficerDetailView> createState() => _OfficerDetailViewState();
@@ -278,6 +280,63 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
   @override
   Widget build(BuildContext context) {
     final schedule = widget.schedule;
+    if (widget.readOnly) {
+      return Scaffold(
+        key: const Key('officer_inspection_history_detail'),
+        backgroundColor: AppColors.canvas,
+        appBar: AppBar(
+          title: const Text('Hasil Pemeriksaan IKL'),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _sectionTitle('Ringkasan Kunjungan'),
+            const SizedBox(height: 10),
+            _FormCard(
+              child: Column(
+                children: [
+                  _InfoRow(label: 'Nama Pelapor', value: schedule.reporterName),
+                  _InfoRow(
+                    label: 'Kode Tiket',
+                    value: schedule.ticketCode.isEmpty
+                        ? '-'
+                        : schedule.ticketCode,
+                  ),
+                  _InfoRow(
+                    label: 'Tanggal Pemeriksaan',
+                    value: schedule.inspectionDate?.trim().isNotEmpty == true
+                        ? schedule.inspectionDate!
+                        : schedule.visitDate,
+                  ),
+                  _InfoRow(
+                    label: 'Lokasi',
+                    value:
+                        '${schedule.village}, RT ${schedule.rt}/RW ${schedule.rw}',
+                  ),
+                  _InfoRow(
+                    label: 'Kategori Risiko',
+                    value: RiskScore.label(schedule.riskCategory),
+                  ),
+                  _InfoRow(
+                    label: 'Tindakan / Intervensi',
+                    value: schedule.intervention?.trim().isNotEmpty == true
+                        ? schedule.intervention!
+                        : 'Belum tercatat',
+                  ),
+                  if (schedule.officerNote.trim().isNotEmpty)
+                    _InfoRow(
+                      label: 'Catatan Petugas',
+                      value: schedule.officerNote,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: AppColors.canvas,
       appBar: AppBar(
@@ -1139,14 +1198,18 @@ class _OfficerDetailViewState extends State<OfficerDetailView> {
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            fontFamily: AppTheme.headlineFontFamily,
-            color: AppColors.ink,
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ).asHeading,
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontFamily: AppTheme.headlineFontFamily,
+              color: AppColors.ink,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ).asHeading,
+          ),
         ),
       ],
     );
@@ -1247,7 +1310,7 @@ class _InfoRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: 117,
+                width: 104,
                 child: Text(
                   label,
                   style: const TextStyle(color: AppColors.muted, fontSize: 11),

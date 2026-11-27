@@ -129,7 +129,7 @@ class _SplashViewState extends State<SplashView> {
                               borderRadius: BorderRadius.circular(24),
                             ),
                             child: Image.asset(
-                              'assets/images/logo.jpg',
+                              'assets/images/app_icon.png',
                               fit: BoxFit.contain,
                               errorBuilder: (_, _, _) => const Icon(
                                 Icons.health_and_safety_outlined,

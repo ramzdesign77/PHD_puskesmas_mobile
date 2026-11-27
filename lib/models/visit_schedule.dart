@@ -19,6 +19,8 @@ class VisitSchedule {
     this.photoUrl,
     this.isInspection = false,
     this.riskCategory,
+    this.inspectionDate,
+    this.intervention,
     this.alamatDetail = '',
     this.latitude,
     this.longitude,
@@ -45,6 +47,8 @@ class VisitSchedule {
   final String? photoUrl;
   final bool isInspection;
   final String? riskCategory;
+  final String? inspectionDate;
+  final String? intervention;
   final String alamatDetail;
   final double? latitude;
   final double? longitude;
@@ -103,6 +107,7 @@ class VisitSchedule {
     final inspectionValue =
         json['hasil_inspeksi'] ??
         json['inspection'] ??
+        json['hasil_ikl'] ??
         schedule?['hasil_inspeksi'];
     final inspection = inspectionValue is Map
         ? Map<String, dynamic>.from(inspectionValue)
@@ -162,6 +167,7 @@ class VisitSchedule {
         json['id_jadwal'] != null ||
         json['jadwal_id'] != null ||
         schedule != null ||
+        inspectionValue != null ||
         json['tanggal_kunjungan'] != null ||
         json['visit_date'] != null;
     final statusValue =
@@ -307,6 +313,20 @@ class VisitSchedule {
             json['kategori_risiko'] ??
             json['kategori_risiko_air'],
       ),
+      inspectionDate: _optionalString(
+        inspection['tanggal_inspeksi'] ??
+            json['tanggal_inspeksi'] ??
+            schedule?['tanggal_inspeksi'],
+      ),
+      intervention: _optionalString(
+        inspection['intervensi_fisik'] ??
+            inspection['jenis_intervensi'] ??
+            inspection['catatan_intervensi'] ??
+            json['intervensi_fisik'] ??
+            json['jenis_intervensi'] ??
+            json['catatan_intervensi'] ??
+            schedule?['intervensi_fisik'],
+      ),
     );
   }
 
@@ -330,6 +350,8 @@ class VisitSchedule {
       photoUrl: photoUrl,
       isInspection: isInspection,
       riskCategory: riskCategory,
+      inspectionDate: inspectionDate,
+      intervention: intervention,
       alamatDetail: alamatDetail,
       latitude: latitude,
       longitude: longitude,

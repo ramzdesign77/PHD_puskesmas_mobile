@@ -29,6 +29,7 @@ class VisitCardWidget extends StatelessWidget {
     this.onAction,
     this.actionLabel,
     this.isInspection = false,
+    this.isHistory = false,
   });
 
   final VisitSchedule schedule;
@@ -36,14 +37,23 @@ class VisitCardWidget extends StatelessWidget {
   final VoidCallback? onAction;
   final String? actionLabel;
   final bool isInspection;
+  final bool isHistory;
 
   @override
   Widget build(BuildContext context) {
     final pending = _isPending(schedule.status);
     final normalizedStatus = schedule.status.toLowerCase();
     final riskLabel = RiskScore.label(schedule.riskCategory);
+    final historyRiskLabel = _historyRiskLabel(schedule.riskCategory);
     final hasRisk = riskLabel != 'Belum tersedia';
-    final badgeColor = hasRisk
+    final badgeColor = isHistory
+        ? switch (historyRiskLabel) {
+            'Aman' => AppColors.green,
+            'Risiko Sedang' => AppColors.amber,
+            'Risiko Tinggi' => const Color(0xFFDC2626),
+            _ => AppColors.muted,
+          }
+        : hasRisk
         ? switch (riskLabel) {
             'Aman' => AppColors.green,
             'Sedang' => AppColors.amber,
@@ -57,7 +67,9 @@ class VisitCardWidget extends StatelessWidget {
         : normalizedStatus == 'selesai'
         ? AppColors.green
         : AppColors.primary;
-    final badgeLabel = hasRisk
+    final badgeLabel = isHistory
+        ? historyRiskLabel
+        : hasRisk
         ? 'RISIKO $riskLabel'
         : isInspection
         ? 'TERJADWAL IKL'
@@ -74,6 +86,8 @@ class VisitCardWidget extends StatelessWidget {
         : '';
     final villageLabel = schedule.village == '-'
         ? '-'
+        : schedule.village.toLowerCase().startsWith('desa ')
+        ? schedule.village
         : 'Desa ${schedule.village}';
     final rtRwLabel = schedule.rt == '-' && schedule.rw == '-'
         ? ''
@@ -107,171 +121,207 @@ class VisitCardWidget extends StatelessWidget {
             child: InkWell(
               onTap: onTap,
               child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: badgeColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Text(
-                      badgeLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: badgeColor,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  if (ticketLabel.isNotEmpty)
-                    Text(
-                      ticketLabel,
-                      style: const TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                _title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: AppTheme.headlineFontFamily,
-                  color: Color(0xFF0F172A),
-                  fontSize: 16,
-                  height: 1.25,
-                  fontWeight: FontWeight.w700,
-                ).asHeading,
-              ),
-              const SizedBox(height: 7),
-              if (!isInspection && schedule.category != '-') ...[
-                Row(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.water_drop_outlined,
-                      size: 15,
-                      color: Color(0xFF0284C7),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: badgeColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: Text(
+                              badgeLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: badgeColor,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (ticketLabel.isNotEmpty)
+                          Flexible(
+                            child: Text(
+                              ticketLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.end,
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        formatKategoriLaporan(schedule.category),
+                    const SizedBox(height: 10),
+                    Text(
+                      _title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: AppTheme.headlineFontFamily,
+                        color: Color(0xFF0F172A),
+                        fontSize: 16,
+                        height: 1.25,
+                        fontWeight: FontWeight.w700,
+                      ).asHeading,
+                    ),
+                    const SizedBox(height: 7),
+                    if (!isInspection && schedule.category != '-') ...[
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.water_drop_outlined,
+                            size: 15,
+                            color: Color(0xFF0284C7),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              formatKategoriLaporan(schedule.category),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF0284C7),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                    ],
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 15,
+                          color: Color(0xFF64748B),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            locationLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF1E293B),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (addressLabel.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        addressLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Color(0xFF0284C7),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF64748B),
+                          fontSize: 10,
                         ),
                       ),
+                    ],
+                    if (isHistory) ...[
+                      const SizedBox(height: 7),
+                      Text(
+                        'Tanggal Pemeriksaan: ${_displayDate(schedule.inspectionDate ?? schedule.visitDate)}',
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tindakan: ${schedule.intervention?.trim().isNotEmpty == true ? schedule.intervention : 'Belum tercatat'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF1E293B),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    if (!isInspection && schedule.description != '-') ...[
+                      Text(
+                        schedule.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF1E293B),
+                          fontSize: 11,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: onAction ?? onTap,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            child: Text(actionLabel ?? 'Tindak Lanjut'),
+                          ),
+                        ),
+                        if (!isHistory) ...[
+                          const SizedBox(width: 8),
+                          OutlinedButton(
+                            onPressed: onTap,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: BorderSide(
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.35,
+                                ),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Text('Detail'),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 5),
-              ],
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.location_on_outlined,
-                    size: 15,
-                    color: Color(0xFF64748B),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      locationLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF1E293B),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (addressLabel.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  addressLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              if (!isInspection && schedule.description != '-') ...[
-                Text(
-                  schedule.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF1E293B),
-                    fontSize: 11,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: onAction ?? onTap,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      child: Text(actionLabel ?? 'Tindak Lanjut'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: onTap,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: BorderSide(
-                        color: AppColors.primary.withValues(alpha: 0.35),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text('Detail'),
-                  ),
-                ],
-              ),
-            ],
-          ),
               ),
             ),
           ),
@@ -302,4 +352,20 @@ class VisitCardWidget extends StatelessWidget {
         normalized == 'terjadwal' ||
         normalized == 'dijadwalkan';
   }
+
+  String _historyRiskLabel(String? category) {
+    final normalized = category?.trim().toLowerCase().replaceAll(' ', '_');
+    return switch (normalized) {
+      'aman' => 'Aman',
+      'sedang' || 'risiko_sedang' => 'Risiko Sedang',
+      'tinggi' ||
+      'risiko_tinggi' ||
+      'amat_tinggi' ||
+      'risiko_amat_tinggi' => 'Risiko Tinggi',
+      _ => 'Risiko Belum Tersedia',
+    };
+  }
+
+  String _displayDate(String value) =>
+      value.trim().isEmpty || value == '-' ? 'Belum tersedia' : value;
 }

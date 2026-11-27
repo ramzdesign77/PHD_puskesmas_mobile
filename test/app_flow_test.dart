@@ -58,10 +58,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('KLINIK SANITASI'), findsOneWidget);
-    expect(find.text('Halo, Petugas Contoh, SKM'), findsOneWidget);
+    expect(find.text('Halo, Petugas Contoh'), findsOneWidget);
     expect(find.text('Beranda'), findsOneWidget);
-    expect(find.text('Tugas Aduan'), findsOneWidget);
-    expect(find.text('Input IKL'), findsOneWidget);
+    expect(find.text('Jadwal'), findsOneWidget);
+    expect(find.text('Riwayat'), findsOneWidget);
     expect(find.text('Profil'), findsOneWidget);
   });
 
