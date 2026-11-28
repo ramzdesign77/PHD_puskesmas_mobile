@@ -6,7 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_config.dart';
 import '../models/user_model.dart';
+import 'api_service.dart';
 import 'auth_token_storage.dart';
+import 'citizen_report_cache.dart';
+import 'tracking_filter_preferences.dart';
 import 'profile_service.dart';
 
 class AuthException implements Exception {
@@ -23,10 +26,12 @@ class AuthService {
     http.Client? client,
     Future<SharedPreferences> Function()? preferencesProvider,
     AuthTokenStore? tokenStore,
+    CitizenReportCache? reportCache,
   }) : _client = client ?? http.Client(),
        _preferencesProvider =
            preferencesProvider ?? SharedPreferences.getInstance,
-       _tokenStore = tokenStore ?? AuthTokenStorage();
+       _tokenStore = tokenStore ?? AuthTokenStorage(),
+       _reportCache = reportCache ?? CitizenReportCache.instance;
 
   static const rolesKey = 'auth_roles';
   static const sessionRoleKey = 'auth_role';
@@ -35,14 +40,20 @@ class AuthService {
   static const userVillageKey = 'auth_user_village';
   static const userRtKey = 'auth_user_rt';
   static const userRwKey = 'auth_user_rw';
+  static const accountIdKey = TrackingFilterPreferences.accountIdKey;
 
   final http.Client _client;
   final Future<SharedPreferences> Function() _preferencesProvider;
   final AuthTokenStore _tokenStore;
+  final CitizenReportCache _reportCache;
 
   Future<void> logout() async {
-    await _tokenStore.clearAuthentication();
     final preferences = await _preferencesProvider();
+    final accountId = preferences.getString(accountIdKey);
+    if (accountId != null && accountId.trim().isNotEmpty) {
+      await _reportCache.clearAccount(accountId);
+    }
+    await _tokenStore.clearAuthentication();
     await preferences.remove(rolesKey);
     await preferences.remove(sessionRoleKey);
     await preferences.remove(userNameKey);
@@ -50,7 +61,9 @@ class AuthService {
     await preferences.remove(userVillageKey);
     await preferences.remove(userRtKey);
     await preferences.remove(userRwKey);
+    await preferences.remove(accountIdKey);
     await ProfileService.clearForSession(preferences);
+    await ApiService.clearLegacyCitizenReportData(preferences);
   }
 
   Uri get _loginUri => _loginUriFor(versioned: true);
@@ -149,9 +162,16 @@ class AuthService {
       );
     }
 
-    await _tokenStore.clearAuthentication();
-    await _tokenStore.saveToken(user.token);
     final preferences = await _preferencesProvider();
+    final oldAccountId = preferences.getString(accountIdKey);
+    if (oldAccountId != null &&
+        oldAccountId.trim().isNotEmpty &&
+        oldAccountId != user.accountId) {
+      await _reportCache.clearAccount(oldAccountId);
+    }
+    await _tokenStore.clearAuthentication();
+    await ApiService.clearLegacyCitizenReportData(preferences);
+    await _tokenStore.saveToken(user.token);
     final sessionRole = user.roles.firstWhere(
       (role) => role == 'petugas' || role == 'admin',
       orElse: () => user.roles.first,
@@ -161,6 +181,9 @@ class AuthService {
       sessionRoleKey,
       sessionRole,
     );
+    final accountIdSaved = user.accountId == null
+        ? await preferences.remove(accountIdKey)
+        : await preferences.setString(accountIdKey, user.accountId!);
     final profileSaved = await ProfileService.replaceForSession(
       preferences,
       name: user.name ?? '',
@@ -173,7 +196,7 @@ class AuthService {
     await preferences.setString(userVillageKey, user.villageName ?? '');
     await preferences.setString(userRtKey, user.rt ?? '');
     await preferences.setString(userRwKey, user.rw ?? '');
-    if (!rolesSaved || !sessionRoleSaved || !profileSaved) {
+    if (!rolesSaved || !sessionRoleSaved || !accountIdSaved || !profileSaved) {
       await logout();
       throw const AuthException(
         'Sesi login tidak dapat disimpan di perangkat.',

@@ -35,67 +35,60 @@ void main() {
         ),
       ),
     );
-    await expectLater(
-      apiService.syncCitizenTicketsHistory(),
-      throwsA(
-        isA<ApiException>().having(
-          (error) => error.message,
-          'message',
-          contains('Periksa koneksi internet'),
-        ),
-      ),
-    );
   });
 
-  test('requests authenticated citizen report pages with combined filters', () async {
-    SharedPreferences.setMockInitialValues({'auth_token': 'citizen-token'});
-    final client = MockClient((request) async {
-      expect(request.method, 'GET');
-      expect(request.url.path, '/api/v1/laporan/history');
-      expect(request.url.queryParameters, {
-        'page': '2',
-        'per_page': '10',
-        'status': 'diproses',
-        'start_date': '2026-11-01',
-        'end_date': '2026-11-07',
+  test(
+    'requests authenticated citizen report pages with combined filters',
+    () async {
+      SharedPreferences.setMockInitialValues({'auth_token': 'citizen-token'});
+      final client = MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.path, '/api/v1/laporan/history');
+        expect(request.url.queryParameters, {
+          'page': '2',
+          'per_page': '10',
+          'status': 'diproses',
+          'start_date': '2026-11-01',
+          'end_date': '2026-11-07',
+        });
+        expect(request.headers['Authorization'], 'Bearer citizen-token');
+        return http.Response(
+          jsonEncode({
+            'data': [
+              {
+                'kode_tiket': 'IKL-20261101-0001',
+                'status_laporan': 'diproses',
+                'kategori_laporan': 'air_masalah',
+                'deskripsi': 'Air keruh.',
+              },
+            ],
+            'meta': {'current_page': 2, 'last_page': 4, 'per_page': 10},
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
       });
-      expect(request.headers['Authorization'], 'Bearer citizen-token');
-      return http.Response(
-        jsonEncode({
-          'data': [
-            {
-              'kode_tiket': 'IKL-20261101-0001',
-              'status_laporan': 'diproses',
-              'kategori_laporan': 'air_masalah',
-              'deskripsi': 'Air keruh.',
-            },
-          ],
-          'meta': {'current_page': 2, 'last_page': 4, 'per_page': 10},
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
+      final apiService = ApiService(
+        client: client,
+        tokenStore: MemoryAuthTokenStore(),
       );
-    });
-    final apiService = ApiService(
-      client: client,
-      tokenStore: MemoryAuthTokenStore(),
-    );
 
-    final result = await apiService.getCitizenReportsPage(
-      page: 2,
-      perPage: 10,
-      status: 'diproses',
-      startDate: '2026-11-01',
-      endDate: '2026-11-07',
-    );
+      final result = await apiService.getCitizenReportsPage(
+        page: 2,
+        perPage: 10,
+        status: 'diproses',
+        startDate: '2026-11-01',
+        endDate: '2026-11-07',
+      );
 
-    expect(result.currentPage, 2);
-    expect(result.lastPage, 4);
-    expect(result.reports, hasLength(1));
-    expect(result.reports.single.code, 'IKL-20261101-0001');
-    expect(result.reports.single.status, 'diproses');
-    client.close();
-  });
+      expect(result.currentPage, 2);
+      expect(result.lastPage, 4);
+      expect(result.reports, hasLength(1));
+      expect(result.reports.single.code, 'IKL-20261101-0001');
+      expect(result.reports.single.status, 'diproses');
+      client.close();
+    },
+  );
 
   test('rejects citizen report pages without pagination data', () async {
     SharedPreferences.setMockInitialValues({'auth_token': 'citizen-token'});
@@ -127,16 +120,20 @@ void main() {
     final apiService = ApiService(
       tokenStore: tokenStore,
       client: MockClient(
-        (_) async => http.Response(
-          jsonEncode({'message': 'Unauthenticated.'}),
-          401,
-        ),
+        (_) async =>
+            http.Response(jsonEncode({'message': 'Unauthenticated.'}), 401),
       ),
     );
 
     await expectLater(
       apiService.getCitizenReportsPage(page: 1),
-      throwsA(isA<ApiException>().having((error) => error.statusCode, 'statusCode', 401)),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.statusCode,
+          'statusCode',
+          401,
+        ),
+      ),
     );
 
     final preferences = await SharedPreferences.getInstance();
@@ -162,61 +159,21 @@ void main() {
     expect(preferences.getString('auth_token'), isNull);
   });
 
-  test('saved ticket and cached status lists are pruned to fifteen', () async {
-    final savedCodes = List.generate(20, (index) => 'TK-$index');
-    final statuses = [
-      for (final code in savedCodes) {'kode_tiket': code},
-    ];
+  test('removes legacy citizen report caches from SharedPreferences', () async {
     SharedPreferences.setMockInitialValues({
-      'saved_citizen_tickets': savedCodes,
-      'cached_citizen_ticket_statuses': jsonEncode(statuses),
+      'saved_citizen_tickets': ['TK-1'],
+      'cached_citizen_ticket_statuses': jsonEncode([
+        {'kode_tiket': 'TK-1'},
+      ]),
+      'citizen_ticket_cache_TK-1': jsonEncode({'kode_tiket': 'TK-1'}),
+      'theme_mode': 'dark',
     });
-    final apiService = ApiService(tokenStore: MemoryAuthTokenStore());
-
-    final restoredCodes = await apiService.getSavedCitizenTicketCodes();
-    final restoredStatuses = await apiService.getCachedCitizenTicketStatuses();
     final preferences = await SharedPreferences.getInstance();
 
-    expect(restoredCodes, hasLength(ApiService.maxSavedTickets));
-    expect(restoredCodes.first, 'TK-0');
-    expect(
-      preferences.getStringList('saved_citizen_tickets'),
-      hasLength(ApiService.maxSavedTickets),
-    );
-    expect(restoredStatuses, hasLength(ApiService.maxSavedTickets));
-    expect(
-      (jsonDecode(preferences.getString('cached_citizen_ticket_statuses')!)
-          as List),
-      hasLength(ApiService.maxSavedTickets),
-    );
+    await ApiService.clearLegacyCitizenReportData(preferences);
+
+    expect(preferences.getKeys(), {'theme_mode'});
   });
-
-  test(
-    'history sync requests fifteen rows and at most ten local codes',
-    () async {
-      final savedCodes = List.generate(20, (index) => 'TK-$index');
-      final client = MockClient((request) async {
-        expect(request.url.queryParameters['limit'], '15');
-        expect(
-          request.url.queryParameters['codes']!.split(','),
-          savedCodes.take(10).toList(),
-        );
-        return http.Response(jsonEncode({'data': []}), 200);
-      });
-      SharedPreferences.setMockInitialValues({
-        'saved_citizen_tickets': savedCodes,
-      });
-      final apiService = ApiService(
-        client: client,
-        tokenStore: MemoryAuthTokenStore(),
-      );
-
-      final merged = await apiService.syncCitizenTicketsHistory();
-
-      expect(merged, hasLength(ApiService.maxSavedTickets));
-      client.close();
-    },
-  );
 
   test('registers with the phone field expected by the API', () async {
     final client = MockClient((request) async {
@@ -313,14 +270,11 @@ void main() {
 
       expect(ticketCode, 'IKL-20261028-0001');
       final preferences = await SharedPreferences.getInstance();
-      expect(preferences.getStringList('saved_citizen_tickets'), [
-        'IKL-20261028-0001',
-      ]);
-      final cachedTicket = await apiService.getCachedTicketStatus(
-        'IKL-20261028-0001',
+      expect(preferences.containsKey('saved_citizen_tickets'), isFalse);
+      expect(
+        preferences.containsKey('cached_citizen_ticket_statuses'),
+        isFalse,
       );
-      expect(cachedTicket?.status, 'dikirim');
-      expect(cachedTicket?.description, 'Air keruh');
       client.close();
     });
 
@@ -352,27 +306,6 @@ void main() {
 
       expect(ticketCode, 'IKL-20261028-0002');
       client.close();
-    });
-
-    test('stores submitted codes newest-first without duplicates', () async {
-      final apiService = ApiService(
-        tokenStore: MemoryAuthTokenStore(),
-        client: MockClient((_) async {
-          return http.Response(
-            jsonEncode({'kode_tiket': 'IKL-20261028-0002'}),
-            201,
-          );
-        }),
-      );
-
-      await apiService.saveCitizenTicketCode('IKL-20261028-0001');
-      await apiService.submitReport({'deskripsi': 'Laporan terbaru'});
-      await apiService.saveCitizenTicketCode('IKL-20261028-0001');
-
-      expect(await apiService.getSavedCitizenTicketCodes(), [
-        'IKL-20261028-0001',
-        'IKL-20261028-0002',
-      ]);
     });
 
     test('surfaces validation errors from the laporan endpoint', () async {
@@ -505,24 +438,5 @@ void main() {
       expect(ticket.riskCategory, isNull);
       expect(ticket.riskScore, isNull);
     });
-  });
-
-  test('skips corrupt cached ticket entries and saved-code values', () async {
-    SharedPreferences.setMockInitialValues({
-      'saved_citizen_tickets': 'legacy-invalid-value',
-      'cached_citizen_ticket_statuses': jsonEncode([
-        null,
-        {
-          'status_laporan': ['invalid'],
-        },
-        {'kode_tiket': 'TK-VALID', 'status_laporan': 'dikirim'},
-      ]),
-    });
-    final apiService = ApiService();
-
-    expect(await apiService.getSavedCitizenTicketCodes(), isEmpty);
-    final cachedStatuses = await apiService.getCachedCitizenTicketStatuses();
-    expect(cachedStatuses, hasLength(1));
-    expect(cachedStatuses.single.code, 'TK-VALID');
   });
 }

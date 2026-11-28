@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:klinik_sanitasi_mobile/models/ticket_status.dart';
 import 'package:klinik_sanitasi_mobile/services/api_service.dart';
+import 'package:klinik_sanitasi_mobile/services/citizen_report_cache.dart';
 import 'package:klinik_sanitasi_mobile/views/public/tracking_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -23,6 +24,45 @@ class _FakeTrackingApiService extends ApiService {
   final Map<int, CitizenReportPage> pages = {};
   Object? pageError;
   Completer<CitizenReportPage>? pageCompleter;
+  final Map<int, CachedCitizenReportPage> cachedPages = {};
+  final Map<String, CachedCitizenReportDetail> cachedDetails = {};
+  final cachedPageRequests =
+      <
+        ({
+          String? accountId,
+          int page,
+          int perPage,
+          String? status,
+          String? startDate,
+          String? endDate,
+        })
+      >[];
+
+  @override
+  Future<CachedCitizenReportPage?> getCachedCitizenReportsPage({
+    required String? accountId,
+    required int page,
+    int perPage = 10,
+    String? status,
+    String? startDate,
+    String? endDate,
+  }) async {
+    cachedPageRequests.add((
+      accountId: accountId,
+      page: page,
+      perPage: perPage,
+      status: status,
+      startDate: startDate,
+      endDate: endDate,
+    ));
+    return cachedPages[page];
+  }
+
+  @override
+  Future<CachedCitizenReportDetail?> getCachedTicketDetail({
+    required String? accountId,
+    required String code,
+  }) async => cachedDetails[code];
 
   @override
   Future<CitizenReportPage> getCitizenReportsPage({
@@ -44,10 +84,6 @@ class _FakeTrackingApiService extends ApiService {
     return pages[page] ??
         (reports: const <TicketStatus>[], currentPage: page, lastPage: page);
   }
-
-  @override
-  Future<List<String>> syncCitizenTicketsHistory() async =>
-      getSavedCitizenTicketCodes();
 
   @override
   Future<TicketStatus> getTicket(String code) async {
@@ -78,12 +114,6 @@ class _OfflineTrackingApiService extends _FakeTrackingApiService {
 
 class _InspectionTrackingApiService extends _FakeTrackingApiService {
   bool inspected = false;
-
-  @override
-  Future<List<String>> syncCitizenTicketsHistory() async => [];
-
-  @override
-  Future<List<String>> getSavedCitizenTicketCodes() async => [];
 
   @override
   Future<TicketStatus> getTicket(String code) async => TicketStatus.fromJson({
@@ -289,6 +319,8 @@ void main() {
   testWidgets('status and date filters combine and reset to the first page', (
     WidgetTester tester,
   ) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString('auth_account_id', 'citizen-1');
     final apiService = _FakeTrackingApiService()
       ..pages[1] = (reports: [_ticket(1)], currentPage: 1, lastPage: 1);
 
@@ -310,6 +342,10 @@ void main() {
     expect(apiService.pageRequests.last.page, 1);
     expect(apiService.pageRequests.last.perPage, 10);
     expect(apiService.pageRequests.last.status, 'diproses');
+    expect(
+      preferences.getString('tracking_filter_citizen-1'),
+      contains('"status":"diproses"'),
+    );
     expect(apiService.pageRequests.last.startDate, isNotNull);
     expect(
       apiService.pageRequests.last.startDate,
@@ -324,7 +360,34 @@ void main() {
     expect(apiService.pageRequests.last.status, isNull);
     expect(apiService.pageRequests.last.startDate, isNull);
     expect(apiService.pageRequests.last.endDate, isNull);
+    expect(
+      preferences.getString('tracking_filter_citizen-1'),
+      contains('"date_filter":"all"'),
+    );
     expect(find.text('Filter aktif'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('restores filters scoped to the signed-in account', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'auth_account_id': 'citizen-1',
+      'tracking_filter_citizen-1':
+          '{"status":"dikirim","date_filter":"last7Days"}',
+      'tracking_filter_citizen-2': '{"status":"ditolak","date_filter":"today"}',
+    });
+    final apiService = _FakeTrackingApiService();
+
+    await tester.pumpWidget(
+      MaterialApp(home: TrackingView(apiService: apiService)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(apiService.pageRequests.single.status, 'dikirim');
+    expect(apiService.pageRequests.single.startDate, isNotNull);
+    expect(apiService.pageRequests.single.endDate, isNotNull);
+    expect(find.text('Filter aktif'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -350,6 +413,89 @@ void main() {
     await tester.pumpAndSettle();
     expect(apiService.syncCount, 2);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('offline tracking shows the matching filtered SQLite cache', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'auth_account_id': 'citizen-1',
+      'tracking_filter_citizen-1':
+          '{"status":"diproses","date_filter":"last7Days"}',
+    });
+    final apiService = _OfflineTrackingApiService()
+      ..cachedPages[1] = CachedCitizenReportPage(
+        reports: [_ticket(21)],
+        currentPage: 1,
+        lastPage: 1,
+        syncedAt: DateTime(2026, 11, 27, 8),
+      );
+
+    await tester.pumpWidget(
+      MaterialApp(home: TrackingView(apiService: apiService)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(apiService.cachedPageRequests.single.accountId, 'citizen-1');
+    expect(apiService.cachedPageRequests.single.status, 'diproses');
+    expect(apiService.cachedPageRequests.single.startDate, isNotNull);
+    expect(apiService.cachedPageRequests.single.endDate, isNotNull);
+    await tester.scrollUntilVisible(
+      find.text('TK-21'),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('TK-21'), findsOneWidget);
+    expect(
+      find.byKey(const Key('tracking_cached_data_notice')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Sebagian status belum dapat diperbarui'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('offline ticket lookup restores a previously opened detail', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'auth_account_id': 'citizen-1'});
+    final apiService = _OfflineTrackingApiService()
+      ..cachedDetails['TK-DETAIL'] = CachedCitizenReportDetail(
+        report: TicketStatus(
+          code: 'TK-DETAIL',
+          status: 'diproses',
+          category: 'air_masalah',
+          description: 'Laporan 31',
+          village: 'Desa Sehat',
+          rt: '02',
+          rw: '04',
+          createdAt: '2026-10-29',
+        ),
+        syncedAt: DateTime(2026, 11, 27, 8),
+      );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TrackingView(
+          apiService: apiService,
+          initialTicketCode: 'TK-DETAIL',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('TK-DETAIL'), findsNWidgets(2));
+    expect(
+      find.byKey(const Key('tracking_cached_data_notice')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Sebagian status belum dapat diperbarui'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('empty history can open the report tab', (

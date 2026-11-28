@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,7 +12,9 @@ import '../models/education_article.dart';
 import '../models/ticket_status.dart';
 import '../models/village.dart';
 import 'auth_token_storage.dart';
+import 'citizen_report_cache.dart';
 import 'profile_service.dart';
+import 'tracking_filter_preferences.dart';
 
 class ApiException implements Exception {
   const ApiException(
@@ -35,14 +38,17 @@ typedef CitizenReportPage = ({
 });
 
 class ApiService {
-  ApiService({http.Client? client, AuthTokenStore? tokenStore})
-    : _client = client ?? http.Client(),
-      _tokenStore = tokenStore ?? AuthTokenStorage();
-
-  static const int maxSavedTickets = 15;
+  ApiService({
+    http.Client? client,
+    AuthTokenStore? tokenStore,
+    CitizenReportCache? reportCache,
+  }) : _client = client ?? http.Client(),
+       _tokenStore = tokenStore ?? AuthTokenStorage(),
+       _reportCache = reportCache ?? CitizenReportCache.instance;
 
   final http.Client _client;
   final AuthTokenStore _tokenStore;
+  final CitizenReportCache _reportCache;
   static const _roleKey = 'auth_role';
   static const _userNameKey = 'auth_user_name';
   static const _userPhoneKey = 'auth_user_phone';
@@ -50,6 +56,7 @@ class ApiService {
   static const _userRtKey = 'auth_user_rt';
   static const _userRwKey = 'auth_user_rw';
   static const _rolesKey = 'auth_roles';
+  static const _accountIdKey = TrackingFilterPreferences.accountIdKey;
   static const _savedCitizenTicketsKey = 'saved_citizen_tickets';
   static const _ticketCachePrefix = 'citizen_ticket_cache_';
   static const _cachedCitizenTicketStatusesKey =
@@ -172,9 +179,9 @@ class ApiService {
 
   Future<http.StreamedResponse> _send(http.BaseRequest request) async {
     try {
-      final response = await _client.send(request).timeout(
-        const Duration(seconds: 8),
-      );
+      final response = await _client
+          .send(request)
+          .timeout(const Duration(seconds: 8));
       await _invalidateExpiredSession(
         http.Response('', response.statusCode),
         request.headers['Authorization'],
@@ -205,10 +212,17 @@ class ApiService {
     final requestToken = authorization.substring('Bearer '.length);
     if (await _tokenStore.getToken() != requestToken) return;
     try {
-      await clearSavedSession(tokenStore: _tokenStore);
+      await clearSavedSession(
+        tokenStore: _tokenStore,
+        reportCache: _reportCache,
+      );
     } on AuthTokenStorageException {
       throw const ApiException(
         'Sesi berakhir, tetapi token lokal tidak dapat dihapus.',
+      );
+    } on Exception catch (error) {
+      throw ApiException(
+        'Sesi berakhir, tetapi cache lokal gagal dibersihkan: $error',
       );
     }
   }
@@ -221,8 +235,9 @@ class ApiService {
     String? fallbackEmail,
     String? fallbackPhone,
   }) async {
-    final data = response['data'] as Map<String, dynamic>?;
-    final token = response['token'] as String? ?? data?['token'] as String?;
+    final responseData = response['data'] as Map<String, dynamic>?;
+    final token =
+        response['token'] as String? ?? responseData?['token'] as String?;
     if (token == null || token.isEmpty) {
       throw const ApiException('Token login tidak diterima server.');
     }
@@ -233,10 +248,29 @@ class ApiService {
         _firstNonEmptyString([user['nama_lengkap'], user['name']]) ??
         fallbackName?.trim() ??
         '';
-    await clearSavedSession(tokenStore: _tokenStore);
+    final accountId = _firstNonEmptyString([
+      user['id'],
+      user['account_id'],
+      user['id_user'],
+      user['user_id'],
+      responseData?['id'],
+      responseData?['account_id'],
+      responseData?['user_id'],
+      response['user_id'],
+      response['id'],
+      response['account_id'],
+    ]);
+    await clearSavedSession(
+      tokenStore: _tokenStore,
+      reportCache: _reportCache,
+      preserveAccountId: accountId,
+    );
     await _tokenStore.saveToken(token);
     final preferences = await SharedPreferences.getInstance();
     final roleSaved = await preferences.setString(_roleKey, role);
+    final accountIdSaved = accountId == null
+        ? await preferences.remove(_accountIdKey)
+        : await preferences.setString(_accountIdKey, accountId);
     await preferences.setString(
       _userPhoneKey,
       _firstNonEmptyString([
@@ -273,7 +307,7 @@ class ApiService {
       username:
           _firstNonEmptyString([user['username']]) ?? fallbackUsername?.trim(),
     );
-    if (!roleSaved || !profileSaved) {
+    if (!roleSaved || !accountIdSaved || !profileSaved) {
       await clearSavedSession(tokenStore: _tokenStore);
       throw const ApiException(
         'Sesi login tidak dapat disimpan pada perangkat.',
@@ -286,12 +320,14 @@ class ApiService {
   String? _firstNonEmptyString(Iterable<Object?> values) {
     for (final value in values) {
       if (value is String && value.trim().isNotEmpty) return value.trim();
+      if (value is int && value > 0) return value.toString();
     }
     return null;
   }
 
   Future<AuthSession?> loadSavedSession() async {
     final preferences = await SharedPreferences.getInstance();
+    await clearLegacyCitizenReportData(preferences);
     final token = await _tokenStore.getToken();
     if (token == null || token.isEmpty) return null;
 
@@ -303,15 +339,30 @@ class ApiService {
       villageName: preferences.getString(_userVillageKey),
       rt: preferences.getString(_userRtKey),
       rw: preferences.getString(_userRwKey),
+      accountId: preferences.getString(_accountIdKey),
     );
   }
 
-  static Future<void> clearSavedSession({AuthTokenStore? tokenStore}) async {
-    await (tokenStore ?? AuthTokenStorage()).clearAuthentication();
+  static Future<void> clearSavedSession({
+    AuthTokenStore? tokenStore,
+    CitizenReportCache? reportCache,
+    String? preserveAccountId,
+  }) async {
     final preferences = await SharedPreferences.getInstance();
+    final oldAccountId = preferences.getString(_accountIdKey);
+    if (oldAccountId != null &&
+        oldAccountId.isNotEmpty &&
+        oldAccountId != preserveAccountId) {
+      await (reportCache ?? CitizenReportCache.instance).clearAccount(
+        oldAccountId,
+      );
+    }
+    await (tokenStore ?? AuthTokenStorage()).clearAuthentication();
     await preferences.remove(_roleKey);
     await ProfileService.clearForSession(preferences);
     await preferences.remove(_rolesKey);
+    await preferences.remove(_accountIdKey);
+    await clearLegacyCitizenReportData(preferences);
     await preferences.remove(_userPhoneKey);
     await preferences.remove(_userVillageKey);
     await preferences.remove(_userRtKey);
@@ -449,28 +500,6 @@ class ApiService {
       );
     }
     final normalizedTicketCode = ticketCode.trim();
-    await saveCitizenTicketCode(normalizedTicketCode);
-    final responseData = body['data'] as Map<String, dynamic>? ?? const {};
-    await cacheTicketStatus(
-      TicketStatus.fromJson({
-        ...responseData,
-        'kode_tiket': normalizedTicketCode,
-        'status_laporan': responseData['status_laporan'] ?? 'dikirim',
-        'kategori_laporan':
-            responseData['kategori_laporan'] ??
-            reportData['kategori_laporan']?.toString() ??
-            '',
-        'deskripsi':
-            responseData['deskripsi'] ??
-            reportData['deskripsi']?.toString() ??
-            '',
-        'nama_pelapor':
-            responseData['nama_pelapor'] ??
-            reportData['nama_pelapor']?.toString(),
-        'rt': responseData['rt'] ?? reportData['rt']?.toString() ?? '-',
-        'rw': responseData['rw'] ?? reportData['rw']?.toString() ?? '-',
-      }),
-    );
     return normalizedTicketCode;
   }
 
@@ -488,8 +517,48 @@ class ApiService {
           ? responseCode
           : code,
     });
-    await cacheTicketStatus(ticket);
+    try {
+      final accountId = await _currentAccountId();
+      if (accountId != null) {
+        await _reportCache.saveDetail(accountId: accountId, report: ticket);
+      }
+    } on Exception catch (error) {
+      debugPrint('Detail laporan tidak dapat disimpan ke cache lokal: $error');
+    }
     return ticket;
+  }
+
+  Future<CachedCitizenReportDetail?> getCachedTicketDetail({
+    required String? accountId,
+    required String code,
+  }) async {
+    if (accountId == null || accountId.trim().isEmpty) {
+      return null;
+    }
+    if (await _currentAccountId() != accountId) return null;
+    return _reportCache.readDetail(accountId: accountId, code: code);
+  }
+
+  Future<CachedCitizenReportPage?> getCachedCitizenReportsPage({
+    required String? accountId,
+    required int page,
+    int perPage = 10,
+    String? status,
+    String? startDate,
+    String? endDate,
+  }) async {
+    if (accountId == null || accountId.trim().isEmpty) {
+      return null;
+    }
+    if (await _currentAccountId() != accountId) return null;
+    return _reportCache.readPage(
+      accountId: accountId,
+      page: page,
+      perPage: perPage,
+      status: status,
+      startDate: startDate,
+      endDate: endDate,
+    );
   }
 
   Future<CitizenReportPage> getCitizenReportsPage({
@@ -505,7 +574,9 @@ class ApiService {
 
     final token = (await _tokenStore.getToken())?.trim();
     if (token == null || token.isEmpty) {
-      throw const ApiException('Sesi pengguna tidak ditemukan. Silakan masuk kembali.');
+      throw const ApiException(
+        'Sesi pengguna tidak ditemukan. Silakan masuk kembali.',
+      );
     }
 
     final uri = _endpoint('v1/laporan/history').replace(
@@ -519,10 +590,7 @@ class ApiService {
     );
     final response = await _get(
       uri,
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
     final body = _decode(response);
     final payload = body['data'];
@@ -572,11 +640,38 @@ class ApiService {
             ? currentPage + 1
             : currentPage);
 
-    return (
+    final result = (
       reports: reports,
       currentPage: currentPage,
       lastPage: lastPage < currentPage ? currentPage : lastPage,
     );
+    try {
+      final accountId = await _currentAccountId();
+      if (accountId != null) {
+        await _reportCache.savePage(
+          accountId: accountId,
+          page: page,
+          perPage: perPage,
+          status: status,
+          startDate: startDate,
+          endDate: endDate,
+          currentPage: result.currentPage,
+          lastPage: result.lastPage,
+          reports: result.reports,
+        );
+      }
+    } on Exception catch (error) {
+      debugPrint('Halaman laporan tidak dapat disimpan ke cache lokal: $error');
+    }
+    return result;
+  }
+
+  Future<String?> _currentAccountId() async {
+    final token = (await _tokenStore.getToken())?.trim();
+    if (token == null || token.isEmpty) return null;
+    final preferences = await SharedPreferences.getInstance();
+    final accountId = preferences.getString(_accountIdKey)?.trim();
+    return accountId == null || accountId.isEmpty ? null : accountId;
   }
 
   int? _paginationInt(Object? value) {
@@ -584,242 +679,26 @@ class ApiService {
     return value is String ? int.tryParse(value) : null;
   }
 
-  Future<List<String>> getSavedCitizenTicketCodes() async {
-    final preferences = await SharedPreferences.getInstance();
-    final stored = preferences.get(_savedCitizenTicketsKey);
-    if (stored == null) return const [];
-    if (stored is! List) {
-      await preferences.remove(_savedCitizenTicketsKey);
-      return const [];
-    }
-
-    final codes = stored
-        .whereType<String>()
-        .map((code) => code.trim())
-        .where((code) => code.isNotEmpty)
-        .take(maxSavedTickets)
-        .toList();
-    if (stored.length > maxSavedTickets &&
-        !await preferences.setStringList(_savedCitizenTicketsKey, codes)) {
-      throw const ApiException('Riwayat tiket tidak dapat dirapikan.');
-    }
-    return codes;
-  }
-
-  Future<List<String>> getSavedCitizenTickets() => getSavedCitizenTicketCodes();
-
-  Future<List<TicketStatus>> getCachedCitizenTicketStatuses() async {
-    final preferences = await SharedPreferences.getInstance();
-    final stored = preferences.get(_cachedCitizenTicketStatusesKey);
-    if (stored is! String || stored.isEmpty) {
-      if (stored != null) {
-        await preferences.remove(_cachedCitizenTicketStatusesKey);
-      }
-      final codes = await getSavedCitizenTicketCodes();
-      final statuses = <TicketStatus>[];
-      for (final code in codes) {
-        try {
-          final status = await getCachedTicketStatus(code);
-          if (status != null && !statuses.any((item) => item.code == code)) {
-            statuses.add(status);
-          }
-        } on ApiException {
-          continue;
-        }
-      }
-      return statuses.take(maxSavedTickets).toList(growable: false);
-    }
-
-    dynamic decoded;
-    try {
-      decoded = jsonDecode(stored);
-    } on FormatException {
-      await preferences.remove(_cachedCitizenTicketStatusesKey);
-      return const [];
-    }
-    if (decoded is! List) {
-      await preferences.remove(_cachedCitizenTicketStatusesKey);
-      return const [];
-    }
-
-    final statuses = <TicketStatus>[];
-    for (final item in decoded.take(maxSavedTickets)) {
-      if (item is! Map) continue;
-      final json = <String, dynamic>{
-        for (final entry in item.entries)
-          if (entry.key is String) entry.key as String: entry.value,
-      };
-      final status = TicketStatus.fromJson(json);
-      if (status.code.trim().isNotEmpty) statuses.add(status);
-    }
-    final boundedStatuses = statuses.take(maxSavedTickets).toList();
-    if (decoded.length > maxSavedTickets) {
-      final saved = await preferences.setString(
-        _cachedCitizenTicketStatusesKey,
-        jsonEncode(boundedStatuses.map((status) => status.toJson()).toList()),
-      );
-      if (!saved) {
-        throw const ApiException('Cache riwayat tiket tidak dapat dirapikan.');
-      }
-    }
-    return boundedStatuses;
-  }
-
-  Future<List<String>> syncCitizenTicketsHistory() async {
-    final preferences = await SharedPreferences.getInstance();
-    final localCodes = await getSavedCitizenTicketCodes();
-    final requestedCodes = localCodes.take(10).toList(growable: false);
-    final token = (await _tokenStore.getToken())?.trim();
-    final uri = _endpoint('v1/laporan/history').replace(
-      queryParameters: {
-        'limit': '$maxSavedTickets',
-        if (requestedCodes.isNotEmpty) 'codes': requestedCodes.join(','),
-      },
-    );
-
-    try {
-      final response = await _get(
-        uri,
-        headers: {
-          'Accept': 'application/json',
-          if (token != null && token.isNotEmpty)
-            'Authorization': 'Bearer $token',
-        },
-      );
-      final body = _decode(response);
-      final payload = body['data'] ?? body['history'] ?? body['laporan'];
-      final rows = payload is List
-          ? payload
-          : payload is Map
-          ? (payload['data'] is List
-                ? payload['data'] as List<dynamic>
-                : <dynamic>[])
-          : <dynamic>[];
-
-      final serverStatuses = <TicketStatus>[];
-      for (final row in rows.take(maxSavedTickets)) {
-        if (row is! Map) continue;
-        final map = Map<String, dynamic>.from(row);
-        final ticket = TicketStatus.fromJson(map);
-        final code = ticket.code.trim();
-        if (code.isNotEmpty) {
-          serverStatuses.add(ticket);
-        }
-      }
-
-      final cachedStatuses = await getCachedCitizenTicketStatuses();
-      final statusesByCode = <String, TicketStatus>{
-        for (final ticket in cachedStatuses) ticket.code: ticket,
-        for (final ticket in serverStatuses) ticket.code: ticket,
-      };
-      final orderedCodes = <String>{
-        ...serverStatuses.map((ticket) => ticket.code),
-        ...cachedStatuses.map((ticket) => ticket.code),
-      }.take(maxSavedTickets);
-      final boundedStatuses = [
-        for (final code in orderedCodes)
-          if (statusesByCode[code] != null) statusesByCode[code]!,
-      ];
-      final merged = <String>{
-        ...serverStatuses.map((ticket) => ticket.code),
-        ...localCodes,
-      }.take(maxSavedTickets).toList(growable: false);
-      final savedCodes = await preferences.setStringList(
-        _savedCitizenTicketsKey,
-        merged,
-      );
-      final savedStatuses = await preferences.setString(
-        _cachedCitizenTicketStatusesKey,
-        jsonEncode(boundedStatuses.map((ticket) => ticket.toJson()).toList()),
-      );
-      if (!savedCodes || !savedStatuses) {
+  static Future<void> clearLegacyCitizenReportData(
+    SharedPreferences preferences,
+  ) async {
+    final legacyKeys = preferences
+        .getKeys()
+        .where(
+          (key) =>
+              key == _savedCitizenTicketsKey ||
+              key == _cachedCitizenTicketStatusesKey ||
+              key.startsWith(_ticketCachePrefix),
+        )
+        .toList(growable: false);
+    for (final key in legacyKeys) {
+      if (!await preferences.remove(key)) {
         throw const ApiException(
-          'Riwayat tiket tidak dapat disimpan ke cache.',
+          'Data laporan lokal lama tidak dapat dihapus.',
         );
       }
-      return merged;
-    } on ApiException {
-      rethrow;
-    } on Exception catch (error) {
-      throw ApiException('Riwayat laporan tidak dapat dimuat: $error');
     }
   }
-
-  Future<void> saveCitizenTicketCode(String code) async {
-    final normalizedCode = code.trim();
-    if (normalizedCode.isEmpty) {
-      throw const ApiException('Kode tiket tidak boleh kosong.');
-    }
-
-    final preferences = await SharedPreferences.getInstance();
-    final savedCodes = await getSavedCitizenTicketCodes();
-    final updatedCodes = [
-      normalizedCode,
-      ...savedCodes.where(
-        (savedCode) => savedCode.toLowerCase() != normalizedCode.toLowerCase(),
-      ),
-    ].take(maxSavedTickets).toList(growable: false);
-    if (!await preferences.setStringList(
-      _savedCitizenTicketsKey,
-      updatedCodes,
-    )) {
-      throw const ApiException('Riwayat tiket tidak dapat disimpan.');
-    }
-  }
-
-  Future<TicketStatus?> getCachedTicketStatus(String code) async {
-    final preferences = await SharedPreferences.getInstance();
-    final cacheKey = _ticketCacheKey(code);
-    final stored = preferences.get(cacheKey);
-    if (stored == null) return null;
-    if (stored is! String) {
-      await preferences.remove(cacheKey);
-      return null;
-    }
-
-    try {
-      final decoded = jsonDecode(stored);
-      if (decoded is! Map) {
-        await preferences.remove(cacheKey);
-        return null;
-      }
-      final ticket = TicketStatus.fromJson({
-        for (final entry in decoded.entries)
-          if (entry.key is String) entry.key as String: entry.value,
-      });
-      return ticket.code.trim().isEmpty ? null : ticket;
-    } on FormatException {
-      await preferences.remove(cacheKey);
-      return null;
-    }
-  }
-
-  Future<void> cacheTicketStatus(TicketStatus ticket) async {
-    final preferences = await SharedPreferences.getInstance();
-    final saved = await preferences.setString(
-      _ticketCacheKey(ticket.code),
-      jsonEncode(ticket.toJson()),
-    );
-    if (!saved) {
-      throw const ApiException('Status tiket tidak dapat disimpan ke cache.');
-    }
-
-    final statuses = await getCachedCitizenTicketStatuses();
-    final updated = [
-      ticket,
-      ...statuses.where((status) => status.code != ticket.code),
-    ].take(maxSavedTickets).toList(growable: false);
-    final savedStatuses = await preferences.setString(
-      _cachedCitizenTicketStatusesKey,
-      jsonEncode(updated.map((status) => status.toJson()).toList()),
-    );
-    if (!savedStatuses) {
-      throw const ApiException('Status tiket tidak dapat disimpan ke cache.');
-    }
-  }
-
-  String _ticketCacheKey(String code) =>
-      '$_ticketCachePrefix${Uri.encodeComponent(code)}';
 
   Uri _endpoint(String path) => _baseUri.resolve(path);
 
@@ -875,6 +754,7 @@ class AuthSession {
     this.villageName,
     this.rt,
     this.rw,
+    this.accountId,
   });
 
   final String token;
@@ -884,4 +764,5 @@ class AuthSession {
   final String? villageName;
   final String? rt;
   final String? rw;
+  final String? accountId;
 }

@@ -10,6 +10,7 @@ class UserModel {
     this.rw,
     this.username,
     this.avatarUrl,
+    this.accountId,
   });
 
   final String token;
@@ -22,6 +23,7 @@ class UserModel {
   final String? rw;
   final String? username;
   final String? avatarUrl;
+  final String? accountId;
 
   factory UserModel.fromLoginJson(Map<String, dynamic> json) {
     final data = _asMap(json['data']) ?? json;
@@ -90,6 +92,18 @@ class UserModel {
       username: _stringOrNull(
         user['username'] ?? data['username'] ?? json['username'],
       ),
+      accountId: _accountId(
+        user['id'] ??
+            user['account_id'] ??
+            user['id_user'] ??
+            user['user_id'] ??
+            data['id'] ??
+            data['account_id'] ??
+            data['user_id'] ??
+            json['id'] ??
+            json['account_id'] ??
+            json['user_id'],
+      ),
     );
   }
 
@@ -128,17 +142,25 @@ class UserModel {
         .map(_roleName)
         .whereType<String>()
         .expand((role) => role.split(','))
-        .map((role) => switch (role.trim().toLowerCase()) {
-          'sanitarian' || 'staf_backup_kluster4' => 'petugas',
-          'kepala_puskesmas' => 'admin',
-          final normalized => normalized,
-        })
+        .map(
+          (role) => switch (role.trim().toLowerCase()) {
+            'sanitarian' || 'staf_backup_kluster4' => 'petugas',
+            'kepala_puskesmas' => 'admin',
+            final normalized => normalized,
+          },
+        )
         .where((role) => role.isNotEmpty)
         .toSet()
         .toList(growable: false);
   }
 
   static String? _stringOrNull(Object? value) => value is String ? value : null;
+
+  static String? _accountId(Object? value) {
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    if (value is int && value > 0) return value.toString();
+    return null;
+  }
 
   static String? _roleName(Object? value) {
     if (value is String) return value;

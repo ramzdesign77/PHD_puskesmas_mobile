@@ -24,6 +24,7 @@ void main() {
           'data': {
             'token': 'access-token',
             'user': {
+              'id': 42,
               'name': 'Warga Contoh',
               'roles': ['WARGA'],
             },
@@ -49,12 +50,14 @@ void main() {
       'password': 'secret',
     });
     expect(user.token, 'access-token');
+    expect(user.accountId, '42');
     expect(user.roles, ['warga']);
     expect(tokenStore.token, 'access-token');
     expect(preferences.getString(AuthTokenStorage.legacyTokenKey), isNull);
     expect(preferences.getStringList(AuthService.rolesKey), ['warga']);
     expect(preferences.getString(AuthService.sessionRoleKey), 'warga');
     expect(preferences.getString(AuthService.userNameKey), 'Warga Contoh');
+    expect(preferences.getString(AuthService.accountIdKey), '42');
   });
 
   test('posts username credentials using the username field', () async {
@@ -189,31 +192,36 @@ void main() {
     expect(preferences.getString('auth_user_email'), isEmpty);
   });
 
-  test('login surfaces secure storage failures without saving a plain token', () async {
-    SharedPreferences.setMockInitialValues({});
-    final tokenStore = MemoryAuthTokenStore()..failWrites = true;
-    final authService = AuthService(
-      tokenStore: tokenStore,
-      client: MockClient(
-        (_) async => http.Response(
-          jsonEncode({
-            'data': {
-              'token': 'access-token',
-              'user': {'roles': ['warga']},
-            },
-          }),
-          200,
+  test(
+    'login surfaces secure storage failures without saving a plain token',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final tokenStore = MemoryAuthTokenStore()..failWrites = true;
+      final authService = AuthService(
+        tokenStore: tokenStore,
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'data': {
+                'token': 'access-token',
+                'user': {
+                  'roles': ['warga'],
+                },
+              },
+            }),
+            200,
+          ),
         ),
-      ),
-    );
+      );
 
-    await expectLater(
-      authService.login(identifier: 'warga', password: 'secret'),
-      throwsA(isA<AuthTokenStorageException>()),
-    );
-    final preferences = await SharedPreferences.getInstance();
-    expect(preferences.getString(AuthTokenStorage.legacyTokenKey), isNull);
-  });
+      await expectLater(
+        authService.login(identifier: 'warga', password: 'secret'),
+        throwsA(isA<AuthTokenStorageException>()),
+      );
+      final preferences = await SharedPreferences.getInstance();
+      expect(preferences.getString(AuthTokenStorage.legacyTokenKey), isNull);
+    },
+  );
 
   test(
     'reports whether token or role is missing from login response',

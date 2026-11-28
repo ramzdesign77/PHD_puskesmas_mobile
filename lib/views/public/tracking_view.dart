@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../../constants/app_colors.dart';
 import '../../models/ticket_status.dart';
 import '../../services/api_service.dart';
+import '../../services/citizen_report_cache.dart';
+import '../../services/tracking_filter_preferences.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_page_header.dart';
 
@@ -32,8 +34,10 @@ enum _ReportDateFilter { all, today, last7Days, last30Days, custom }
 class _TrackingViewState extends State<TrackingView> {
   final _ticketController = TextEditingController();
   final _scrollController = ScrollController();
+  final _filterPreferences = TrackingFilterPreferences();
   List<TicketStatus> _tickets = [];
   String? _selectedCode;
+  String? _accountId;
   String? _selectedStatus;
   _ReportDateFilter _selectedDateFilter = _ReportDateFilter.all;
   DateTimeRange? _customDateRange;
@@ -41,6 +45,9 @@ class _TrackingViewState extends State<TrackingView> {
   bool _isRefreshing = false;
   bool _isSearching = false;
   bool _isLoadingMore = false;
+  bool _filtersInitialized = false;
+  bool _isShowingCachedData = false;
+  DateTime? _cacheSyncedAt;
   String? _error;
   String? _loadMoreError;
   int _currentPage = 1;
@@ -64,7 +71,7 @@ class _TrackingViewState extends State<TrackingView> {
     _scrollController.addListener(_handleScroll);
     _selectedCode = _normalizedCode(widget.initialTicketCode);
     if (_selectedCode != null) _ticketController.text = _selectedCode!;
-    if (widget.isActive) _loadHistory(preferredCode: _selectedCode);
+    if (widget.isActive) _initializeTracking();
   }
 
   @override
@@ -78,7 +85,13 @@ class _TrackingViewState extends State<TrackingView> {
       if (widget.isActive) _loadHistory(preferredCode: newCode);
       return;
     }
-    if (widget.isActive && !oldWidget.isActive) _refresh();
+    if (widget.isActive && !oldWidget.isActive) {
+      if (_filtersInitialized) {
+        _refresh();
+      } else {
+        _initializeTracking();
+      }
+    }
   }
 
   String? _normalizedCode(String? code) {
@@ -86,6 +99,72 @@ class _TrackingViewState extends State<TrackingView> {
     return normalized == null || normalized.isEmpty
         ? null
         : normalized.toUpperCase();
+  }
+
+  Future<void> _initializeTracking() async {
+    try {
+      _accountId = await _filterPreferences.loadAccountId();
+      if (_accountId != null) {
+        final settings = await _filterPreferences.load(_accountId!);
+        if (settings != null && mounted) {
+          setState(() {
+            _selectedStatus = settings.status;
+            _selectedDateFilter = _dateFilterFromString(settings.dateFilter);
+            final start = DateTime.tryParse(settings.startDate ?? '');
+            final end = DateTime.tryParse(settings.endDate ?? '');
+            if (start != null && end != null && !start.isAfter(end)) {
+              _customDateRange = DateTimeRange(
+                start: DateUtils.dateOnly(start),
+                end: DateUtils.dateOnly(end),
+              );
+            }
+          });
+        }
+      }
+    } on Exception catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Preferensi filter tidak dapat dibaca: $error'),
+          ),
+        );
+      }
+    }
+    _filtersInitialized = true;
+    if (mounted && widget.isActive) {
+      _loadHistory(preferredCode: _selectedCode);
+    }
+  }
+
+  _ReportDateFilter _dateFilterFromString(String dateFilter) =>
+      switch (dateFilter) {
+        'today' => _ReportDateFilter.today,
+        'last7Days' => _ReportDateFilter.last7Days,
+        'last30Days' => _ReportDateFilter.last30Days,
+        'custom' => _ReportDateFilter.custom,
+        _ => _ReportDateFilter.all,
+      };
+
+  Future<void> _saveFilterPreferences() async {
+    if (_accountId == null) return;
+    final dateRange = _customDateRange;
+    try {
+      await _filterPreferences.save(
+        _accountId!,
+        status: _selectedStatus,
+        dateFilter: _selectedDateFilter.name,
+        startDate: dateRange == null ? null : _formatDate(dateRange.start),
+        endDate: dateRange == null ? null : _formatDate(dateRange.end),
+      );
+    } on Exception catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Preferensi filter tidak dapat disimpan: $error'),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -109,41 +188,112 @@ class _TrackingViewState extends State<TrackingView> {
       _lastPage = 1;
       _error = null;
       _loadMoreError = null;
+      _isShowingCachedData = false;
+      _cacheSyncedAt = null;
     });
 
     try {
+      final status = _selectedStatus;
       final dateRange = _selectedDateRange;
+      TicketStatus? cachedPreferredDetail;
       if (dateRange != null && dateRange.start.isAfter(dateRange.end)) {
         throw const ApiException(
           'Tanggal mulai tidak boleh melebihi tanggal akhir.',
         );
       }
 
+      CachedCitizenReportPage? cachedPage;
+      try {
+        cachedPage = await widget.apiService.getCachedCitizenReportsPage(
+          accountId: _accountId,
+          page: 1,
+          perPage: _perPage,
+          status: status,
+          startDate: dateRange == null ? null : _formatDate(dateRange.start),
+          endDate: dateRange == null ? null : _formatDate(dateRange.end),
+        );
+      } on Exception catch (error) {
+        debugPrint('Cache riwayat warga tidak dapat dibaca: $error');
+      }
+      var hasCachedData = false;
+      if (cachedPage != null && mounted && requestId == _requestId) {
+        hasCachedData = true;
+        setState(() {
+          _tickets = cachedPage!.reports;
+          _currentPage = cachedPage.currentPage;
+          _lastPage = cachedPage.lastPage;
+          _isShowingCachedData = true;
+          _cacheSyncedAt = cachedPage.syncedAt;
+        });
+      }
+
+      if (preferredCode != null) {
+        try {
+          final cachedDetail = await widget.apiService.getCachedTicketDetail(
+            accountId: _accountId,
+            code: preferredCode,
+          );
+          if (cachedDetail != null && mounted && requestId == _requestId) {
+            hasCachedData = true;
+            cachedPreferredDetail = cachedDetail.report;
+            setState(() {
+              _upsertTicket(cachedPreferredDetail!);
+              _isShowingCachedData = true;
+              _cacheSyncedAt = cachedDetail.syncedAt;
+            });
+          }
+        } on Exception catch (error) {
+          debugPrint('Detail laporan tersimpan tidak dapat dibaca: $error');
+        }
+      }
+
       final page = await widget.apiService.getCitizenReportsPage(
         page: 1,
         perPage: _perPage,
-        status: _selectedStatus,
+        status: status,
         startDate: dateRange == null ? null : _formatDate(dateRange.start),
         endDate: dateRange == null ? null : _formatDate(dateRange.end),
       );
       final reportsByCode = <String, TicketStatus>{
         for (final report in page.reports) _reportCodeKey(report.code): report,
       };
-      if (preferredCode != null &&
-          !reportsByCode.containsKey(_reportCodeKey(preferredCode))) {
-        final ticket = await widget.apiService.getTicket(preferredCode);
-        reportsByCode[_reportCodeKey(ticket.code)] = ticket;
+      if (preferredCode != null && cachedPreferredDetail != null) {
+        reportsByCode[_reportCodeKey(preferredCode)] = cachedPreferredDetail;
+      }
+      if (preferredCode != null) {
+        try {
+          final ticket = await widget.apiService.getTicket(preferredCode);
+          reportsByCode[_reportCodeKey(ticket.code)] = ticket;
+        } on Exception catch (error) {
+          if (!hasCachedData) rethrow;
+          debugPrint('Detail laporan terbaru gagal dimuat: $error');
+        }
       }
       if (!mounted || requestId != _requestId) return;
       setState(() {
         _tickets = reportsByCode.values.toList(growable: false);
         _currentPage = page.currentPage;
         _lastPage = page.lastPage;
+        _isShowingCachedData = false;
+        _cacheSyncedAt = null;
+        _error = null;
       });
       _scheduleLoadIfNearBottom();
     } catch (error) {
       if (mounted && requestId == _requestId) {
-        setState(() => _error = _loadErrorMessage(error, hasCachedData: false));
+        setState(() {
+          if (_isExpiredSession(error)) {
+            _tickets = [];
+            _currentPage = 1;
+            _lastPage = 1;
+            _isShowingCachedData = false;
+            _cacheSyncedAt = null;
+          }
+          _error = _loadErrorMessage(
+            error,
+            hasCachedData: !_isExpiredSession(error) && _isShowingCachedData,
+          );
+        });
       }
     } finally {
       if (mounted && requestId == _requestId) {
@@ -203,6 +353,7 @@ class _TrackingViewState extends State<TrackingView> {
     }
     final requestId = _requestId;
     final nextPage = _currentPage + 1;
+    final status = _selectedStatus;
     final dateRange = _selectedDateRange;
     setState(() {
       _isLoadingMore = true;
@@ -212,7 +363,7 @@ class _TrackingViewState extends State<TrackingView> {
       final page = await widget.apiService.getCitizenReportsPage(
         page: nextPage,
         perPage: _perPage,
-        status: _selectedStatus,
+        status: status,
         startDate: dateRange == null ? null : _formatDate(dateRange.start),
         endDate: dateRange == null ? null : _formatDate(dateRange.end),
       );
@@ -228,11 +379,62 @@ class _TrackingViewState extends State<TrackingView> {
         ];
         _currentPage = page.currentPage;
         _lastPage = page.lastPage;
+        _isShowingCachedData = false;
+        _cacheSyncedAt = null;
       });
       _scheduleLoadIfNearBottom();
     } catch (error) {
       if (mounted && requestId == _requestId) {
-        setState(() => _loadMoreError = error.toString());
+        if (_isExpiredSession(error)) {
+          setState(() {
+            _tickets = [];
+            _currentPage = 1;
+            _lastPage = 1;
+            _isShowingCachedData = false;
+            _cacheSyncedAt = null;
+            _error = _loadErrorMessage(error, hasCachedData: false);
+          });
+          return;
+        }
+        try {
+          final dateRange = _selectedDateRange;
+          final cachedPage = await widget.apiService
+              .getCachedCitizenReportsPage(
+                accountId: _accountId,
+                page: nextPage,
+                perPage: _perPage,
+                status: status,
+                startDate: dateRange == null
+                    ? null
+                    : _formatDate(dateRange.start),
+                endDate: dateRange == null ? null : _formatDate(dateRange.end),
+              );
+          if (cachedPage != null && mounted && requestId == _requestId) {
+            final knownCodes = _tickets
+                .map((ticket) => _reportCodeKey(ticket.code))
+                .toSet();
+            setState(() {
+              _tickets = [
+                ..._tickets,
+                for (final report in cachedPage.reports)
+                  if (knownCodes.add(_reportCodeKey(report.code))) report,
+              ];
+              _currentPage = cachedPage.currentPage;
+              _lastPage = cachedPage.lastPage;
+              _isShowingCachedData = true;
+              _cacheSyncedAt = cachedPage.syncedAt;
+              _loadMoreError = null;
+            });
+            _scheduleLoadIfNearBottom();
+          } else if (mounted && requestId == _requestId) {
+            setState(() => _loadMoreError = error.toString());
+          }
+        } on Exception catch (cacheError) {
+          debugPrint('Cache halaman berikutnya gagal dibaca: $cacheError');
+          if (mounted && requestId == _requestId) {
+            setState(() => _loadMoreError = error.toString());
+          }
+        }
       }
     } finally {
       if (mounted && requestId == _requestId) {
@@ -244,6 +446,7 @@ class _TrackingViewState extends State<TrackingView> {
   Future<void> _selectDateFilter(_ReportDateFilter filter) async {
     if (filter != _ReportDateFilter.custom) {
       setState(() => _selectedDateFilter = filter);
+      await _saveFilterPreferences();
       await _loadHistory();
       return;
     }
@@ -279,6 +482,7 @@ class _TrackingViewState extends State<TrackingView> {
       _customDateRange = DateTimeRange(start: start, end: end);
       _selectedDateFilter = _ReportDateFilter.custom;
     });
+    await _saveFilterPreferences();
     await _loadHistory();
   }
 
@@ -288,6 +492,7 @@ class _TrackingViewState extends State<TrackingView> {
       _selectedDateFilter = _ReportDateFilter.all;
       _customDateRange = null;
     });
+    await _saveFilterPreferences();
     await _loadHistory();
   }
 
@@ -298,6 +503,10 @@ class _TrackingViewState extends State<TrackingView> {
     final detail = error is ApiException ? error.message : error.toString();
     return 'Sebagian status belum dapat diperbarui: $detail';
   }
+
+  bool _isExpiredSession(Object error) =>
+      error is ApiException &&
+      (error.statusCode == 401 || error.statusCode == 419);
 
   Future<void> _searchTicket() async {
     if (_isSearching) return;
@@ -318,25 +527,45 @@ class _TrackingViewState extends State<TrackingView> {
     });
 
     try {
-      final cachedTicket = await widget.apiService.getCachedTicketStatus(code);
-      if (cachedTicket != null && mounted && requestId == _requestId) {
+      CachedCitizenReportDetail? cachedDetail;
+      try {
+        cachedDetail = await widget.apiService.getCachedTicketDetail(
+          accountId: _accountId,
+          code: code,
+        );
+      } on Exception catch (error) {
+        debugPrint('Cache detail laporan tidak dapat dibaca: $error');
+      }
+      final cached = cachedDetail;
+      if (cached != null && mounted && requestId == _requestId) {
         setState(() {
-          _upsertTicket(cachedTicket);
+          _upsertTicket(cached.report);
           _isLoading = false;
+          _isShowingCachedData = true;
+          _cacheSyncedAt = cached.syncedAt;
         });
       }
       final ticket = await widget.apiService.getTicket(code);
       if (!mounted || requestId != _requestId) return;
-      setState(() => _upsertTicket(ticket));
-      await widget.apiService.saveCitizenTicketCode(code);
+      setState(() {
+        _upsertTicket(ticket);
+        _isShowingCachedData = false;
+        _cacheSyncedAt = null;
+      });
     } catch (error) {
       if (mounted && requestId == _requestId) {
-        setState(
-          () => _error = _loadErrorMessage(
+        setState(() {
+          if (_isExpiredSession(error)) {
+            _tickets = [];
+            _isShowingCachedData = false;
+            _cacheSyncedAt = null;
+          }
+          _error = _loadErrorMessage(
             error,
-            hasCachedData: _ticketForCode(code) != null,
-          ),
-        );
+            hasCachedData:
+                !_isExpiredSession(error) && _ticketForCode(code) != null,
+          );
+        });
       }
     } finally {
       if (mounted && requestId == _requestId) {
@@ -358,6 +587,66 @@ class _TrackingViewState extends State<TrackingView> {
     ];
   }
 
+  Future<void> _openTicket(String code) async {
+    final requestId = ++_requestId;
+    setState(() {
+      _selectedCode = code;
+      _ticketController.text = code;
+      _isLoading = _ticketForCode(code) == null;
+      _isRefreshing = true;
+      _error = null;
+    });
+    try {
+      CachedCitizenReportDetail? cachedDetail;
+      try {
+        cachedDetail = await widget.apiService.getCachedTicketDetail(
+          accountId: _accountId,
+          code: code,
+        );
+      } on Exception catch (error) {
+        debugPrint('Cache detail laporan tidak dapat dibaca: $error');
+      }
+      final cached = cachedDetail;
+      if (cached != null && mounted && requestId == _requestId) {
+        setState(() {
+          _upsertTicket(cached.report);
+          _isLoading = false;
+          _isShowingCachedData = true;
+          _cacheSyncedAt = cached.syncedAt;
+        });
+      }
+      final ticket = await widget.apiService.getTicket(code);
+      if (!mounted || requestId != _requestId) return;
+      setState(() {
+        _upsertTicket(ticket);
+        _isShowingCachedData = false;
+        _cacheSyncedAt = null;
+      });
+    } catch (error) {
+      if (mounted && requestId == _requestId) {
+        setState(() {
+          if (_isExpiredSession(error)) {
+            _tickets = [];
+            _isShowingCachedData = false;
+            _cacheSyncedAt = null;
+          }
+          _error = _loadErrorMessage(
+            error,
+            hasCachedData:
+                !_isExpiredSession(error) && _ticketForCode(code) != null,
+          );
+        });
+      }
+    } finally {
+      if (mounted && requestId == _requestId) {
+        setState(() {
+          _isLoading = false;
+          _isRefreshing = false;
+        });
+      }
+    }
+  }
+
   Future<void> _refresh() async {
     if (_selectedCode == null) {
       await _loadHistory();
@@ -373,18 +662,45 @@ class _TrackingViewState extends State<TrackingView> {
       _error = null;
     });
     try {
+      CachedCitizenReportDetail? cachedDetail;
+      try {
+        cachedDetail = await widget.apiService.getCachedTicketDetail(
+          accountId: _accountId,
+          code: code,
+        );
+      } on Exception catch (error) {
+        debugPrint('Cache detail laporan tidak dapat dibaca: $error');
+      }
+      final cached = cachedDetail;
+      if (cached != null && mounted && requestId == _requestId) {
+        setState(() {
+          _upsertTicket(cached.report);
+          _isShowingCachedData = true;
+          _cacheSyncedAt = cached.syncedAt;
+        });
+      }
       final ticket = await widget.apiService.getTicket(code);
       if (mounted && requestId == _requestId) {
-        setState(() => _upsertTicket(ticket));
+        setState(() {
+          _upsertTicket(ticket);
+          _isShowingCachedData = false;
+          _cacheSyncedAt = null;
+        });
       }
     } catch (error) {
       if (mounted && requestId == _requestId) {
-        setState(
-          () => _error = _loadErrorMessage(
+        setState(() {
+          if (_isExpiredSession(error)) {
+            _tickets = [];
+            _isShowingCachedData = false;
+            _cacheSyncedAt = null;
+          }
+          _error = _loadErrorMessage(
             error,
-            hasCachedData: _ticketForCode(code) != null,
-          ),
-        );
+            hasCachedData:
+                !_isExpiredSession(error) && _ticketForCode(code) != null,
+          );
+        });
       }
     } finally {
       if (mounted && requestId == _requestId) {
@@ -470,6 +786,13 @@ class _TrackingViewState extends State<TrackingView> {
           minHeight: 2,
           color: AppColors.primary,
         ),
+      if (_isLoading && _tickets.isNotEmpty)
+        const LinearProgressIndicator(
+          key: Key('tracking_cache_refresh_indicator'),
+          minHeight: 2,
+          color: AppColors.primary,
+        ),
+      if (_isShowingCachedData) _cachedDataNotice(),
       Padding(
         padding: EdgeInsets.fromLTRB(
           horizontalPadding,
@@ -562,11 +885,7 @@ class _TrackingViewState extends State<TrackingView> {
             padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: _OrderHistoryCard(
               ticket: ticket,
-              onTap: () => setState(() {
-                _selectedCode = ticket.code;
-                _ticketController.text = ticket.code;
-                _error = null;
-              }),
+              onTap: () => _openTicket(ticket.code),
             ),
           );
         },
@@ -611,6 +930,7 @@ class _TrackingViewState extends State<TrackingView> {
                           ? null
                           : value,
                     );
+                    await _saveFilterPreferences();
                     await _loadHistory();
                   },
                 ),
@@ -695,6 +1015,42 @@ class _TrackingViewState extends State<TrackingView> {
       '${date.month.toString().padLeft(2, '0')}/'
       '${date.year}';
 
+  Widget _cachedDataNotice() {
+    final syncedAt = _cacheSyncedAt;
+    final timestamp = syncedAt == null
+        ? ''
+        : ' • ${_formatShortDate(syncedAt)} '
+              '${syncedAt.hour.toString().padLeft(2, '0')}:'
+              '${syncedAt.minute.toString().padLeft(2, '0')}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+      child: Container(
+        key: const Key('tracking_cached_data_notice'),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.storage_rounded,
+              size: 16,
+              color: AppColors.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Data tersimpan di perangkat, mungkin belum terbaru$timestamp',
+                style: const TextStyle(color: AppColors.primary, fontSize: 11),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTicketDetail(TicketStatus? ticket) {
     final horizontalPadding = MediaQuery.sizeOf(context).width < 380
         ? 12.0
@@ -763,6 +1119,7 @@ class _TrackingViewState extends State<TrackingView> {
               minHeight: 2,
               color: AppColors.primary,
             ),
+          if (_isShowingCachedData) _cachedDataNotice(),
           Padding(
             padding: EdgeInsets.fromLTRB(
               horizontalPadding,

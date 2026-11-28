@@ -322,12 +322,6 @@ class _FakeApiService extends ApiService {
   _FakeApiService() : super(tokenStore: MemoryAuthTokenStore());
 
   @override
-  Future<List<String>> syncCitizenTicketsHistory() async => [];
-
-  @override
-  Future<List<String>> getSavedCitizenTicketCodes() async => [];
-
-  @override
   Future<Map<String, dynamic>> register({
     required String namaLengkap,
     required String username,
