@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:klinik_sanitasi_mobile/services/auth_service.dart';
+import 'package:klinik_sanitasi_mobile/services/auth_token_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/memory_auth_token_store.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +32,8 @@ void main() {
         200,
       );
     });
-    final authService = AuthService(client: client);
+    final tokenStore = MemoryAuthTokenStore();
+    final authService = AuthService(client: client, tokenStore: tokenStore);
 
     final user = await authService.login(
       identifier: ' warga@example.com ',
@@ -46,7 +50,8 @@ void main() {
     });
     expect(user.token, 'access-token');
     expect(user.roles, ['warga']);
-    expect(preferences.getString(AuthService.tokenKey), 'access-token');
+    expect(tokenStore.token, 'access-token');
+    expect(preferences.getString(AuthTokenStorage.legacyTokenKey), isNull);
     expect(preferences.getStringList(AuthService.rolesKey), ['warga']);
     expect(preferences.getString(AuthService.sessionRoleKey), 'warga');
     expect(preferences.getString(AuthService.userNameKey), 'Warga Contoh');
@@ -56,6 +61,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     late Map<String, dynamic> requestBody;
     final authService = AuthService(
+      tokenStore: MemoryAuthTokenStore(),
       client: MockClient((request) async {
         requestBody = jsonDecode(request.body) as Map<String, dynamic>;
         return http.Response(
@@ -96,6 +102,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final requestPaths = <String>[];
       final authService = AuthService(
+        tokenStore: MemoryAuthTokenStore(),
         client: MockClient((request) async {
           requestPaths.add(request.url.path);
           if (request.url.path == '/api/v1/login') {
@@ -127,6 +134,7 @@ void main() {
   test('parses Laravel access_token and a singular role field', () async {
     SharedPreferences.setMockInitialValues({});
     final authService = AuthService(
+      tokenStore: MemoryAuthTokenStore(),
       client: MockClient(
         (_) async => http.Response(
           jsonEncode({
@@ -148,10 +156,70 @@ void main() {
     expect(user.name, 'Petugas Contoh');
   });
 
+  test('switches accounts without retaining the previous token', () async {
+    SharedPreferences.setMockInitialValues({
+      'auth_user_name': 'Akun Lama',
+      'auth_user_email': 'lama@example.test',
+    });
+    final tokenStore = MemoryAuthTokenStore()..token = 'old-token';
+    final authService = AuthService(
+      tokenStore: tokenStore,
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'data': {
+              'token': 'new-token',
+              'user': {
+                'name': 'Akun Baru',
+                'roles': ['warga'],
+              },
+            },
+          }),
+          200,
+        ),
+      ),
+    );
+
+    await authService.login(identifier: 'warga-baru', password: 'secret');
+
+    final preferences = await SharedPreferences.getInstance();
+    expect(tokenStore.token, 'new-token');
+    expect(preferences.getString(AuthTokenStorage.legacyTokenKey), isNull);
+    expect(preferences.getString(AuthService.userNameKey), 'Akun Baru');
+    expect(preferences.getString('auth_user_email'), isEmpty);
+  });
+
+  test('login surfaces secure storage failures without saving a plain token', () async {
+    SharedPreferences.setMockInitialValues({});
+    final tokenStore = MemoryAuthTokenStore()..failWrites = true;
+    final authService = AuthService(
+      tokenStore: tokenStore,
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'data': {
+              'token': 'access-token',
+              'user': {'roles': ['warga']},
+            },
+          }),
+          200,
+        ),
+      ),
+    );
+
+    await expectLater(
+      authService.login(identifier: 'warga', password: 'secret'),
+      throwsA(isA<AuthTokenStorageException>()),
+    );
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getString(AuthTokenStorage.legacyTokenKey), isNull);
+  });
+
   test(
     'reports whether token or role is missing from login response',
     () async {
       final authService = AuthService(
+        tokenStore: MemoryAuthTokenStore(),
         client: MockClient(
           (_) async => http.Response(
             jsonEncode({
@@ -179,6 +247,7 @@ void main() {
 
   test('returns server error message for rejected credentials', () async {
     final authService = AuthService(
+      tokenStore: MemoryAuthTokenStore(),
       client: MockClient(
         (_) async => http.Response(
           jsonEncode({'message': 'Kredensial tidak valid.'}),
@@ -201,18 +270,20 @@ void main() {
 
   test('logout clears saved authentication values only', () async {
     SharedPreferences.setMockInitialValues({
-      AuthService.tokenKey: 'access-token',
+      AuthTokenStorage.legacyTokenKey: 'access-token',
       AuthService.rolesKey: ['warga'],
       AuthService.sessionRoleKey: 'warga',
       AuthService.userNameKey: 'Warga Contoh',
       'other_preference': 'keep',
     });
-    final authService = AuthService();
+    final tokenStore = MemoryAuthTokenStore()..token = 'access-token';
+    final authService = AuthService(tokenStore: tokenStore);
 
     await authService.logout();
 
     final preferences = await SharedPreferences.getInstance();
-    expect(preferences.getString(AuthService.tokenKey), isNull);
+    expect(tokenStore.token, isNull);
+    expect(preferences.getString(AuthTokenStorage.legacyTokenKey), isNull);
     expect(preferences.getStringList(AuthService.rolesKey), isNull);
     expect(preferences.getString(AuthService.sessionRoleKey), isNull);
     expect(preferences.getString(AuthService.userNameKey), isNull);

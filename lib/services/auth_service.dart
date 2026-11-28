@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_config.dart';
 import '../models/user_model.dart';
+import 'auth_token_storage.dart';
 import 'profile_service.dart';
 
 class AuthException implements Exception {
@@ -21,11 +22,12 @@ class AuthService {
   AuthService({
     http.Client? client,
     Future<SharedPreferences> Function()? preferencesProvider,
+    AuthTokenStore? tokenStore,
   }) : _client = client ?? http.Client(),
        _preferencesProvider =
-           preferencesProvider ?? SharedPreferences.getInstance;
+           preferencesProvider ?? SharedPreferences.getInstance,
+       _tokenStore = tokenStore ?? AuthTokenStorage();
 
-  static const tokenKey = 'auth_token';
   static const rolesKey = 'auth_roles';
   static const sessionRoleKey = 'auth_role';
   static const userNameKey = 'auth_user_name';
@@ -36,10 +38,11 @@ class AuthService {
 
   final http.Client _client;
   final Future<SharedPreferences> Function() _preferencesProvider;
+  final AuthTokenStore _tokenStore;
 
   Future<void> logout() async {
+    await _tokenStore.clearAuthentication();
     final preferences = await _preferencesProvider();
-    await preferences.remove(tokenKey);
     await preferences.remove(rolesKey);
     await preferences.remove(sessionRoleKey);
     await preferences.remove(userNameKey);
@@ -146,12 +149,13 @@ class AuthService {
       );
     }
 
+    await _tokenStore.clearAuthentication();
+    await _tokenStore.saveToken(user.token);
     final preferences = await _preferencesProvider();
     final sessionRole = user.roles.firstWhere(
       (role) => role == 'petugas' || role == 'admin',
       orElse: () => user.roles.first,
     );
-    final tokenSaved = await preferences.setString(tokenKey, user.token);
     final rolesSaved = await preferences.setStringList(rolesKey, user.roles);
     final sessionRoleSaved = await preferences.setString(
       sessionRoleKey,
@@ -169,7 +173,7 @@ class AuthService {
     await preferences.setString(userVillageKey, user.villageName ?? '');
     await preferences.setString(userRtKey, user.rt ?? '');
     await preferences.setString(userRwKey, user.rw ?? '');
-    if (!tokenSaved || !rolesSaved || !sessionRoleSaved || !profileSaved) {
+    if (!rolesSaved || !sessionRoleSaved || !profileSaved) {
       await logout();
       throw const AuthException(
         'Sesi login tidak dapat disimpan di perangkat.',

@@ -9,6 +9,7 @@ import '../../constants/app_colors.dart';
 import '../../models/saved_address.dart';
 import '../../models/village.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_token_storage.dart';
 import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_page_header.dart';
@@ -391,7 +392,19 @@ class _ReportViewState extends State<ReportView> {
   }
 
   Future<void> _loadSession() async {
-    final session = await widget.apiService.loadSavedSession();
+    final AuthSession? session;
+    try {
+      session = await widget.apiService.loadSavedSession();
+    } on AuthTokenStorageException {
+      if (!mounted) return;
+      setState(() {
+        _isLoggedIn = false;
+        _sessionLoaded = true;
+        _savedAddressError =
+            'Sesi tidak dapat dibaca. Silakan masuk kembali untuk melanjutkan.';
+      });
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _isLoggedIn = session != null;

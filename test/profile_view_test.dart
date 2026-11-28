@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:klinik_sanitasi_mobile/models/village.dart';
 import 'package:klinik_sanitasi_mobile/services/api_service.dart';
+import 'package:klinik_sanitasi_mobile/services/auth_token_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:klinik_sanitasi_mobile/services/profile_service.dart';
@@ -16,10 +17,15 @@ import 'package:klinik_sanitasi_mobile/views/profile/edit_profile_view.dart';
 import 'package:klinik_sanitasi_mobile/views/profile/profile_view.dart';
 import 'package:klinik_sanitasi_mobile/views/profile/profile_widgets.dart';
 
+import 'support/memory_auth_token_store.dart';
+
+late MemoryAuthTokenStore _testTokenStore;
+
 void main() {
   setUp(() {
+    _testTokenStore = MemoryAuthTokenStore();
     SharedPreferences.setMockInitialValues({
-      'auth_token': 'profile-test-session',
+      AuthTokenStorage.legacyTokenKey: 'profile-test-session',
       ProfileService.nameKey: 'Rina Puspita',
       ProfileService.emailKey: 'rina@example.com',
       ProfileService.phoneKey: '081234567890',
@@ -46,7 +52,7 @@ void main() {
     expect(find.byType(EditProfileView), findsNothing);
     expect(find.text('Rina Utami'), findsOneWidget);
     expect(changedProfile?.name, 'Rina Utami');
-    final reloaded = await ProfileService().load(fallbackName: 'Warga');
+    final reloaded = await _profileService().load(fallbackName: 'Warga');
     expect(reloaded.name, 'Rina Utami');
     expect(reloaded.phone, '081298765432');
     expect(reloaded.email, 'rina.utami@example.com');
@@ -73,7 +79,7 @@ void main() {
       tester.state<FormFieldState<String>>(_field('email')).hasError,
       isTrue,
     );
-    final reloaded = await ProfileService().load(fallbackName: 'Warga');
+    final reloaded = await _profileService().load(fallbackName: 'Warga');
     expect(reloaded.name, 'Rina Puspita');
     expect(reloaded.email, 'rina@example.com');
     expect(tester.takeException(), isNull);
@@ -120,7 +126,7 @@ void main() {
 
     expect(find.byType(EditProfileView), findsNothing);
     expect(tester.takeException(), isNull);
-    final reloaded = await ProfileService().load(fallbackName: 'Warga');
+    final reloaded = await _profileService().load(fallbackName: 'Warga');
     expect(reloaded.email, 'rina.baru@example.com');
   });
 
@@ -277,6 +283,11 @@ void main() {
   });
 }
 
+ProfileService _profileService({http.Client? client}) => ProfileService(
+  client: client,
+  tokenStore: _testTokenStore,
+);
+
 Finder _field(String name) => find.byKey(Key('profile_${name}_field'));
 
 Future<void> _openProfile(
@@ -300,7 +311,7 @@ Future<void> _openProfile(
           onLogout: () {},
           onProfileChanged: onProfileChanged,
           apiService: _FakeAccountInfoApiService(),
-          profileService: ProfileService(
+          profileService: _profileService(
             client: MockClient((request) async {
               final values = request.method == 'PUT'
                   ? jsonDecode(request.body) as Map<String, dynamic>

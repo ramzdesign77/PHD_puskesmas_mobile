@@ -7,12 +7,16 @@ import '../constants/app_config.dart';
 import '../models/officer_dashboard_data.dart';
 import '../models/risk_score.dart';
 import '../models/visit_schedule.dart';
+import 'auth_token_storage.dart';
 
 /// API petugas untuk dashboard, tugas warga, STBM desa, dan inspeksi IKL.
 class OfficerApiService {
-  OfficerApiService({http.Client? client}) : _client = client ?? http.Client();
+  OfficerApiService({http.Client? client, AuthTokenStore? tokenStore})
+    : _client = client ?? http.Client(),
+      _tokenStore = tokenStore ?? AuthTokenStorage();
 
   final http.Client _client;
+  final AuthTokenStore _tokenStore;
   final Uri _configuredUri = Uri.parse(AppConfig.apiBaseUrl.trim());
 
   Future<Map<String, dynamic>> loginOfficer({
@@ -38,7 +42,7 @@ class OfficerApiService {
         headers: _authHeaders(token),
       ),
     );
-    _decode(response);
+    await _decode(response, token: token);
   }
 
   Future<OfficerDashboardData> getDashboard(String token) async {
@@ -52,7 +56,9 @@ class OfficerApiService {
         headers: _authHeaders(token),
       ),
     );
-    return OfficerDashboardData.fromJson(_decode(response));
+    return OfficerDashboardData.fromJson(
+      await _decode(response, token: token),
+    );
   }
 
   Future<List<VisitSchedule>> getTasks(
@@ -75,7 +81,7 @@ class OfficerApiService {
         headers: _authHeaders(token),
       ),
     );
-    return _extractSchedules(_decode(response));
+    return _extractSchedules(await _decode(response, token: token));
   }
 
   Future<List<VisitSchedule>> fetchTasks({
@@ -95,7 +101,7 @@ class OfficerApiService {
       ),
       () => _client.get(_legacyEndpoint('desa'), headers: _authHeaders(token)),
     );
-    final body = _decode(response);
+    final body = await _decode(response, token: token);
     final payload = body['data'] ?? body['desa'];
     if (payload is! List) return const [];
     return payload
@@ -124,7 +130,7 @@ class OfficerApiService {
         }),
       ),
     );
-    _decode(response);
+    await _decode(response, token: token);
   }
 
   Future<Map<String, dynamic>> submitInspection({
@@ -238,7 +244,7 @@ class OfficerApiService {
             );
       response = await http.Response.fromStream(await _client.send(request));
     }
-    final body = _decode(response);
+    final body = await _decode(response, token: token);
     final data = body['data'];
     if (data is! Map || data['status_kunjungan'] != 'selesai') {
       throw const ApiOfficerException(
@@ -271,7 +277,7 @@ class OfficerApiService {
     }
 
     final streamed = await _client.send(request);
-    _decode(await http.Response.fromStream(streamed));
+    await _decode(await http.Response.fromStream(streamed), token: token);
   }
 
   Future<http.Response> _requestWithFallback(
@@ -383,7 +389,10 @@ class OfficerApiService {
     'Authorization': 'Bearer $token',
   };
 
-  Map<String, dynamic> _decode(http.Response response) {
+  Future<Map<String, dynamic>> _decode(
+    http.Response response, {
+    String? token,
+  }) async {
     Map<String, dynamic> body;
     if (response.body.trim().isEmpty &&
         response.statusCode >= 200 &&
@@ -405,6 +414,11 @@ class OfficerApiService {
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      if ((response.statusCode == 401 || response.statusCode == 419) &&
+          token != null &&
+          await _tokenStore.getToken() == token) {
+        await _tokenStore.deleteToken();
+      }
       final errors = body['errors'];
       final firstError = errors is Map
           ? errors.values

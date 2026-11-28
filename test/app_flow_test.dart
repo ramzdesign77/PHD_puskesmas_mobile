@@ -19,7 +19,10 @@ import 'package:klinik_sanitasi_mobile/models/user_model.dart';
 import 'package:klinik_sanitasi_mobile/models/village.dart';
 import 'package:klinik_sanitasi_mobile/services/api_service.dart';
 import 'package:klinik_sanitasi_mobile/services/auth_service.dart';
+import 'package:klinik_sanitasi_mobile/services/auth_token_storage.dart';
 import 'package:klinik_sanitasi_mobile/views/public/tracking_view.dart';
+
+import 'support/memory_auth_token_store.dart';
 
 void main() {
   setUp(() {
@@ -118,12 +121,17 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues({
-      AuthService.tokenKey: 'test-token',
+      AuthTokenStorage.legacyTokenKey: 'test-token',
       AuthService.rolesKey: ['warga'],
       AuthService.sessionRoleKey: 'warga',
       AuthService.userNameKey: 'Warga Contoh',
     });
-    await tester.pumpWidget(MyApp(apiService: _FakeApiService()));
+    await tester.pumpWidget(
+      MyApp(
+        apiService: _FakeApiService(),
+        authService: _FakeLogoutAuthService(),
+      ),
+    );
     await tester.pump(const Duration(seconds: 2));
     await _pumpUntilVisible(tester, find.text('KLINIK SANITASI'));
 
@@ -148,7 +156,7 @@ void main() {
 
     expect(find.text('Masuk ke Akun'), findsOneWidget);
     final preferences = await SharedPreferences.getInstance();
-    expect(preferences.getString(AuthService.tokenKey), isNull);
+    expect(preferences.getString(AuthTokenStorage.legacyTokenKey), isNull);
     expect(preferences.getString(AuthService.rolesKey), isNull);
     expect(preferences.getString(AuthService.sessionRoleKey), isNull);
     expect(preferences.getString(AuthService.userNameKey), isNull);
@@ -311,6 +319,8 @@ Future<void> _pumpUntilVisible(WidgetTester tester, Finder finder) async {
 }
 
 class _FakeApiService extends ApiService {
+  _FakeApiService() : super(tokenStore: MemoryAuthTokenStore());
+
   @override
   Future<List<String>> syncCitizenTicketsHistory() async => [];
 
@@ -341,7 +351,7 @@ class _FakeApiService extends ApiService {
 }
 
 class _FakeAuthService extends AuthService {
-  _FakeAuthService(this.roles);
+  _FakeAuthService(this.roles) : super(tokenStore: MemoryAuthTokenStore());
 
   final List<String> roles;
 
@@ -351,6 +361,10 @@ class _FakeAuthService extends AuthService {
     required String password,
   }) async =>
       UserModel(token: 'test-token', roles: roles, name: 'Petugas Contoh');
+}
+
+class _FakeLogoutAuthService extends AuthService {
+  _FakeLogoutAuthService() : super(tokenStore: MemoryAuthTokenStore());
 }
 
 class _PendingAuthService extends AuthService {

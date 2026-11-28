@@ -326,7 +326,16 @@ class _OfficerDashboardViewState extends State<OfficerDashboardView> {
     } catch (error) {
       logoutError = error.toString();
     }
-    await ApiService.clearSavedSession();
+    try {
+      await ApiService.clearSavedSession();
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(
+        'Token sesi tidak dapat dihapus dari perangkat: $error',
+        isError: true,
+      );
+      return;
+    }
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
     if (logoutError != null) {

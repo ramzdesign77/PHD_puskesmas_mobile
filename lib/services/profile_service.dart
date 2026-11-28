@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_config.dart';
 import '../models/saved_address.dart';
+import 'auth_token_storage.dart';
 
 class LocalProfile {
   LocalProfile({
@@ -65,9 +66,11 @@ class ProfileService {
   ProfileService({
     Future<SharedPreferences> Function()? preferencesProvider,
     http.Client? client,
+    AuthTokenStore? tokenStore,
   }) : _preferencesProvider =
            preferencesProvider ?? SharedPreferences.getInstance,
-       _client = client ?? http.Client();
+       _client = client ?? http.Client(),
+       _tokenStore = tokenStore ?? AuthTokenStorage();
 
   static const nameKey = 'auth_user_name';
   static const emailKey = 'auth_user_email';
@@ -75,7 +78,6 @@ class ProfileService {
   static const usernameKey = 'auth_user_username';
   static const avatarKey = 'auth_user_avatar';
   static const avatarUrlKey = 'auth_user_avatar_url';
-  static const _tokenKey = 'auth_token';
   static const _profileKeys = [
     nameKey,
     emailKey,
@@ -87,12 +89,13 @@ class ProfileService {
 
   final Future<SharedPreferences> Function() _preferencesProvider;
   final http.Client _client;
+  final AuthTokenStore _tokenStore;
   String? _loadedToken;
 
   /// Reads the session cache. The profile screen uses loadRemote for freshness.
   Future<LocalProfile> load({required String fallbackName}) async {
     final preferences = await _preferencesProvider();
-    final token = preferences.getString(_tokenKey);
+    final token = await _tokenStore.getToken();
     _loadedToken = null;
     if (token == null || token.trim().isEmpty) {
       throw const ProfileException('Silakan masuk untuk melihat profil.');
@@ -123,32 +126,30 @@ class ProfileService {
         await load(fallbackName: fallbackName);
         final token = _loadedToken!;
         final preferences = await _preferencesProvider();
-        _assertCurrentSession(preferences, token);
+        await _assertCurrentSession(token);
         final response = await _client
             .get(_profileUri, headers: _headers(token))
             .timeout(const Duration(seconds: 20));
-        _assertCurrentSession(preferences, token);
-        final profile = _profileFromResponse(response);
+        await _assertCurrentSession(token);
+        final profile = await _profileFromResponse(response);
         await _cache(preferences, profile, token);
         return profile;
       });
 
   Future<SavedAddress?> loadSavedAddress() => _withNetworkErrors(() async {
-    final preferences = await _preferencesProvider();
-    final token = await _currentToken(preferences);
+    final token = await _currentToken();
     final response = await _client
         .get(_profileUri, headers: _headers(token))
         .timeout(const Duration(seconds: 20));
-    _assertCurrentSession(preferences, token);
-    return _savedAddressFromResponse(_responseBody(response));
+    await _assertCurrentSession(token);
+    return _savedAddressFromResponse(await _responseBody(response));
   });
 
   Future<SavedAddress> saveAddress(
     SavedAddress address, {
     required LocalProfile profile,
   }) => _withNetworkErrors(() async {
-    final preferences = await _preferencesProvider();
-    final token = await _currentToken(preferences);
+    final token = await _currentToken();
     final response = await _client
         .put(
           _profileUri,
@@ -162,8 +163,8 @@ class ProfileService {
           }),
         )
         .timeout(const Duration(seconds: 20));
-    _assertCurrentSession(preferences, token);
-    final saved = _savedAddressFromResponse(_responseBody(response));
+    await _assertCurrentSession(token);
+    final saved = _savedAddressFromResponse(await _responseBody(response));
     return saved == null
         ? address
         : SavedAddress(
@@ -179,7 +180,7 @@ class ProfileService {
       _withNetworkErrors(() async {
         final preferences = await _preferencesProvider();
         final token = _loadedToken;
-        _assertCurrentSession(preferences, token);
+        await _assertCurrentSession(token);
         final cachedAvatar = preferences.getString(avatarKey);
         final avatarChanged =
             profile.removeAvatar ||
@@ -192,18 +193,18 @@ class ProfileService {
           token!,
           uploadAvatar: avatarChanged,
         );
-        _assertCurrentSession(preferences, token);
+        await _assertCurrentSession(token);
         await _cache(preferences, saved, token);
         return saved;
       });
 
-  Future<String> _currentToken(SharedPreferences preferences) async {
-    final token = preferences.getString(_tokenKey);
+  Future<String> _currentToken() async {
+    final token = await _tokenStore.getToken();
     if (token == null || token.trim().isEmpty) {
       throw const ProfileException('Silakan masuk untuk mengelola alamat.');
     }
     _loadedToken = token;
-    _assertCurrentSession(preferences, token);
+    await _assertCurrentSession(token);
     return token;
   }
 
@@ -253,9 +254,8 @@ class ProfileService {
     required String currentPassword,
     required String newPassword,
   }) => _withNetworkErrors(() async {
-    final preferences = await _preferencesProvider();
     final token = _loadedToken;
-    _assertCurrentSession(preferences, token);
+    await _assertCurrentSession(token);
     final response = await _client
         .put(
           _passwordUri,
@@ -267,8 +267,8 @@ class ProfileService {
           }),
         )
         .timeout(const Duration(seconds: 20));
-    _assertCurrentSession(preferences, token);
-    _responseBody(response);
+    await _assertCurrentSession(token);
+    await _responseBody(response);
   });
 
   Map<String, String> _headers(String token, {bool json = false}) => {
@@ -277,10 +277,10 @@ class ProfileService {
     if (json) 'Content-Type': 'application/json',
   };
 
-  void _assertCurrentSession(SharedPreferences preferences, String? token) {
+  Future<void> _assertCurrentSession(String? token) async {
     if (token == null ||
         _loadedToken != token ||
-        preferences.getString(_tokenKey) != token) {
+        await _tokenStore.getToken() != token) {
       throw const ProfileException(
         'Sesi akun berubah. Buka kembali profil sebelum menyimpan.',
       );
@@ -330,7 +330,7 @@ class ProfileService {
       try {
         final decoded = jsonDecode(response.body);
         if (decoded is Map<String, dynamic> && decoded.isNotEmpty) {
-          return _profileFromResponse(response);
+          return await _profileFromResponse(response);
         }
       } on FormatException {
         // Some profile endpoints return an empty successful response.
@@ -340,8 +340,8 @@ class ProfileService {
     return _profileFromResponse(response);
   }
 
-  LocalProfile _profileFromResponse(http.Response response) {
-    final body = _responseBody(response);
+  Future<LocalProfile> _profileFromResponse(http.Response response) async {
+    final body = await _responseBody(response);
     final data = body['data'];
     final user = data is Map ? data['user'] : null;
     if (user is! Map ||
@@ -359,7 +359,7 @@ class ProfileService {
     );
   }
 
-  Map<String, dynamic> _responseBody(http.Response response) {
+  Future<Map<String, dynamic>> _responseBody(http.Response response) async {
     Map<String, dynamic>? body;
     try {
       final decoded = jsonDecode(response.body);
@@ -368,6 +368,11 @@ class ProfileService {
       // Status codes still identify authentication and server failures.
     }
     if (response.statusCode == 401 || response.statusCode == 403) {
+      if (response.statusCode == 401 &&
+          _loadedToken != null &&
+          await _tokenStore.getToken() == _loadedToken) {
+        await _tokenStore.deleteToken();
+      }
       throw const ProfileException(
         'Sesi login tidak valid. Silakan masuk kembali.',
       );
@@ -409,7 +414,7 @@ class ProfileService {
     LocalProfile profile,
     String token,
   ) async {
-    _assertCurrentSession(preferences, token);
+    await _assertCurrentSession(token);
     final previous = {
       for (final key in _profileKeys) key: preferences.getString(key),
     };
@@ -425,18 +430,17 @@ class ProfileService {
     };
     try {
       for (final entry in values.entries) {
-        _assertCurrentSession(preferences, token);
+        await _assertCurrentSession(token);
         final saved = entry.value == null
             ? await preferences.remove(entry.key)
             : await preferences.setString(entry.key, entry.value!);
         if (!saved) throw StateError('Profile cache write failed');
       }
-      _assertCurrentSession(preferences, token);
+      await _assertCurrentSession(token);
     } catch (error) {
       // A response from a previous account must never replace a new session.
       for (final entry in previous.entries) {
-        if (_loadedToken != token ||
-            preferences.getString(_tokenKey) != token) {
+        if (_loadedToken != token || !await _isCurrentToken(token)) {
           break;
         }
         try {
@@ -454,6 +458,14 @@ class ProfileService {
         'Data sudah diterima server, tetapi salinan di perangkat gagal diperbarui. '
         'Buka kembali halaman profil untuk memuat data terbaru.',
       );
+    }
+  }
+
+  Future<bool> _isCurrentToken(String token) async {
+    try {
+      return await _tokenStore.getToken() == token;
+    } on AuthTokenStorageException {
+      return false;
     }
   }
 

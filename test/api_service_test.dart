@@ -10,6 +10,8 @@ import 'package:klinik_sanitasi_mobile/models/ticket_status.dart';
 import 'package:klinik_sanitasi_mobile/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/memory_auth_token_store.dart';
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -17,6 +19,7 @@ void main() {
 
   test('tracking requests report offline socket failures clearly', () async {
     final apiService = ApiService(
+      tokenStore: MemoryAuthTokenStore(),
       client: MockClient((_) async {
         throw const SocketException('network unavailable');
       }),
@@ -73,7 +76,10 @@ void main() {
         headers: {'content-type': 'application/json'},
       );
     });
-    final apiService = ApiService(client: client);
+    final apiService = ApiService(
+      client: client,
+      tokenStore: MemoryAuthTokenStore(),
+    );
 
     final result = await apiService.getCitizenReportsPage(
       page: 2,
@@ -94,6 +100,7 @@ void main() {
   test('rejects citizen report pages without pagination data', () async {
     SharedPreferences.setMockInitialValues({'auth_token': 'citizen-token'});
     final apiService = ApiService(
+      tokenStore: MemoryAuthTokenStore(),
       client: MockClient(
         (_) async => http.Response(jsonEncode({'message': 'Invalid'}), 200),
       ),
@@ -111,6 +118,50 @@ void main() {
     );
   });
 
+  test('removes an expired bearer session after a 401 response', () async {
+    SharedPreferences.setMockInitialValues({
+      'auth_role': 'warga',
+      'auth_user_name': 'Warga',
+    });
+    final tokenStore = MemoryAuthTokenStore()..token = 'expired-token';
+    final apiService = ApiService(
+      tokenStore: tokenStore,
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({'message': 'Unauthenticated.'}),
+          401,
+        ),
+      ),
+    );
+
+    await expectLater(
+      apiService.getCitizenReportsPage(page: 1),
+      throwsA(isA<ApiException>().having((error) => error.statusCode, 'statusCode', 401)),
+    );
+
+    final preferences = await SharedPreferences.getInstance();
+    expect(tokenStore.token, isNull);
+    expect(preferences.getString('auth_role'), isNull);
+    expect(preferences.getString('auth_user_name'), isNull);
+  });
+
+  test('saved session restores through the secure token source', () async {
+    SharedPreferences.setMockInitialValues({
+      'auth_token': 'legacy-token',
+      'auth_role': 'warga',
+      'auth_user_name': 'Warga',
+    });
+    final tokenStore = MemoryAuthTokenStore();
+    final apiService = ApiService(tokenStore: tokenStore);
+
+    final session = await apiService.loadSavedSession();
+
+    expect(session?.token, 'legacy-token');
+    expect(tokenStore.token, 'legacy-token');
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getString('auth_token'), isNull);
+  });
+
   test('saved ticket and cached status lists are pruned to fifteen', () async {
     final savedCodes = List.generate(20, (index) => 'TK-$index');
     final statuses = [
@@ -120,7 +171,7 @@ void main() {
       'saved_citizen_tickets': savedCodes,
       'cached_citizen_ticket_statuses': jsonEncode(statuses),
     });
-    final apiService = ApiService();
+    final apiService = ApiService(tokenStore: MemoryAuthTokenStore());
 
     final restoredCodes = await apiService.getSavedCitizenTicketCodes();
     final restoredStatuses = await apiService.getCachedCitizenTicketStatuses();
@@ -155,7 +206,10 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'saved_citizen_tickets': savedCodes,
       });
-      final apiService = ApiService(client: client);
+      final apiService = ApiService(
+        client: client,
+        tokenStore: MemoryAuthTokenStore(),
+      );
 
       final merged = await apiService.syncCitizenTicketsHistory();
 
@@ -194,7 +248,10 @@ void main() {
         headers: {'content-type': 'application/json'},
       );
     });
-    final apiService = ApiService(client: client);
+    final apiService = ApiService(
+      client: client,
+      tokenStore: MemoryAuthTokenStore(),
+    );
 
     await apiService.register(
       namaLengkap: 'Warga Contoh',
@@ -241,7 +298,10 @@ void main() {
           headers: {'content-type': 'application/json'},
         );
       });
-      final apiService = ApiService(client: client);
+      final apiService = ApiService(
+        client: client,
+        tokenStore: MemoryAuthTokenStore(),
+      );
 
       final ticketCode = await apiService.submitReport({
         'nama_pelapor': 'Warga Contoh',
@@ -276,7 +336,10 @@ void main() {
           headers: {'content-type': 'application/json'},
         );
       });
-      final apiService = ApiService(client: client);
+      final apiService = ApiService(
+        client: client,
+        tokenStore: MemoryAuthTokenStore(),
+      );
 
       final ticketCode = await apiService.submitReport(
         {'deskripsi': 'Air keruh'},
@@ -293,6 +356,7 @@ void main() {
 
     test('stores submitted codes newest-first without duplicates', () async {
       final apiService = ApiService(
+        tokenStore: MemoryAuthTokenStore(),
         client: MockClient((_) async {
           return http.Response(
             jsonEncode({'kode_tiket': 'IKL-20261028-0002'}),
@@ -324,7 +388,10 @@ void main() {
           headers: {'content-type': 'application/json'},
         ),
       );
-      final apiService = ApiService(client: client);
+      final apiService = ApiService(
+        client: client,
+        tokenStore: MemoryAuthTokenStore(),
+      );
 
       await expectLater(
         apiService.submitReport({'deskripsi': ''}),

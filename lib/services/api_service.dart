@@ -10,6 +10,7 @@ import '../constants/app_config.dart';
 import '../models/education_article.dart';
 import '../models/ticket_status.dart';
 import '../models/village.dart';
+import 'auth_token_storage.dart';
 import 'profile_service.dart';
 
 class ApiException implements Exception {
@@ -34,12 +35,14 @@ typedef CitizenReportPage = ({
 });
 
 class ApiService {
-  ApiService({http.Client? client}) : _client = client ?? http.Client();
+  ApiService({http.Client? client, AuthTokenStore? tokenStore})
+    : _client = client ?? http.Client(),
+      _tokenStore = tokenStore ?? AuthTokenStorage();
 
   static const int maxSavedTickets = 15;
 
   final http.Client _client;
-  static const _tokenKey = 'auth_token';
+  final AuthTokenStore _tokenStore;
   static const _roleKey = 'auth_role';
   static const _userNameKey = 'auth_user_name';
   static const _userPhoneKey = 'auth_user_phone';
@@ -125,9 +128,11 @@ class ApiService {
 
   Future<http.Response> _get(Uri uri, {Map<String, String>? headers}) async {
     try {
-      return await _client
+      final response = await _client
           .get(uri, headers: headers)
           .timeout(const Duration(seconds: 8));
+      await _invalidateExpiredSession(response, headers?['Authorization']);
+      return response;
     } on TimeoutException {
       throw const ApiException('Server terlalu lama merespons. Coba lagi.');
     } on SocketException {
@@ -147,9 +152,11 @@ class ApiService {
     Object? body,
   }) async {
     try {
-      return await _client
+      final response = await _client
           .post(uri, headers: headers, body: body)
           .timeout(const Duration(seconds: 8));
+      await _invalidateExpiredSession(response, headers?['Authorization']);
+      return response;
     } on TimeoutException {
       throw const ApiException('Server terlalu lama merespons. Coba lagi.');
     } on SocketException {
@@ -165,7 +172,14 @@ class ApiService {
 
   Future<http.StreamedResponse> _send(http.BaseRequest request) async {
     try {
-      return await _client.send(request).timeout(const Duration(seconds: 8));
+      final response = await _client.send(request).timeout(
+        const Duration(seconds: 8),
+      );
+      await _invalidateExpiredSession(
+        http.Response('', response.statusCode),
+        request.headers['Authorization'],
+      );
+      return response;
     } on TimeoutException {
       throw const ApiException('Server terlalu lama merespons. Coba lagi.');
     } on SocketException {
@@ -175,6 +189,26 @@ class ApiService {
     } on http.ClientException {
       throw const ApiException(
         'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+      );
+    }
+  }
+
+  Future<void> _invalidateExpiredSession(
+    http.Response response,
+    String? authorization,
+  ) async {
+    if ((response.statusCode != 401 && response.statusCode != 419) ||
+        authorization == null ||
+        !authorization.startsWith('Bearer ')) {
+      return;
+    }
+    final requestToken = authorization.substring('Bearer '.length);
+    if (await _tokenStore.getToken() != requestToken) return;
+    try {
+      await clearSavedSession(tokenStore: _tokenStore);
+    } on AuthTokenStorageException {
+      throw const ApiException(
+        'Sesi berakhir, tetapi token lokal tidak dapat dihapus.',
       );
     }
   }
@@ -199,8 +233,9 @@ class ApiService {
         _firstNonEmptyString([user['nama_lengkap'], user['name']]) ??
         fallbackName?.trim() ??
         '';
+    await clearSavedSession(tokenStore: _tokenStore);
+    await _tokenStore.saveToken(token);
     final preferences = await SharedPreferences.getInstance();
-    final tokenSaved = await preferences.setString(_tokenKey, token);
     final roleSaved = await preferences.setString(_roleKey, role);
     await preferences.setString(
       _userPhoneKey,
@@ -238,8 +273,8 @@ class ApiService {
       username:
           _firstNonEmptyString([user['username']]) ?? fallbackUsername?.trim(),
     );
-    if (!tokenSaved || !roleSaved || !profileSaved) {
-      await clearSavedSession();
+    if (!roleSaved || !profileSaved) {
+      await clearSavedSession(tokenStore: _tokenStore);
       throw const ApiException(
         'Sesi login tidak dapat disimpan pada perangkat.',
       );
@@ -257,7 +292,7 @@ class ApiService {
 
   Future<AuthSession?> loadSavedSession() async {
     final preferences = await SharedPreferences.getInstance();
-    final token = preferences.getString(_tokenKey);
+    final token = await _tokenStore.getToken();
     if (token == null || token.isEmpty) return null;
 
     return AuthSession(
@@ -271,9 +306,9 @@ class ApiService {
     );
   }
 
-  static Future<void> clearSavedSession() async {
+  static Future<void> clearSavedSession({AuthTokenStore? tokenStore}) async {
+    await (tokenStore ?? AuthTokenStorage()).clearAuthentication();
     final preferences = await SharedPreferences.getInstance();
-    await preferences.remove(_tokenKey);
     await preferences.remove(_roleKey);
     await ProfileService.clearForSession(preferences);
     await preferences.remove(_rolesKey);
@@ -366,8 +401,7 @@ class ApiService {
     Map<String, dynamic> reportData, {
     XFile? imageFile,
   }) async {
-    final preferences = await SharedPreferences.getInstance();
-    final token = preferences.getString(_tokenKey)?.trim();
+    final token = (await _tokenStore.getToken())?.trim();
     final request = http.MultipartRequest('POST', _endpoint('laporan'))
       ..headers['Accept'] = 'application/json'
       ..fields.addAll({
@@ -469,8 +503,7 @@ class ApiService {
       throw const ApiException('Halaman laporan tidak valid.');
     }
 
-    final preferences = await SharedPreferences.getInstance();
-    final token = preferences.getString(_tokenKey)?.trim();
+    final token = (await _tokenStore.getToken())?.trim();
     if (token == null || token.isEmpty) {
       throw const ApiException('Sesi pengguna tidak ditemukan. Silakan masuk kembali.');
     }
@@ -636,7 +669,7 @@ class ApiService {
     final preferences = await SharedPreferences.getInstance();
     final localCodes = await getSavedCitizenTicketCodes();
     final requestedCodes = localCodes.take(10).toList(growable: false);
-    final token = preferences.getString(_tokenKey)?.trim();
+    final token = (await _tokenStore.getToken())?.trim();
     final uri = _endpoint('v1/laporan/history').replace(
       queryParameters: {
         'limit': '$maxSavedTickets',

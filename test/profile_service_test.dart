@@ -10,8 +10,11 @@ import 'package:klinik_sanitasi_mobile/models/saved_address.dart';
 import 'package:klinik_sanitasi_mobile/services/profile_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/memory_auth_token_store.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  late MemoryAuthTokenStore tokenStore;
 
   setUp(() {
     SharedPreferences.setMockInitialValues({
@@ -23,10 +26,20 @@ void main() {
       'auth_user_avatar': base64Encode([1, 2, 3]),
       'saved_citizen_tickets': ['TIKET-1'],
     });
+    tokenStore = MemoryAuthTokenStore();
   });
 
+  ProfileService profileService({
+    Future<SharedPreferences> Function()? preferencesProvider,
+    http.Client? client,
+  }) => ProfileService(
+    preferencesProvider: preferencesProvider,
+    client: client,
+    tokenStore: tokenStore,
+  );
+
   test('edits persist across views within the same login session', () async {
-    final service = ProfileService(client: _successfulProfileClient());
+    final service = profileService(client: _successfulProfileClient());
     final original = await service.load(fallbackName: 'Warga');
     final photo = Uint8List.fromList([5, 6, 7]);
     final changed = original.copyWith(
@@ -39,7 +52,7 @@ void main() {
     photo[0] = 99;
 
     await service.save(changed);
-    final restored = await ProfileService().load(fallbackName: 'Warga');
+    final restored = await profileService().load(fallbackName: 'Warga');
 
     expect(restored.name, 'Nama Baru');
     expect(restored.email, 'baru@example.com');
@@ -53,10 +66,10 @@ void main() {
   test(
     'an old edit cannot overwrite another account after switching',
     () async {
-      final service = ProfileService();
+      final service = profileService();
       final original = await service.load(fallbackName: 'Warga');
       final preferences = await SharedPreferences.getInstance();
-      await preferences.setString('auth_token', 'account-b');
+      await tokenStore.saveToken('account-b');
       await preferences.setString('auth_user_name', 'Akun Baru');
 
       await expectLater(
@@ -69,13 +82,13 @@ void main() {
   );
 
   test('missing session rejects loading and a save after logout', () async {
-    final service = ProfileService();
+    final service = profileService();
     final original = await service.load(fallbackName: 'Warga');
-    await AuthService().logout();
+    await AuthService(tokenStore: tokenStore).logout();
 
     await expectLater(service.save(original), throwsA(isA<ProfileException>()));
     await expectLater(
-      ProfileService().load(fallbackName: 'Warga'),
+      profileService().load(fallbackName: 'Warga'),
       throwsA(isA<ProfileException>()),
     );
     final preferences = await SharedPreferences.getInstance();
@@ -85,7 +98,7 @@ void main() {
   test('failed writes are reported and restore the prior profile', () async {
     final preferences = await SharedPreferences.getInstance();
     final failingPreferences = _FailOncePreferences(preferences);
-    final service = ProfileService(
+    final service = profileService(
       preferencesProvider: () async => failingPreferences,
       client: _successfulProfileClient(),
     );
@@ -107,7 +120,7 @@ void main() {
     'updates the authenticated profile on the API before local storage',
     () async {
       late http.Request request;
-      final service = ProfileService(
+      final service = profileService(
         client: MockClient((receivedRequest) async {
           request = receivedRequest;
           return http.Response('{}', 200);
@@ -143,7 +156,7 @@ void main() {
 
   test('changes the authenticated password through the API', () async {
     late http.Request request;
-    final service = ProfileService(
+    final service = profileService(
       client: MockClient((receivedRequest) async {
         request = receivedRequest;
         return http.Response('{}', 200);
@@ -168,7 +181,7 @@ void main() {
 
   test('loads the saved address from the authenticated profile', () async {
     late http.Request request;
-    final service = ProfileService(
+    final service = profileService(
       client: MockClient((receivedRequest) async {
         request = receivedRequest;
         return http.Response(
@@ -202,7 +215,7 @@ void main() {
 
   test('saves only the selected account address to the profile API', () async {
     late http.Request request;
-    final service = ProfileService(
+    final service = profileService(
       client: MockClient((receivedRequest) async {
         request = receivedRequest;
         return http.Response(
@@ -263,7 +276,7 @@ void main() {
   test(
     'reports address API validation errors instead of caching locally',
     () async {
-      final service = ProfileService(
+      final service = profileService(
         client: MockClient(
           (_) async =>
               http.Response(jsonEncode({'message': 'Desa tidak valid.'}), 422),
@@ -297,7 +310,7 @@ void main() {
   );
 
   test('reports password change errors returned by the API', () async {
-    final service = ProfileService(
+    final service = profileService(
       client: MockClient(
         (_) async => http.Response(
           jsonEncode({'message': 'Password lama tidak sesuai.'}),
@@ -325,7 +338,7 @@ void main() {
   test(
     'does not save locally when the API rejects the profile update',
     () async {
-      final service = ProfileService(
+      final service = profileService(
         client: MockClient(
           (_) async => http.Response(
             jsonEncode({'message': 'Email sudah digunakan.'}),
@@ -356,6 +369,7 @@ void main() {
 
   test('login seeds profile fields and removes the previous photo', () async {
     final auth = AuthService(
+      tokenStore: tokenStore,
       client: MockClient(
         (_) async => http.Response(
           jsonEncode({
@@ -376,7 +390,7 @@ void main() {
     );
 
     await auth.login(identifier: 'pengguna_baru', password: 'password');
-    final profile = await ProfileService().load(fallbackName: 'Warga');
+    final profile = await profileService().load(fallbackName: 'Warga');
 
     expect(profile.name, 'Pengguna Baru');
     expect(profile.email, 'baru@example.com');
@@ -389,6 +403,7 @@ void main() {
     'login without optional fields does not retain old account data',
     () async {
       final auth = AuthService(
+        tokenStore: tokenStore,
         client: MockClient(
           (_) async => http.Response(
             jsonEncode({
@@ -401,7 +416,7 @@ void main() {
       );
 
       await auth.login(identifier: 'pengguna_baru', password: 'password');
-      final profile = await ProfileService().load(fallbackName: 'Warga');
+      final profile = await profileService().load(fallbackName: 'Warga');
 
       expect(profile.email, isEmpty);
       expect(profile.phone, isEmpty);
@@ -413,6 +428,7 @@ void main() {
   test('legacy registration replaces the previous local profile', () async {
     late Map<String, dynamic> requestBody;
     final api = ApiService(
+      tokenStore: tokenStore,
       client: MockClient((request) async {
         requestBody = jsonDecode(request.body) as Map<String, dynamic>;
         return http.Response(
@@ -436,7 +452,7 @@ void main() {
       phone: '081234567890',
       password: 'password',
     );
-    final profile = await ProfileService().load(fallbackName: 'Warga');
+    final profile = await profileService().load(fallbackName: 'Warga');
 
     expect(profile.name, 'Warga Baru');
     expect(profile.email, 'warga@example.com');
@@ -451,6 +467,7 @@ void main() {
     'registration seeds submitted details if response omits user data',
     () async {
       final api = ApiService(
+        tokenStore: tokenStore,
         client: MockClient(
           (_) async => http.Response(jsonEncode({'token': 'account-b'}), 201),
         ),
@@ -463,7 +480,7 @@ void main() {
         phone: '081234567890',
         password: 'password',
       );
-      final profile = await ProfileService().load(fallbackName: 'Warga');
+      final profile = await profileService().load(fallbackName: 'Warga');
 
       expect(profile.name, 'Warga Baru');
       expect(profile.email, 'warga@example.com');
@@ -477,9 +494,9 @@ void main() {
       '${legacy ? 'legacy' : 'current'} logout clears all local fields',
       () async {
         if (legacy) {
-          await ApiService.clearSavedSession();
+          await ApiService.clearSavedSession(tokenStore: tokenStore);
         } else {
-          await AuthService().logout();
+          await AuthService(tokenStore: tokenStore).logout();
         }
         final preferences = await SharedPreferences.getInstance();
 

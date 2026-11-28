@@ -38,9 +38,17 @@ Respons login perlu memuat token autentikasi dan array `roles`, misalnya:
 }
 ```
 
-Token dan daftar role disimpan pada `shared_preferences`. Role `petugas` atau
-`admin` membuka dashboard petugas, sedangkan akun dengan role `warga` saja
-membuka beranda aduan masyarakat.
+Access token disimpan di `flutter_secure_storage`; data profil dan role tetap
+disimpan di `shared_preferences`. Token lama pada key `auth_token` dipindahkan
+ke secure storage dan baru dihapus setelah penulisan serta pembacaan ulang
+berhasil. Role `petugas` atau `admin` membuka dashboard petugas, sedangkan akun
+dengan role `warga` saja membuka beranda aduan masyarakat.
+
+API menggunakan Bearer token. Respons yang tersedia mendukung format token
+Laravel `token`, `access_token`, dan `plainTextToken`; aplikasi tidak menerima
+atau menyimpan refresh token karena backend saat ini tidak menyediakannya.
+Respons 401/419 dari request terautentikasi menghapus sesi lokal agar pengguna
+masuk kembali.
 
 Satu instalasi aplikasi menyimpan satu sesi aktif pada perangkat tersebut.
 Pengguna berbeda dapat login bersamaan dari perangkat masing-masing selama
